@@ -9,9 +9,9 @@ Il principio guida è semplice: **il prodotto deve funzionare anche quando l'AI 
 La Phase A — Foundation è completata e revalidata localmente: la review A1 è
 chiusa con `npm run validate` verde e `npm audit --omit=dev` senza
 vulnerabilità. Nessuna risorsa Cloudflare remota è stata creata e nessun deploy è
-stato eseguito. La milestone attiva è **B1 — Preferenze + agenda one-off**;
-B1.1 preferenze temporali è implementata localmente e il prossimo incremento è
-B1.2 eventi one-off. Lo scope autorizzato è nella
+stato eseguito. **B1 — Preferenze + agenda one-off** è completata localmente:
+preferenze temporali, eventi one-off, Undo e viste `/oggi`/`/domani` sono
+implementati senza AI. B2 non è stato avviato. Lo stato e lo scope sono nella
 [milestone corrente](docs/planning/CURRENT_MILESTONE.md).
 
 ## Avvio locale
@@ -59,9 +59,9 @@ webhook secret restano solo in `.dev.vars` o nei secret Cloudflare.
   preparato per hot path motivati; la giurisdizione D1 non regionalizza Worker,
   Queue, Cron, Telegram, subrequest o provider AI.
 - Zod e JSON Schema strict ai confini runtime.
-- Nessun Temporal polyfill in B1.1: le timezone IANA sono validate con
-  `Intl.DateTimeFormat`. L'eventuale polyfill viene scelto e fissato
-  just-in-time per B1.2 dopo un nuovo probe Workers.
+- B1.1 valida timezone IANA con `Intl.DateTimeFormat`; il probe Workers B1.2 ha
+  confermato l'assenza del global Temporal e ha fissato un solo polyfill,
+  `@js-temporal/polyfill@0.5.1`.
 - Vitest; fast-check per invarianti temporali, monetari e di pianificazione.
 
 Le versioni A1 sono esatte in `package.json` e `package-lock.json`; le decisioni

@@ -91,6 +91,100 @@ export const preferenceUndoActions = sqliteTable(
   ],
 );
 
+export const events = sqliteTable(
+  "events",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    eventKind: text("event_kind", {
+      enum: ["date_only", "instant"],
+    }).notNull(),
+    title: text("title").notNull(),
+    localDate: text("local_date"),
+    startAtUtc: integer("start_at_utc", { mode: "timestamp_ms" }),
+    endAtUtc: integer("end_at_utc", { mode: "timestamp_ms" }),
+    timeZone: text("time_zone"),
+    status: text("status", { enum: ["active", "cancelled"] }).notNull(),
+    version: integer("version").notNull(),
+    lastMutationKey: text("last_mutation_key").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    cancelledAt: integer("cancelled_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    uniqueIndex("events_scope_id_uq").on(table.userId, table.id),
+    index("events_scope_date_idx").on(
+      table.userId,
+      table.status,
+      table.localDate,
+    ),
+    index("events_scope_instant_idx").on(
+      table.userId,
+      table.status,
+      table.startAtUtc,
+      table.endAtUtc,
+    ),
+    check(
+      "events_kind_ck",
+      sql`${table.eventKind} IN ('date_only', 'instant')`,
+    ),
+    check("events_title_ck", sql`length(${table.title}) BETWEEN 1 AND 200`),
+    check("events_status_ck", sql`${table.status} IN ('active', 'cancelled')`),
+    check("events_version_ck", sql`${table.version} > 0`),
+    check(
+      "events_shape_ck",
+      sql`(
+        ${table.eventKind} = 'date_only'
+        AND ${table.localDate} IS NOT NULL
+        AND ${table.startAtUtc} IS NULL
+        AND ${table.endAtUtc} IS NULL
+        AND ${table.timeZone} IS NULL
+      ) OR (
+        ${table.eventKind} = 'instant'
+        AND ${table.localDate} IS NULL
+        AND ${table.startAtUtc} IS NOT NULL
+        AND ${table.endAtUtc} IS NOT NULL
+        AND ${table.startAtUtc} < ${table.endAtUtc}
+        AND ${table.timeZone} IS NOT NULL
+      )`,
+    ),
+    check(
+      "events_cancelled_at_ck",
+      sql`(${table.status} = 'active' AND ${table.cancelledAt} IS NULL)
+          OR (${table.status} = 'cancelled' AND ${table.cancelledAt} IS NOT NULL)`,
+    ),
+  ],
+);
+
+export const eventUndoActions = sqliteTable(
+  "event_undo_actions",
+  {
+    token: text("token").primaryKey(),
+    scopeUserId: text("scope_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    eventId: text("event_id").notNull(),
+    sourceIdempotencyKey: text("source_idempotency_key").notNull(),
+    beforeJson: text("before_json"),
+    expectedVersion: integer("expected_version").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    consumedAt: integer("consumed_at", { mode: "timestamp_ms" }),
+    consumedByIdempotencyKey: text("consumed_by_idempotency_key"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("event_undo_source_uq").on(
+      table.scopeUserId,
+      table.sourceIdempotencyKey,
+    ),
+    index("event_undo_scope_expiry_idx").on(table.scopeUserId, table.expiresAt),
+    index("event_undo_purge_idx").on(table.expiresAt, table.consumedAt),
+    check("event_undo_version_ck", sql`${table.expectedVersion} > 0`),
+  ],
+);
+
 export const inboundUpdates = sqliteTable(
   "inbound_updates",
   {

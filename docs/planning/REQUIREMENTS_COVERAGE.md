@@ -14,10 +14,10 @@ implementazione completata.
 
 Evidenza di baseline: A1 implementava solo `/start`, normalizzazione testo minima,
 inbox durevole, dedupe, Queue, identità interna, authorization self-scope,
-audit/effect/delivery ledger e test foundation. Lo schema D1 non contiene ancora
-eventi, reminder, task, finanze, documenti, persone o spazi. Dopo l'audit, B1.1
-ha aggiunto preferenze temporali private, comandi deterministici, audit e Undo
-versionato; gli altri domini restano nello stato indicato nelle tabelle.
+audit/effect/delivery ledger e test foundation. Dopo l'audit, B1.1 ha aggiunto
+preferenze temporali private e B1.2 eventi one-off privati `date_only|instant`,
+comandi deterministici, audit, Undo e viste `/oggi`/`/domani`. Reminder, task,
+finanze, documenti, persone e spazi restano nello stato indicato nelle tabelle.
 
 ## 1. Tessavio Inbox
 
@@ -238,8 +238,9 @@ versionato; gli altri domini restano nello stato indicato nelle tabelle.
 
 ## Sintesi operativa
 
-- **Implementato:** foundation A1 e preferenze temporali B1.1; agenda ed entità
-  successive restano non implementate.
+- **Implementato:** foundation A1, preferenze temporali B1.1 ed eventi one-off
+  B1.2 con viste agenda giornaliere; reminder ed entità successive restano non
+  implementati.
 - **Già pianificato in modo significativo:** core B, AI C, voice/vision D,
   planner E, sharing F, Mini App, Google export e hardening.
 - **Parziale o assente prima dell'audit:** Inbox universale completa, entrate e

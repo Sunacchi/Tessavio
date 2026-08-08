@@ -5,7 +5,10 @@ export type Action =
   | "onboarding:start"
   | "preferences:read"
   | "preferences:write"
-  | "preferences:undo";
+  | "preferences:undo"
+  | "events:read"
+  | "events:write"
+  | "events:undo";
 
 export interface AuthorizationRequest {
   readonly actorUserId: string;

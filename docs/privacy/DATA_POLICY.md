@@ -40,6 +40,12 @@ log; scadono dopo 15 minuti e la loro purge non elimina l'audit della mutation.
 Non è stato inventato alcun toggle privacy ulteriore: le preferenze di briefing,
 AI e condivisione entrano solo nelle rispettive slice autorizzate.
 
+In B1.2 gli eventi sono privati e conservano titolo, stato/versione e una sola
+forma temporale: `local_date` per i date-only, oppure instant UTC e timezone IANA
+originale per gli eventi con ora. I token Undo `evt_…` scadono dopo 15 minuti e
+non entrano nei log. Eventi attivi e annullati restano fino alla cancellazione
+account; la slice non introduce delete irreversibile, reminder o condivisione.
+
 ## Diritti e operazioni
 
 Il prodotto commerciale deve supportare accesso, rettifica, export,

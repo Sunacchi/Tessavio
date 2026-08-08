@@ -172,10 +172,11 @@ cifratura, authorization e retention; non è un effetto automatico dell'Inbox.
 ## Dati e schema evolutivo
 
 Lo schema arriva per vertical slice. A1 contiene identità, inbox, rate/lease,
-effect, delivery e audit; B1.1 aggiunge soltanto preferenze utente e record Undo
-temporanei user-scoped. Le categorie future sono introdotte quando attive e
-devono definire owner/space, indici, lifecycle, export/delete, audit/Undo e test
-cross-tenant.
+effect, delivery e audit; B1.1 aggiunge preferenze utente e record Undo
+temporanei user-scoped. B1.2 aggiunge eventi privati `date_only|instant` e Undo
+eventi user-scoped, senza reminder o ricorrenze. Le categorie future sono
+introdotte quando attive e devono definire owner/space, indici, lifecycle,
+export/delete, audit/Undo e test cross-tenant.
 
 Non creare tabelle per Open Banking, integrazioni differite o domini futuri prima
 della relativa milestone. Prima di ogni gate eseguire `EXPLAIN QUERY PLAN` sulle

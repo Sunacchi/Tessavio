@@ -457,7 +457,7 @@ Cron/Queue/delivery; review sicurezza e qualità dopo integrazione.
 
 ### Sequenza di valore
 
-- [ ] **B1 Preferenze + agenda one-off.** Lingua, timezone IANA, formato ora,
+- [x] **B1 Preferenze + agenda one-off.** Lingua, timezone IANA, formato ora,
       valuta/privacy, eventi one-off, date-only vs instant e viste `/oggi`/`/domani`;
       nessun default temporale inventato.
 - [ ] **B2 Reminder end-to-end.** Creazione/query esplicite, state machine,

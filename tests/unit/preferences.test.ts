@@ -82,7 +82,7 @@ describe("B1.1 preference validation", () => {
       kind: "preferences.invalid",
     });
     expect(parseDeterministicCommand("/annulla short")).toEqual({
-      kind: "preferences.invalid",
+      kind: "undo.invalid",
     });
   });
 });

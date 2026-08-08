@@ -60,17 +60,18 @@ scaffold B2 durante questa slice.
       create/read/update/Undo delle preferenze temporali user-scoped;
 - [x] provare migration/recovery, timezone validation, duplicate, stale Undo e
       isolamento B1.1 prima di iniziare eventi;
-- [ ] **B1.2 prossimo incremento:** modellare e consegnare eventi `date-only` e instant con scope utente;
+- [x] **B1.2:** modellare e consegnare eventi `date-only` e instant con scope utente;
 - [x] B1.1 valida timezone IANA con API standard (`Intl.DateTimeFormat`), senza
       richiedere Temporal o un polyfill;
-- [ ] B1.2 ripete il probe Workers e sceglie/fissa un solo polyfill Temporal
+- [x] B1.2 ripete il probe Workers e sceglie/fissa un solo polyfill Temporal
       just-in-time soltanto se il runtime continua a non esporre `Temporal`;
 - [x] aggiungere migration, indici e query tenant-scoped per le preferenze;
-- [ ] implementare create/read/update/cancel e Undo idempotenti e auditabili;
-- [ ] implementare `/oggi` e `/domani` nella timezone IANA dell'utente;
-- [ ] coprire DST, mezzanotte, duplicate, stale Undo e cross-tenant con test;
+- [x] implementare create/read/update/cancel e Undo idempotenti e auditabili;
+- [x] implementare `/oggi` e `/domani` nella timezone IANA dell'utente;
+- [x] coprire DST, mezzanotte, duplicate, stale Undo e cross-tenant con test;
 - [x] documentare retention, purge, rollout e migration recovery B1.1;
-- [ ] chiudere tutti i gate applicabili prima di attivare B2.
+- [x] documentare retention, purge, rollout e migration recovery B1.2;
+- [x] chiudere tutti i gate applicabili prima di attivare B2.
 
 ## Later phases
 

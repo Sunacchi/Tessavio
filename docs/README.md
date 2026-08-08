@@ -21,6 +21,7 @@
 - [Development runbook](runbooks/DEVELOPMENT.md)
 - [A1 recovery and DLQ runbook](runbooks/A1_RECOVERY.md)
 - [B1.1 preferences recovery runbook](runbooks/B1_PREFERENCES_RECOVERY.md)
+- [B1.2 one-off events recovery runbook](runbooks/B1_EVENTS_RECOVERY.md)
 - [Pre-pilot operational gates](runbooks/PRE_PILOT_OPERATIONS.md)
 
 ## Agents and decisions

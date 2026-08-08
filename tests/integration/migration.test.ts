@@ -17,6 +17,8 @@ describe("foundation migration", () => {
         "audit_log",
         "user_preferences",
         "preference_undo_actions",
+        "events",
+        "event_undo_actions",
       ]),
     );
 
@@ -55,6 +57,47 @@ describe("foundation migration", () => {
     expect(
       purgePlan.results.some((row) =>
         row.detail.includes("preference_undo_scope_expiry_idx"),
+      ),
+    ).toBe(true);
+
+    const eventDatePlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN
+       SELECT id FROM events
+       WHERE user_id = ? AND status = 'active' AND local_date = ?`,
+    )
+      .bind("user-a", "2026-08-08")
+      .all<{ detail: string }>();
+    expect(
+      eventDatePlan.results.some((row) =>
+        row.detail.includes("events_scope_date_idx"),
+      ),
+    ).toBe(true);
+
+    const eventInstantPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN
+       SELECT id FROM events
+       WHERE user_id = ? AND status = 'active'
+         AND start_at_utc < ? AND end_at_utc > ?`,
+    )
+      .bind("user-a", Date.now() + 86_400_000, Date.now())
+      .all<{ detail: string }>();
+    expect(
+      eventInstantPlan.results.some((row) =>
+        row.detail.includes("events_scope_instant_idx"),
+      ),
+    ).toBe(true);
+
+    const eventPurgePlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN
+       SELECT token FROM event_undo_actions
+       WHERE scope_user_id = ? AND expires_at <= ?
+       ORDER BY expires_at LIMIT 100`,
+    )
+      .bind("user-a", Date.now())
+      .all<{ detail: string }>();
+    expect(
+      eventPurgePlan.results.some((row) =>
+        row.detail.includes("event_undo_scope_expiry_idx"),
       ),
     ).toBe(true);
   });

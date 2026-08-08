@@ -1,6 +1,7 @@
 import type {
   DeliveryRepository,
   EffectRepository,
+  EventRepository,
   IdentityRepository,
   InboundRepository,
   PreferenceRepository,
@@ -9,6 +10,8 @@ import type {
 import type { InboundMessageEnvelope } from "./queue-envelope";
 import { parseDeterministicCommand } from "./deterministic-command";
 import { managePreferences } from "./manage-preferences";
+import { manageEvents } from "./manage-events";
+import { manageUndo } from "./manage-undo";
 import { startOnboarding } from "../domains/onboarding/start";
 import type { Authorizer } from "../security/authorization";
 import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
@@ -19,6 +22,7 @@ export interface ProcessInboundDependencies {
   readonly clock: Clock;
   readonly deliveries: DeliveryRepository;
   readonly effects: EffectRepository;
+  readonly events: EventRepository;
   readonly identities: IdentityRepository;
   readonly ids: IdGenerator;
   readonly inbox: InboundRepository;
@@ -104,13 +108,41 @@ export async function processInboundMessage(
       effectKey,
       dependencies.clock.now(),
     );
-  } else {
+  } else if (
+    command.kind === "preferences.read" ||
+    command.kind === "preferences.set" ||
+    command.kind === "preferences.undo" ||
+    command.kind === "preferences.invalid"
+  ) {
     replyText = await managePreferences(
       {
         actorUserId: identity.userId,
         scope,
         correlationId: envelope.correlationId,
         idempotencyKey: envelope.idempotencyKey,
+        command,
+      },
+      dependencies,
+    );
+  } else if (command.kind === "undo" || command.kind === "undo.invalid") {
+    replyText = await manageUndo(
+      {
+        actorUserId: identity.userId,
+        scope,
+        correlationId: envelope.correlationId,
+        idempotencyKey: envelope.idempotencyKey,
+        command,
+      },
+      dependencies,
+    );
+  } else {
+    replyText = await manageEvents(
+      {
+        actorUserId: identity.userId,
+        scope,
+        correlationId: envelope.correlationId,
+        idempotencyKey: envelope.idempotencyKey,
+        sentAtUnix: message.sentAtUnix,
         command,
       },
       dependencies,

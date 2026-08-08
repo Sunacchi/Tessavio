@@ -15,6 +15,13 @@
       "when": 1786198282038,
       "tag": "0001_many_ben_urich",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786200035019,
+      "tag": "0002_cheerful_ben_grimm",
+      "breakpoints": true
     }
   ]
 }

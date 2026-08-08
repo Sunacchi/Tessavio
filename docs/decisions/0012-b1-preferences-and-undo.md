@@ -39,8 +39,8 @@ statement, mentre `batch()` è atomico.
   disponibile.
 - Annullare la prima creazione rimuove il profilo; annullare un aggiornamento
   ripristina i valori precedenti con una nuova versione monotona.
-- `/annulla` è per ora instradato al solo dominio preferenze. Le future entità
-  dovranno introdurre routing tipizzato senza rendere il token cross-tenant.
+- `/annulla` era inizialmente instradato al solo dominio preferenze. ADR-0013
+  introduce token eventi namespaced senza cambiare i token B1.1 esistenti.
 - La validità di una valuta dipende dai dati ICU del runtime compatibile; il
   codice non mantiene una copia locale potenzialmente obsoleta di ISO 4217.
 

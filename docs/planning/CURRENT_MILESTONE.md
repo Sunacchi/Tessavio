@@ -1,9 +1,10 @@
-# Milestone corrente — B1 Preferenze + agenda one-off
+# Milestone corrente — B1 Preferenze + agenda one-off (completata)
 
-**Stato: attiva dal 2026-08-08 dopo la revalidazione A1.** I finding Foundation
-sono chiusi con `npm run validate` verde e `npm audit --omit=dev` senza
-vulnerabilità. Nessuna risorsa Cloudflare remota è stata creata e nessun deploy è
-stato eseguito. B1 resta deterministica e utilizzabile senza provider AI.
+**Stato: completata localmente il 2026-08-08.** B1.1 e B1.2 sono consegnate con
+validazione locale verde e `npm audit --omit=dev` senza vulnerabilità. Nessuna
+risorsa Cloudflare remota è stata creata e nessun deploy è stato eseguito. B1 è
+deterministica e utilizzabile senza provider AI. B2 è la prossima milestone ma
+non viene attivata da questa consegna.
 
 ## Obiettivo
 
@@ -32,12 +33,14 @@ autorizza scaffold durante B1.1. Il contratto e la policy sono registrati in
 [ADR-0012](../decisions/0012-b1-preferences-and-undo.md); i comandi e il recovery
 sono nel [runbook B1.1](../runbooks/B1_PREFERENCES_RECOVERY.md).
 
-## Prossimo singolo incremento verificabile — B1.2 Eventi one-off
+## Incremento completato — B1.2 Eventi one-off
 
-B1.2 deve definire prima il contratto `date-only` rispetto a instant UTC con
-timezone originale, poi consegnare create/read/update/cancel, Undo e viste
-`/oggi` e `/domani`. Nessun codice evento, Temporal polyfill o migration B1.2 è
-stato anticipato da B1.1.
+B1.2 definisce in ADR-0013 il contratto `date-only` rispetto a instant UTC con
+timezone originale e consegna create/read/update/cancel, Undo e viste `/oggi` e
+`/domani`. Il probe `workerd@1.20260801.1` ha confermato l'assenza del global
+Temporal; `@js-temporal/polyfill@0.5.1` è l'unico polyfill fissato. Migration,
+query plan, recovery, retention, Queue retry, DST/property e isolamento
+cross-tenant sono coperti dal codice, dai test e dal runbook B1.2.
 
 ## Modello Codex suggerito
 

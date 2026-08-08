@@ -3,6 +3,7 @@ import type { TelegramReplyPort } from "../application/ports";
 import { inboundMessageEnvelopeSchema } from "../application/queue-envelope";
 import { D1DeliveryRepository } from "../infrastructure/db/delivery-repository";
 import { D1EffectRepository } from "../infrastructure/db/effect-repository";
+import { D1EventRepository } from "../infrastructure/db/event-repository";
 import { D1IdentityRepository } from "../infrastructure/db/identity-repository";
 import { D1InboundRepository } from "../infrastructure/db/inbound-repository";
 import { D1PreferenceRepository } from "../infrastructure/db/preference-repository";
@@ -37,6 +38,7 @@ export async function handleInboundQueue(
     clock,
     deliveries: new D1DeliveryRepository(env.DB),
     effects: new D1EffectRepository(env.DB),
+    events: new D1EventRepository(env.DB),
     identities: new D1IdentityRepository(env.DB),
     ids: overrides.ids ?? cryptoIdGenerator,
     inbox,

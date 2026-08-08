@@ -9,6 +9,7 @@ import { handleInboundQueue } from "../../src/entrypoints/queue";
 import { recoverPendingInboxes } from "../../src/entrypoints/scheduled";
 import { D1DeliveryRepository } from "../../src/infrastructure/db/delivery-repository";
 import { D1EffectRepository } from "../../src/infrastructure/db/effect-repository";
+import { D1EventRepository } from "../../src/infrastructure/db/event-repository";
 import { D1IdentityRepository } from "../../src/infrastructure/db/identity-repository";
 import { D1InboundRepository } from "../../src/infrastructure/db/inbound-repository";
 import { D1PreferenceRepository } from "../../src/infrastructure/db/preference-repository";
@@ -100,6 +101,7 @@ function processDependencies(
     clock,
     deliveries: new D1DeliveryRepository(env.DB),
     effects: new D1EffectRepository(env.DB),
+    events: new D1EventRepository(env.DB),
     identities: new D1IdentityRepository(env.DB),
     ids,
     inbox: new D1InboundRepository(env.DB),

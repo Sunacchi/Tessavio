@@ -1,4 +1,4 @@
-import type { DeterministicCommand } from "./deterministic-command";
+import type { PreferenceCommand } from "./deterministic-command";
 import type { PreferenceRepository } from "./ports";
 import {
   preferenceUndoTtlMs,
@@ -21,10 +21,7 @@ export interface ManagePreferencesRequest {
   readonly scope: UserScope;
   readonly correlationId: string;
   readonly idempotencyKey: string;
-  readonly command: Exclude<
-    DeterministicCommand,
-    { readonly kind: "start" | "unsupported" }
-  >;
+  readonly command: PreferenceCommand;
 }
 
 const usage =
