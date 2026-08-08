@@ -24,6 +24,8 @@
 - [B1.2 one-off events recovery runbook](runbooks/B1_EVENTS_RECOVERY.md)
 - [B2 reminder delivery recovery runbook](runbooks/B2_REMINDERS_RECOVERY.md)
 - [B3 task recovery runbook](runbooks/B3_TASKS_RECOVERY.md)
+- [B4 work recovery runbook](runbooks/B4_WORK_RECOVERY.md)
+- [B5 finance recovery runbook](runbooks/B5_FINANCE_RECOVERY.md)
 - [Pre-pilot operational gates](runbooks/PRE_PILOT_OPERATIONS.md)
 
 ## Agents and decisions
