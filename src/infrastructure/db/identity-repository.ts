@@ -65,4 +65,16 @@ export class D1IdentityRepository implements IdentityRepository {
 
     return { userId: row.user_id, created: results[2]?.meta.changes === 1 };
   }
+
+  async getTelegramUserId(
+    scope: import("../../shared/contracts").UserScope,
+  ): Promise<string | null> {
+    const row = await this.database
+      .prepare(
+        "SELECT telegram_user_id FROM telegram_identities WHERE user_id = ?",
+      )
+      .bind(scope.userId)
+      .first<{ telegram_user_id: string }>();
+    return row?.telegram_user_id ?? null;
+  }
 }

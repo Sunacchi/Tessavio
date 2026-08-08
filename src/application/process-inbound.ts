@@ -5,6 +5,7 @@ import type {
   IdentityRepository,
   InboundRepository,
   PreferenceRepository,
+  ReminderRepository,
   TelegramReplyPort,
 } from "./ports";
 import type { InboundMessageEnvelope } from "./queue-envelope";
@@ -12,6 +13,7 @@ import { parseDeterministicCommand } from "./deterministic-command";
 import { managePreferences } from "./manage-preferences";
 import { manageEvents } from "./manage-events";
 import { manageUndo } from "./manage-undo";
+import { manageReminders } from "./manage-reminders";
 import { startOnboarding } from "../domains/onboarding/start";
 import type { Authorizer } from "../security/authorization";
 import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
@@ -27,6 +29,7 @@ export interface ProcessInboundDependencies {
   readonly ids: IdGenerator;
   readonly inbox: InboundRepository;
   readonly preferences: PreferenceRepository;
+  readonly reminders: ReminderRepository;
   readonly reply: TelegramReplyPort;
   readonly leaseSeconds: number;
 }
@@ -112,6 +115,8 @@ export async function processInboundMessage(
     command.kind === "preferences.read" ||
     command.kind === "preferences.set" ||
     command.kind === "preferences.undo" ||
+    command.kind === "preferences.quiet_hours.set" ||
+    command.kind === "preferences.quiet_hours.disable" ||
     command.kind === "preferences.invalid"
   ) {
     replyText = await managePreferences(
@@ -131,6 +136,24 @@ export async function processInboundMessage(
         scope,
         correlationId: envelope.correlationId,
         idempotencyKey: envelope.idempotencyKey,
+        command,
+      },
+      dependencies,
+    );
+  } else if (
+    command.kind === "reminders.create" ||
+    command.kind === "reminders.read" ||
+    command.kind === "reminders.list" ||
+    command.kind === "reminders.cancel" ||
+    command.kind === "reminders.invalid"
+  ) {
+    replyText = await manageReminders(
+      {
+        actorUserId: identity.userId,
+        scope,
+        correlationId: envelope.correlationId,
+        idempotencyKey: envelope.idempotencyKey,
+        sentAtUnix: message.sentAtUnix,
         command,
       },
       dependencies,

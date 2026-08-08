@@ -9,9 +9,11 @@ Il principio guida è semplice: **il prodotto deve funzionare anche quando l'AI 
 La Phase A — Foundation è completata e revalidata localmente: la review A1 è
 chiusa con `npm run validate` verde e `npm audit --omit=dev` senza
 vulnerabilità. Nessuna risorsa Cloudflare remota è stata creata e nessun deploy è
-stato eseguito. **B1 — Preferenze + agenda one-off** è completata localmente:
-preferenze temporali, eventi one-off, Undo e viste `/oggi`/`/domani` sono
-implementati senza AI. B2 non è stato avviato. Lo stato e lo scope sono nella
+stato eseguito. **B1 — Preferenze + agenda one-off** e **B2 — Reminder
+end-to-end** sono completate localmente: preferenze temporali/quiet hours,
+eventi one-off, reminder con Cron/Queue/delivery, Undo e viste
+`/oggi`/`/domani` sono implementati senza AI. B3 non è stato attivato. Lo stato
+e lo scope sono nella
 [milestone corrente](docs/planning/CURRENT_MILESTONE.md).
 
 ## Avvio locale
@@ -63,6 +65,10 @@ webhook secret restano solo in `.dev.vars` o nei secret Cloudflare.
   confermato l'assenza del global Temporal e ha fissato un solo polyfill,
   `@js-temporal/polyfill@0.5.1`.
 - Vitest; fast-check per invarianti temporali, monetari e di pianificazione.
+
+Comandi reminder B2: `/promemoria crea YYYY-MM-DDTHH:mm | Testo`,
+`/promemoria leggi <id>`, `/promemoria lista`, `/promemoria annulla <id>` e
+`/impostazioni quiete HH:mm HH:mm`.
 
 Le versioni A1 sono esatte in `package.json` e `package-lock.json`; le decisioni
 sono registrate in ADR-0008.

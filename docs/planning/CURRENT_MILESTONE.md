@@ -1,126 +1,76 @@
-# Milestone corrente — B1 Preferenze + agenda one-off (completata)
+# Milestone corrente — B2 Reminder end-to-end (completata)
 
-**Stato: completata localmente il 2026-08-08.** B1.1 e B1.2 sono consegnate con
-validazione locale verde e `npm audit --omit=dev` senza vulnerabilità. Nessuna
-risorsa Cloudflare remota è stata creata e nessun deploy è stato eseguito. B1 è
-deterministica e utilizzabile senza provider AI. B2 è la prossima milestone ma
-non viene attivata da questa consegna.
+**Stato: completata localmente il 2026-08-08.** B2 consegna reminder one-off
+deterministici, claim leased da Cron, Queue dedicata e delivery Telegram
+deduplicata. Nessuna risorsa Cloudflare remota è stata creata e nessun deploy è
+stato eseguito. B3 è la prossima milestone ma non viene attivata da questa
+consegna.
 
 ## Obiettivo
 
-Permettere a un utente Telegram di configurare le preferenze temporali minime,
-gestire eventi singoli tramite comandi espliciti e consultare `/oggi` e `/domani`
-nel proprio fuso IANA, senza inventare dati mancanti e senza leggere o modificare
-dati di altri utenti.
+Permettere a un utente Telegram di creare, leggere, elencare e annullare un
+promemoria esplicito nel proprio fuso IANA e riceverlo tramite una sola
+esecuzione logica, anche con Cron concorrenti, enqueue duplicati e retry Queue.
 
-La sequenza di prodotto e i gate trasversali sono nel
-[master action plan](MASTER_ACTION_PLAN.md#phase-b--core-product-interamente-deterministica).
-In caso di conflitto questo file definisce lo scope della milestone attiva.
+## Contratto consegnato
 
-## Incremento completato — B1.1 Preferenze temporali
+- `/promemoria crea YYYY-MM-DDTHH:mm | Testo` crea un reminder privato one-off;
+- `/promemoria leggi <id>`, `/promemoria lista` e
+  `/promemoria annulla <id>` sono query/mutation user-scoped;
+- `/impostazioni quiete HH:mm HH:mm` configura una finestra locale, anche
+  cross-midnight; `/impostazioni quiete disattiva` la rimuove;
+- `/annulla rem_<token>` applica Undo single-use con TTL di 15 minuti e version
+  check a creazione o cancellazione;
+- date e ore locali inesistenti o ambigue nei cambi DST vengono rifiutate; un
+  reminder deve essere futuro rispetto al timestamp del messaggio;
+- non sono introdotti parsing naturale, AI, ricorrenze, task o condivisione.
 
-Prima di implementare eventi, consegnare il profilo preferenze minimo tramite
-comandi deterministici: lingua supportata, timezone IANA, formato ora, valuta
-predefinita e lettura delle impostazioni. La write deve essere user-scoped,
-autorizzata, idempotente e auditata; una modifica reversibile produce Undo
-single-use con TTL/version check.
+## State machine e delivery
 
-Evidenza consegnata: migration fresh/upgrade e recovery, validazione timezone
-senza offset fisso, create/read/update/Undo, duplicate update e test negativi in
-cui l'utente A non legge o modifica le preferenze di B. Solo dopo questi gate la
-stessa milestone passa a B1.2 eventi one-off. Nessun requisito delle fasi C-O
-autorizza scaffold durante B1.1. Il contratto e la policy sono registrati in
-[ADR-0012](../decisions/0012-b1-preferences-and-undo.md); i comandi e il recovery
-sono nel [runbook B1.1](../runbooks/B1_PREFERENCES_RECOVERY.md).
+```text
+pending -> claimed -> sending -> sent
+                    |         -> permanent_failure
+                    |         -> ambiguous
+                    -> claimed              (errore retryable certo)
+claimed -> pending                          (quiet hours)
+pending -> cancelled                       (azione utente)
+```
 
-## Incremento completato — B1.2 Eventi one-off
+Il Cron seleziona solo ID, owner e timestamp dovuti, quindi effettua un update
+condizionale sempre su `(id, user_id)`. Il claim persiste `job_id`, correlation
+ID e lease prima dell'enqueue. Il recovery riaccoda lo stesso envelope e la
+stessa idempotency key dopo crash prima dell'enqueue o lease scaduta.
 
-B1.2 definisce in ADR-0013 il contratto `date-only` rispetto a instant UTC con
-timezone originale e consegna create/read/update/cancel, Undo e viste `/oggi` e
-`/domani`. Il probe `workerd@1.20260801.1` ha confermato l'assenza del global
-Temporal; `@js-temporal/polyfill@0.5.1` è l'unico polyfill fissato. Migration,
-query plan, recovery, retention, Queue retry, DST/property e isolamento
-cross-tenant sono coperti dal codice, dai test e dal runbook B1.2.
+Il consumer rivalida `SEND_NOTIFICATION`, ricostruisce `UserScope`, valuta le
+preferenze correnti e registra lo snapshot di timezone/quiet hours usato. La
+delivery usa `telegram-reminder:<reminder_id>` come dedupe key. Un rifiuto certo
+429/5xx è retryable; un rifiuto permanente chiude il reminder; un errore HTTP o
+di rete ambiguo applica policy at-most-once e non ritenta l'invio. I tentativi
+esterni sono limitati a 6 anche attraverso recovery successivi.
 
-## Modello Codex suggerito
+Decisione e recovery sono documentati in
+[ADR-0014](../decisions/0014-b2-reminder-delivery.md) e nel
+[runbook B2](../runbooks/B2_REMINDERS_RECOVERY.md).
 
-- **Principale:** `gpt-5.6-sol` con reasoning `high`, per coordinare dominio,
-  modello temporale, migration, autorizzazione e test end-to-end della slice.
-- **Alternativa bilanciata:** `gpt-5.6-terra` con reasoning `high` per attività
-  delimitate e meccaniche, mantenendo review finale con il modello principale.
-- `xhigh` o `max` non sono il default: usarli solo per un problema circoscritto
-  che mostri un miglioramento misurabile di qualità.
+## Exit criteria soddisfatti localmente
 
-Questa è una scelta per l'agente di sviluppo. Non introduce un modello AI nel
-prodotto: provider, prompt e `ActionProposal[]` restano fuori scope fino alla
-Phase C. La raccomandazione segue la
-[guida ufficiale alla scelta dei modelli](https://developers.openai.com/api/docs/guides/latest-model).
-
-## Prima di scrivere codice
-
-- fissare scenari e sintassi dei comandi per preferenze, creazione, lettura,
-  modifica, annullamento e Undo di un evento;
-- distinguere nel contratto `date-only`, ora civile locale e instant UTC;
-- per B1.1 validare identificatori IANA con API standard come
-  `Intl.DateTimeFormat`, senza richiedere Temporal;
-- per B1.2 ripetere il probe sul runtime Workers e scegliere un solo polyfill,
-  con versione esatta verificata just-in-time, soltanto se necessario;
-- definire schema, indici, state transition e query sempre `UserScope`-scoped;
-- definire audit atomico, idempotency key e policy Undo single-use con TTL e
-  version check;
-- definire retention e purge delle entità introdotte, con fake clock e test
-  cross-tenant;
-- aggiornare o creare un ADR se una decisione architetturale cambia.
-
-Non usare `latest`, template `full`, recurrence, `rrule`, provider AI o scaffold
-per B2 e slice successive.
-
-## In scope
-
-- preferenze utente minime: lingua supportata, timezone IANA, formato ora,
-  valuta predefinita e impostazioni privacy già richieste dalla slice;
-- validazione esplicita della timezone B1.1 tramite API standard, senza tabelle
-  DST manuali, offset fisso o dipendenza Temporal prematura;
-- eventi one-off privati con ID interno e accesso sempre tenant-scoped;
-- rappresentazione distinta di eventi `date-only` ed eventi con instant;
-- comandi Telegram deterministici per creare, leggere, modificare e annullare
-  un evento, con conferme prive di ambiguità;
-- `/oggi` e `/domani` calcolati da timestamp del messaggio, data locale e
-  timezone IANA dell'utente;
-- idempotenza, authorization, audit e Undo per ogni write reversibile;
-- migration versionata, rollback/recovery documentati e query hot indicizzate;
-- test unitari, integration, security e property test per timezone/DST,
-  duplicati, stale Undo e isolamento cross-tenant;
-- aggiornamento di comandi, runbook, backlog e documentazione insieme al codice.
+- create/read/list/cancel e Undo sono autorizzati, idempotenti e auditati;
+- ogni repository tenant-scoped richiede `UserScope` e i test negativi provano
+  isolamento read/write/list/Undo;
+- claim concorrenti convergono a una sola riga claimed;
+- crash prima/dopo enqueue recupera lo stesso envelope stabile;
+- duplicate Queue e retry Telegram non duplicano reminder, audit o delivery;
+- quiet hours cross-midnight e DST usano il solo polyfill Temporal già fissato;
+- errori retryable, permanent e ambiguous producono stati distinti e log senza
+  testo del reminder;
+- migration fresh/upgrade, indici hot e recovery sono riproducibili;
+- format, lint, typecheck, unit, integration, security, migration, build e audit
+  dipendenze sono gate obbligatori della consegna locale.
 
 ## Out of scope
 
-- reminder, Cron di reminder e `SEND_NOTIFICATION` B2;
-- task, turni, spese, liste, report aggregati e recurrence;
-- parsing in linguaggio naturale, provider AI e `ActionProposal[]`;
-- vocali, immagini, Mini App e Google Calendar;
-- condivisione fra utenti o spazi;
-- briefing, documenti, persone, finanza avanzata, casa, viaggi e benessere;
-- Open Banking, che è escluso dal prodotto e non una fase futura;
-- deploy staging/production salvo richiesta esplicita separata.
-
-## Exit criteria
-
-- un utente può impostare e rileggere preferenze valide senza provider AI;
-- input incompleti o timezone non valide vengono rifiutati senza default
-  temporali inventati;
-- eventi `date-only` e con instant mantengono semantica distinta in persistenza,
-  modifica e rendering;
-- `/oggi` e `/domani` sono corretti nei cambi DST e ai confini di mezzanotte;
-- create/update/cancel sono autorizzati, idempotenti e auditati; Undo è
-  user-bound, single-use e rifiuta replay, scadenza e versione stale;
-- retry Queue o update Telegram duplicati non producono una seconda mutation;
-- ogni query e mutation negativa dimostra che l'utente A non vede né modifica
-  dati dell'utente B;
-- retention/purge sono idempotenti, tenant-safe e testati con fake clock;
-- migration da database vuoto, rollback/recovery e piano di rollout sono
-  riproducibili;
-- format, lint, typecheck, unit, integration, security, property test e dry-run
-  build sono verdi;
-- tutti i gate applicabili della Definition of Done sono soddisfatti prima di
-  attivare B2.
+- ricorrenze e `rrule`;
+- reminder collegati a eventi/task/documenti o spazi condivisi;
+- briefing e notifiche proattive non richieste esplicitamente;
+- AI, `ActionProposal[]`, media e Google Calendar;
+- deploy staging/production o creazione di Queue/D1 remote.

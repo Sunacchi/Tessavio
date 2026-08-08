@@ -415,30 +415,30 @@ consumer/adapter; il main agent integra senza writer concorrenti.
 - [x] attivare la prossima milestone solo dopo firma del main agent su A1 e
       decisione esplicita sulla posizione A2/B2.
 
-### B2 — Reminder infrastructure (Phase B, non ancora attiva)
+### B2 — Reminder infrastructure (Phase B, completata localmente)
 
-Valore utente futuro: un reminder esplicito attraversa creazione, claim e delivery
+Valore utente: un reminder esplicito attraversa creazione, claim e delivery
 senza duplicare l'effetto logico anche con Cron, Queue e Telegram soggetti a retry.
 ADR-0008 la inserisce nella Phase B come vertical slice completa, senza
 infrastruttura isolata. Non introdurre parsing AI.
 
 - [x] registrare il lavoro come B2 e correggere roadmap/backlog;
-- [ ] attivare la milestone e dettagliare creazione, query, claim e delivery end-to-end;
-- [ ] definire state machine reminder e transizioni legali;
-- [ ] introdurre schema/indici tenant-scoped e migration versionata;
-- [ ] implementare claim atomico `pending -> claimed` per reminder dovuti;
-- [ ] pubblicare `SEND_NOTIFICATION` soltanto per righe effettivamente claimed,
+- [x] attivare la milestone e dettagliare creazione, query, claim e delivery end-to-end;
+- [x] definire state machine reminder e transizioni legali;
+- [x] introdurre schema/indici tenant-scoped e migration versionata;
+- [x] implementare claim atomico `pending -> claimed` per reminder dovuti;
+- [x] pubblicare `SEND_NOTIFICATION` soltanto per righe effettivamente claimed,
       ammettendo replay fisici con una sola esecuzione logica;
-- [ ] implementare delivery con `dedupe_key` univoca;
-- [ ] classificare failure Telegram temporanee/permanenti e retry bounded;
-- [ ] gestire crash prima/dopo enqueue e prima/dopo invio senza duplicare domain
+- [x] implementare delivery con `dedupe_key` univoca;
+- [x] classificare failure Telegram temporanee/permanenti e retry bounded;
+- [x] gestire crash prima/dopo enqueue e prima/dopo invio senza duplicare domain
       effects; l'invio esterno segue la policy esplicita del punto successivo;
-- [ ] documentare il crash window dell'invio esterno e la policy at-most/at-least-once
+- [x] documentare il crash window dell'invio esterno e la policy at-most/at-least-once
       osservabile, senza promettere atomicità fra Telegram e D1;
-- [ ] aggiungere metriche su due, claimed, sent, retry, dead/permanent;
-- [ ] aggiungere test concorrenza, duplicate delivery, recovery e cross-tenant;
-- [ ] documentare recovery di reminder stuck e rollback migration;
-- [ ] chiudere i gate prima di B3 e delle slice B dipendenti.
+- [x] aggiungere metriche su due, claimed, sent, retry, dead/permanent;
+- [x] aggiungere test concorrenza, duplicate delivery, recovery e cross-tenant;
+- [x] documentare recovery di reminder stuck e rollback migration;
+- [x] chiudere i gate prima di B3 e delle slice B dipendenti.
 
 Agent route: main agent/state machine; `domain_worker` regole; `cloudflare_worker`
 Cron/Queue/delivery; review sicurezza e qualità dopo integrazione.
@@ -448,7 +448,7 @@ Cron/Queue/delivery; review sicurezza e qualità dopo integrazione.
 ### Gate di ingresso e preparazione just-in-time
 
 - [x] A1 completata senza finding critici e posizione A2/B2 decisa;
-- [x] attivare una sola vertical slice B alla volta: B1 dal 2026-08-08;
+- [x] attivare una sola vertical slice B alla volta: B1, poi B2 il 2026-08-08;
 - [ ] scrivere scenari utente normali, ambigui, duplicate, unauthorized e Undo;
 - [ ] definire modello dati minimo, porte e policy prima degli adapter;
 - [ ] decidere per ogni entità private-by-default e futura condivisione esplicita;
@@ -460,7 +460,7 @@ Cron/Queue/delivery; review sicurezza e qualità dopo integrazione.
 - [x] **B1 Preferenze + agenda one-off.** Lingua, timezone IANA, formato ora,
       valuta/privacy, eventi one-off, date-only vs instant e viste `/oggi`/`/domani`;
       nessun default temporale inventato.
-- [ ] **B2 Reminder end-to-end.** Creazione/query esplicite, state machine,
+- [x] **B2 Reminder end-to-end.** Creazione/query esplicite, state machine,
       leased claim, delivery ledger, retry/recovery, timezone/DST e infrastruttura A2.
 - [ ] **B3 Task.** Inbox task, scadenze date-only o temporali, stato/priorità
       espliciti, completamento idempotente, riapertura e Undo.

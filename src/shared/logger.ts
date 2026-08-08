@@ -6,6 +6,7 @@ export interface LogContext {
   readonly correlationId?: string;
   readonly jobId?: string;
   readonly updateId?: number;
+  readonly reminderId?: string;
   readonly state?: string;
   readonly errorCode?: ErrorCode;
   readonly latencyMs?: number;

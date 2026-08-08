@@ -34,11 +34,11 @@
 Decisione ADR-0008: queste attività entrano nella prima vertical slice reminder
 end-to-end della Phase B; non costituiscono una milestone Foundation separata.
 
-- [ ] reminder state machine and indices;
-- [ ] atomic due-reminder claim;
-- [ ] `SEND_NOTIFICATION` consumer with dedupe key;
-- [ ] temporary/permanent error classification;
-- [ ] scheduled/queue retry integration tests.
+- [x] reminder state machine and indices;
+- [x] atomic due-reminder claim;
+- [x] `SEND_NOTIFICATION` consumer with dedupe key;
+- [x] temporary/permanent/ambiguous error classification;
+- [x] scheduled/queue retry integration tests.
 
 ## Foundation validation debt (closed 2026-08-08)
 
@@ -51,10 +51,10 @@ end-to-end della Phase B; non costituiscono una milestone Foundation separata.
 - [x] evidenza: `npm run validate` verde (21 test) e
       `npm audit --omit=dev` con 0 vulnerabilità.
 
-## B1 — Preferenze + agenda one-off (active)
+## B1 — Preferenze + agenda one-off (completed)
 
-La milestone esecutiva è definita in `CURRENT_MILESTONE.md`; non preparare
-scaffold B2 durante questa slice.
+B1 è chiusa; la milestone esecutiva corrente è definita in
+`CURRENT_MILESTONE.md`.
 
 - [x] **B1.1:** fissare scenari/sintassi e consegnare
       create/read/update/Undo delle preferenze temporali user-scoped;
@@ -73,6 +73,15 @@ scaffold B2 durante questa slice.
 - [x] documentare retention, purge, rollout e migration recovery B1.2;
 - [x] chiudere tutti i gate applicabili prima di attivare B2.
 
+## B2 — Reminder end-to-end (completed)
+
+- [x] comandi espliciti create/read/list/cancel e Undo user-scoped;
+- [x] quiet hours locali versionate e valutate con timezone IANA/Temporal;
+- [x] claim leased, Queue notification e recovery con envelope stabile;
+- [x] delivery ledger, dedupe, retry bounded e policy ambiguous at-most-once;
+- [x] test concorrenza, DST, duplicate, recovery e cross-tenant;
+- [x] migration, query plan, ADR e runbook recovery/rollback.
+
 ## Later phases
 
 Break down Phase B onward only when the preceding exit criteria are met. The
@@ -87,7 +96,7 @@ imply premature APIs. Open Banking is not a later phase.
 - [x] assign every approved capability to concrete milestones A-O;
 - [x] record universal Inbox/domain boundaries, no Open Banking and staged
       Google Calendar reliability in ADR-0009..0011;
-- [x] keep B1 active and select B1.1 preferences as the next bounded increment;
+- [x] complete B1 and B2 sequentially without scaffolding B3;
 - [ ] do not mark a planned capability complete until code, tests and all
       applicable DoD gates exist.
 
@@ -101,7 +110,6 @@ imply premature APIs. Open Banking is not a later phase.
 - [x] eseguire il probe sul runtime Workers locale fissato: `Temporal` non è
       disponibile con Wrangler 4.120.0, pool Workers 0.20.3 e compatibility date
       2026-08-08;
-- [ ] scegliere l'eventuale polyfill con versione esatta soltanto al contract
-      packet B1.2, dopo un nuovo probe; nessun pacchetto è scelto o installato ora;
+- [x] fissare `@js-temporal/polyfill@0.5.1` dopo il probe B1.2 e riusarlo in B2;
 - [x] document local D1/Queue test strategy.
 - [x] decide A2 Foundation versus Phase B and update roadmap/milestone consistently.

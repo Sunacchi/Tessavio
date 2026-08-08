@@ -174,7 +174,8 @@ cifratura, authorization e retention; non è un effetto automatico dell'Inbox.
 Lo schema arriva per vertical slice. A1 contiene identità, inbox, rate/lease,
 effect, delivery e audit; B1.1 aggiunge preferenze utente e record Undo
 temporanei user-scoped. B1.2 aggiunge eventi privati `date_only|instant` e Undo
-eventi user-scoped, senza reminder o ricorrenze. Le categorie future sono
+eventi user-scoped. B2 aggiunge reminder one-off privati, Undo, snapshot delle
+quiet hours, claim leased e ledger delivery dedicato; non introduce ricorrenze. Le categorie future sono
 introdotte quando attive e devono definire owner/space, indici, lifecycle,
 export/delete, audit/Undo e test cross-tenant.
 

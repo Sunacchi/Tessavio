@@ -24,7 +24,7 @@ export class GrammyTelegramReplyAdapter implements TelegramReplyPort {
   }
 
   async send(
-    chatId: number,
+    chatId: number | string,
     text: string,
   ): Promise<{ readonly messageId: string }> {
     try {

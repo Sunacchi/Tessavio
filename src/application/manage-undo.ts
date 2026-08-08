@@ -1,6 +1,10 @@
 import type { UndoCommand } from "./deterministic-command";
 import { managePreferences } from "./manage-preferences";
-import type { EventRepository, PreferenceRepository } from "./ports";
+import type {
+  EventRepository,
+  PreferenceRepository,
+  ReminderRepository,
+} from "./ports";
 import type { Authorizer } from "../security/authorization";
 import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
 
@@ -10,6 +14,7 @@ export interface ManageUndoDependencies {
   readonly events: EventRepository;
   readonly ids: IdGenerator;
   readonly preferences: PreferenceRepository;
+  readonly reminders: ReminderRepository;
 }
 
 export interface ManageUndoRequest {
@@ -34,6 +39,42 @@ export async function manageUndo(
   }
 
   if (!request.command.token.startsWith("evt_")) {
+    if (request.command.token.startsWith("rem_")) {
+      await dependencies.authorizer.authorize({
+        actorUserId: request.actorUserId,
+        scope: request.scope,
+        action: "reminders:undo",
+      });
+      const result = await dependencies.reminders.undo(
+        request.scope,
+        request.command.token,
+        {
+          actorUserId: request.actorUserId,
+          correlationId: request.correlationId,
+          idempotencyKey: request.idempotencyKey,
+          auditId: dependencies.ids.newId(),
+          now: dependencies.clock.now(),
+        },
+      );
+      switch (result.outcome) {
+        case "reverted":
+          return result.reminder === null
+            ? "Creazione promemoria annullata."
+            : `Annullamento promemoria revocato. ID: ${result.reminder.id}`;
+        case "duplicate":
+          return result.reminder === null
+            ? "Undo promemoria già applicato: il promemoria non esiste."
+            : `Undo promemoria già applicato. ID: ${result.reminder.id}`;
+        case "expired":
+          return "Undo promemoria scaduto: nessuna modifica applicata.";
+        case "used":
+          return "Undo promemoria già usato: nessuna modifica applicata.";
+        case "stale":
+          return "Undo promemoria non applicabile: il promemoria è cambiato nel frattempo.";
+        case "not_found":
+          return "Undo promemoria non disponibile per questo utente.";
+      }
+    }
     return managePreferences(
       {
         actorUserId: request.actorUserId,

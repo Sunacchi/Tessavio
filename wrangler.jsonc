@@ -18,6 +18,11 @@
     "WEBHOOK_LEASE_SECONDS": "30",
     "INBOX_LEASE_SECONDS": "60",
     "INBOX_RECOVERY_AFTER_SECONDS": "30",
+    "REMINDER_LEASE_SECONDS": "600",
+    "REMINDER_ENQUEUE_RECOVERY_SECONDS": "30",
+    "REMINDER_RETRY_DELAY_SECONDS": "60",
+    "REMINDER_CLAIM_LIMIT": "100",
+    "REMINDER_MAX_DELIVERY_ATTEMPTS": "6",
   },
   "d1_databases": [
     {
@@ -30,6 +35,10 @@
   "queues": {
     "producers": [
       { "binding": "INBOUND_QUEUE", "queue": "tessavio-inbound-dev" },
+      {
+        "binding": "NOTIFICATION_QUEUE",
+        "queue": "tessavio-notifications-dev",
+      },
     ],
     "consumers": [
       {
@@ -38,6 +47,14 @@
         "max_batch_timeout": 1,
         "max_retries": 5,
         "dead_letter_queue": "tessavio-inbound-dlq-dev",
+        "max_concurrency": 4,
+      },
+      {
+        "queue": "tessavio-notifications-dev",
+        "max_batch_size": 10,
+        "max_batch_timeout": 1,
+        "max_retries": 5,
+        "dead_letter_queue": "tessavio-notifications-dlq-dev",
         "max_concurrency": 4,
       },
     ],
@@ -65,6 +82,11 @@
         "WEBHOOK_LEASE_SECONDS": "30",
         "INBOX_LEASE_SECONDS": "60",
         "INBOX_RECOVERY_AFTER_SECONDS": "30",
+        "REMINDER_LEASE_SECONDS": "600",
+        "REMINDER_ENQUEUE_RECOVERY_SECONDS": "30",
+        "REMINDER_RETRY_DELAY_SECONDS": "60",
+        "REMINDER_CLAIM_LIMIT": "100",
+        "REMINDER_MAX_DELIVERY_ATTEMPTS": "6",
       },
       "d1_databases": [
         {
@@ -78,6 +100,10 @@
       "queues": {
         "producers": [
           { "binding": "INBOUND_QUEUE", "queue": "tessavio-inbound-staging" },
+          {
+            "binding": "NOTIFICATION_QUEUE",
+            "queue": "tessavio-notifications-staging",
+          },
         ],
         "consumers": [
           {
@@ -86,6 +112,14 @@
             "max_batch_timeout": 1,
             "max_retries": 5,
             "dead_letter_queue": "tessavio-inbound-dlq-staging",
+            "max_concurrency": 4,
+          },
+          {
+            "queue": "tessavio-notifications-staging",
+            "max_batch_size": 10,
+            "max_batch_timeout": 1,
+            "max_retries": 5,
+            "dead_letter_queue": "tessavio-notifications-dlq-staging",
             "max_concurrency": 4,
           },
         ],
@@ -107,6 +141,11 @@
         "WEBHOOK_LEASE_SECONDS": "30",
         "INBOX_LEASE_SECONDS": "60",
         "INBOX_RECOVERY_AFTER_SECONDS": "30",
+        "REMINDER_LEASE_SECONDS": "600",
+        "REMINDER_ENQUEUE_RECOVERY_SECONDS": "30",
+        "REMINDER_RETRY_DELAY_SECONDS": "60",
+        "REMINDER_CLAIM_LIMIT": "100",
+        "REMINDER_MAX_DELIVERY_ATTEMPTS": "6",
       },
       "d1_databases": [
         {
@@ -123,6 +162,10 @@
             "binding": "INBOUND_QUEUE",
             "queue": "tessavio-inbound-production",
           },
+          {
+            "binding": "NOTIFICATION_QUEUE",
+            "queue": "tessavio-notifications-production",
+          },
         ],
         "consumers": [
           {
@@ -131,6 +174,14 @@
             "max_batch_timeout": 1,
             "max_retries": 5,
             "dead_letter_queue": "tessavio-inbound-dlq-production",
+            "max_concurrency": 4,
+          },
+          {
+            "queue": "tessavio-notifications-production",
+            "max_batch_size": 10,
+            "max_batch_timeout": 1,
+            "max_retries": 5,
+            "dead_letter_queue": "tessavio-notifications-dlq-production",
             "max_concurrency": 4,
           },
         ],

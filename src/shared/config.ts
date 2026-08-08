@@ -21,6 +21,17 @@ const configSchema = z.object({
   INBOX_RECOVERY_AFTER_SECONDS: positiveIntegerString.pipe(
     z.number().max(3_600),
   ),
+  REMINDER_LEASE_SECONDS: positiveIntegerString.pipe(z.number().max(86_400)),
+  REMINDER_ENQUEUE_RECOVERY_SECONDS: positiveIntegerString.pipe(
+    z.number().max(3_600),
+  ),
+  REMINDER_RETRY_DELAY_SECONDS: positiveIntegerString.pipe(
+    z.number().max(3_600),
+  ),
+  REMINDER_CLAIM_LIMIT: positiveIntegerString.pipe(z.number().max(100)),
+  REMINDER_MAX_DELIVERY_ATTEMPTS: positiveIntegerString.pipe(
+    z.number().max(100),
+  ),
 });
 
 export type AppConfig = z.output<typeof configSchema>;

@@ -9,6 +9,7 @@ export interface PreferenceProfile {
   readonly timeZone: string;
   readonly hourFormat: HourFormat;
   readonly defaultCurrency: string;
+  readonly quietHours: QuietHours | null;
   readonly version: number;
 }
 
@@ -17,10 +18,19 @@ export interface PreferenceValues {
   readonly timeZone: string;
   readonly hourFormat: HourFormat;
   readonly defaultCurrency: string;
+  readonly quietHours?: QuietHours | null;
+}
+
+export interface QuietHours {
+  readonly startMinute: number;
+  readonly endMinute: number;
 }
 
 export type PreferenceValidationIssue =
   "language" | "time_zone" | "hour_format" | "currency";
+
+export type QuietHoursValidationResult =
+  { readonly ok: true; readonly value: QuietHours } | { readonly ok: false };
 
 export type PreferenceValidationResult =
   | { readonly ok: true; readonly value: PreferenceValues }
@@ -81,4 +91,24 @@ export function canonicalizeTimeZone(value: string): string | null {
     }
     throw error;
   }
+}
+
+export function validateQuietHours(
+  start: string,
+  end: string,
+): QuietHoursValidationResult {
+  const parseMinute = (value: string): number | null => {
+    const match = /^(\d{2}):(\d{2})$/u.exec(value);
+    if (match === null) return null;
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+    if (hour > 23 || minute > 59) return null;
+    return hour * 60 + minute;
+  };
+  const startMinute = parseMinute(start);
+  const endMinute = parseMinute(end);
+  if (startMinute === null || endMinute === null || startMinute === endMinute) {
+    return { ok: false };
+  }
+  return { ok: true, value: { startMinute, endMinute } };
 }

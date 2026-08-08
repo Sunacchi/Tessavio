@@ -16,6 +16,9 @@
 | audit identità A1        | minimo 90 giorni; approvazione produzione |
 | preferenze temporali B1  | fino a cancellazione utente               |
 | token Undo preferenze    | TTL 15 minuti; purge bounded user-scoped  |
+| reminder B2              | fino a cancellazione utente               |
+| token Undo reminder      | TTL 15 minuti; purge bounded user-scoped  |
+| delivery notification B2 | 30 giorni; purge da attivare pre-pilot    |
 | dati core                | fino a cancellazione utente               |
 | metadata AI usage        | quanto necessario a budget e report       |
 | OAuth Google             | fino a revoca/disconnessione              |
@@ -45,6 +48,14 @@ forma temporale: `local_date` per i date-only, oppure instant UTC e timezone IAN
 originale per gli eventi con ora. I token Undo `evt_…` scadono dopo 15 minuti e
 non entrano nei log. Eventi attivi e annullati restano fino alla cancellazione
 account; la slice non introduce delete irreversibile, reminder o condivisione.
+
+In B2 i reminder sono privati e conservano testo scelto dall'utente, instant UTC
+richiesto/effettivo, timezone IANA originale, stato/versione e metadati minimi di
+claim/delivery. Lo snapshot per quiet hours contiene soltanto versione profilo e
+minuti locali, non una copia del profilo. Il testo viene letto per l'invio ma non
+entra in log, delivery ledger o DLQ diagnostica. I token `rem_…` scadono dopo 15
+minuti; reminder e audit restano fino alla cancellazione account, mentre la purge
+del ledger notification a 30 giorni è un gate pre-pilot.
 
 ## Diritti e operazioni
 

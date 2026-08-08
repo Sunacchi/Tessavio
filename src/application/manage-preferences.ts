@@ -2,6 +2,7 @@ import type { PreferenceCommand } from "./deterministic-command";
 import type { PreferenceRepository } from "./ports";
 import {
   preferenceUndoTtlMs,
+  validateQuietHours,
   validatePreferenceValues,
   type PreferenceProfile,
   type PreferenceValidationIssue,
@@ -26,7 +27,12 @@ export interface ManagePreferencesRequest {
 
 const usage =
   "Usa: /impostazioni imposta <lingua> <timezone IANA> <12h|24h> <valuta>. " +
-  "Esempio: /impostazioni imposta it Europe/Rome 24h EUR";
+  "Esempio: /impostazioni imposta it Europe/Rome 24h EUR. " +
+  "Quiet hours: /impostazioni quiete 22:00 07:00 oppure /impostazioni quiete disattiva";
+
+function formatMinute(value: number): string {
+  return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+}
 
 function renderProfile(profile: PreferenceProfile): string {
   return [
@@ -34,6 +40,9 @@ function renderProfile(profile: PreferenceProfile): string {
     `Timezone: ${profile.timeZone}`,
     `Formato ora: ${profile.hourFormat}`,
     `Valuta: ${profile.defaultCurrency}`,
+    profile.quietHours === null
+      ? "Quiet hours: disattivate"
+      : `Quiet hours: ${formatMinute(profile.quietHours.startMinute)}-${formatMinute(profile.quietHours.endMinute)}`,
   ].join("\n");
 }
 
@@ -116,6 +125,55 @@ export async function managePreferences(
           ? "Undo scaduto per questa modifica."
           : `Undo entro 15 minuti: /annulla ${result.undoToken}`;
     return `${heading}\n${renderProfile(result.profile)}\n${undoMessage}`;
+  }
+
+  if (
+    request.command.kind === "preferences.quiet_hours.set" ||
+    request.command.kind === "preferences.quiet_hours.disable"
+  ) {
+    await dependencies.authorizer.authorize({
+      actorUserId: request.actorUserId,
+      scope: request.scope,
+      action: "preferences:write",
+    });
+    const current = await dependencies.preferences.get(request.scope);
+    if (current === null) {
+      return `Configura prima le impostazioni temporali.\n${usage}`;
+    }
+    const quietHours =
+      request.command.kind === "preferences.quiet_hours.disable"
+        ? null
+        : validateQuietHours(request.command.start, request.command.end);
+    if (quietHours !== null && !quietHours.ok) {
+      return `Quiet hours non valide: usa due orari HH:mm diversi.\n${usage}`;
+    }
+    await dependencies.preferences.purgeExpiredUndo(request.scope, now, 100);
+    const result = await dependencies.preferences.set(
+      request.scope,
+      {
+        language: current.language,
+        timeZone: current.timeZone,
+        hourFormat: current.hourFormat,
+        defaultCurrency: current.defaultCurrency,
+        quietHours: quietHours === null ? null : quietHours.value,
+      },
+      {
+        actorUserId: request.actorUserId,
+        correlationId: request.correlationId,
+        idempotencyKey: request.idempotencyKey,
+        auditId: dependencies.ids.newId(),
+        undoToken: dependencies.ids.newId(),
+        now,
+        undoExpiresAt: new Date(now.getTime() + preferenceUndoTtlMs),
+      },
+    );
+    const heading =
+      result.outcome === "duplicate"
+        ? "Quiet hours già applicate."
+        : result.profile.quietHours === null
+          ? "Quiet hours disattivate."
+          : "Quiet hours aggiornate.";
+    return `${heading}\n${renderProfile(result.profile)}\nUndo entro 15 minuti: /annulla ${result.undoToken ?? "non-disponibile"}`;
   }
 
   await dependencies.authorizer.authorize({

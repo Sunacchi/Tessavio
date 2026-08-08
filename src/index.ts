@@ -3,7 +3,7 @@ import { errorCodeOf } from "./shared/errors";
 import { logEvent } from "./shared/logger";
 import { handleInboundQueue } from "./entrypoints/queue";
 import { handleTelegramWebhook } from "./entrypoints/webhook";
-import { recoverPendingInboxes } from "./entrypoints/scheduled";
+import { runScheduledMaintenance } from "./entrypoints/scheduled";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -18,6 +18,6 @@ export default {
     await handleInboundQueue(batch, env);
   },
   async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
-    await recoverPendingInboxes(env, parseConfig(env));
+    await runScheduledMaintenance(env, parseConfig(env));
   },
 } satisfies ExportedHandler<Env>;

@@ -21,7 +21,24 @@ export type PreferenceCommand =
       readonly defaultCurrency: string;
     }
   | { readonly kind: "preferences.undo"; readonly token: string }
+  | {
+      readonly kind: "preferences.quiet_hours.set";
+      readonly start: string;
+      readonly end: string;
+    }
+  | { readonly kind: "preferences.quiet_hours.disable" }
   | { readonly kind: "preferences.invalid" };
+
+export type ReminderCommand =
+  | {
+      readonly kind: "reminders.create";
+      readonly scheduledLocal: string;
+      readonly text: string;
+    }
+  | { readonly kind: "reminders.read"; readonly reminderId: string }
+  | { readonly kind: "reminders.list" }
+  | { readonly kind: "reminders.cancel"; readonly reminderId: string }
+  | { readonly kind: "reminders.invalid" };
 
 export type EventCommand =
   | ({ readonly kind: "events.create" } & EventDraftCommand)
@@ -43,6 +60,7 @@ export type DeterministicCommand =
   | { readonly kind: "start" }
   | PreferenceCommand
   | EventCommand
+  | ReminderCommand
   | UndoCommand
   | { readonly kind: "unsupported" };
 
@@ -125,6 +143,43 @@ function parseEventCommand(text: string): EventCommand {
   return { kind: "events.invalid" };
 }
 
+function parseReminderCommand(text: string): ReminderCommand {
+  const separatorIndex = text.indexOf("|");
+  const commandText =
+    separatorIndex === -1 ? text : text.slice(0, separatorIndex).trim();
+  const reminderText =
+    separatorIndex === -1 ? null : text.slice(separatorIndex + 1);
+  const parts = commandText.split(/\s+/u);
+  const operation = parts[1]?.toLowerCase();
+  if (
+    separatorIndex === -1 &&
+    operation === "leggi" &&
+    parts.length === 3 &&
+    entityIdPattern.test(parts[2] ?? "")
+  ) {
+    return { kind: "reminders.read", reminderId: parts[2] ?? "" };
+  }
+  if (separatorIndex === -1 && operation === "lista" && parts.length === 2) {
+    return { kind: "reminders.list" };
+  }
+  if (
+    separatorIndex === -1 &&
+    operation === "annulla" &&
+    parts.length === 3 &&
+    entityIdPattern.test(parts[2] ?? "")
+  ) {
+    return { kind: "reminders.cancel", reminderId: parts[2] ?? "" };
+  }
+  if (operation === "crea" && parts.length === 3 && reminderText !== null) {
+    return {
+      kind: "reminders.create",
+      scheduledLocal: parts[2] ?? "",
+      text: reminderText,
+    };
+  }
+  return { kind: "reminders.invalid" };
+}
+
 export function parseDeterministicCommand(text: string): DeterministicCommand {
   const normalized = text.trim();
   const parts = normalized.split(/\s+/u);
@@ -146,10 +201,25 @@ export function parseDeterministicCommand(text: string): DeterministicCommand {
         defaultCurrency: parts[5] ?? "",
       };
     }
+    if (parts[1]?.toLowerCase() === "quiete") {
+      if (parts[2]?.toLowerCase() === "disattiva" && parts.length === 3) {
+        return { kind: "preferences.quiet_hours.disable" };
+      }
+      if (parts.length === 4) {
+        return {
+          kind: "preferences.quiet_hours.set",
+          start: parts[2] ?? "",
+          end: parts[3] ?? "",
+        };
+      }
+    }
     return { kind: "preferences.invalid" };
   }
   if (command === "/evento") {
     return parseEventCommand(normalized);
+  }
+  if (command === "/promemoria") {
+    return parseReminderCommand(normalized);
   }
   if (command === "/oggi" && parts.length === 1) {
     return { kind: "events.today" };

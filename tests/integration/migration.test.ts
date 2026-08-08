@@ -19,6 +19,9 @@ describe("foundation migration", () => {
         "preference_undo_actions",
         "events",
         "event_undo_actions",
+        "reminders",
+        "reminder_undo_actions",
+        "notification_deliveries",
       ]),
     );
 
@@ -98,6 +101,49 @@ describe("foundation migration", () => {
     expect(
       eventPurgePlan.results.some((row) =>
         row.detail.includes("event_undo_scope_expiry_idx"),
+      ),
+    ).toBe(true);
+
+    const reminderDuePlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN
+       SELECT id, user_id FROM reminders
+       WHERE status = 'pending' AND due_at_utc <= ?
+       ORDER BY due_at_utc, id LIMIT 100`,
+    )
+      .bind(Date.now())
+      .all<{ detail: string }>();
+    expect(
+      reminderDuePlan.results.some((row) =>
+        row.detail.includes("reminders_due_claim_idx"),
+      ),
+    ).toBe(true);
+
+    const reminderScopePlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN
+       SELECT id FROM reminders
+       WHERE user_id = ? AND status IN ('pending', 'claimed', 'sending')
+       ORDER BY due_at_utc LIMIT 50`,
+    )
+      .bind("user-a")
+      .all<{ detail: string }>();
+    expect(
+      reminderScopePlan.results.some((row) =>
+        row.detail.includes("reminders_scope_list_idx"),
+      ),
+    ).toBe(true);
+
+    const reminderRecoveryPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN
+       SELECT id FROM reminders
+       WHERE status = 'claimed'
+         AND ((enqueued_at IS NULL AND claimed_at <= ?) OR claim_expires_at <= ?)
+       ORDER BY claimed_at LIMIT 100`,
+    )
+      .bind(Date.now(), Date.now())
+      .all<{ detail: string }>();
+    expect(
+      reminderRecoveryPlan.results.some((row) =>
+        row.detail.includes("reminders_recovery_idx"),
       ),
     ).toBe(true);
   });

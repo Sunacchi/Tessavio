@@ -18,6 +18,13 @@ const profileSchema = z
     timeZone: z.string().min(1),
     hourFormat: z.enum(["12h", "24h"]),
     defaultCurrency: z.string().regex(/^[A-Z]{3}$/u),
+    quietHours: z
+      .object({
+        startMinute: z.number().int().min(0).max(1_439),
+        endMinute: z.number().int().min(0).max(1_439),
+      })
+      .strict()
+      .nullable(),
     version: z.number().int().positive(),
   })
   .strict();
@@ -27,6 +34,8 @@ const storedProfileSchema = z.object({
   time_zone: z.string().min(1),
   hour_format: z.enum(["12h", "24h"]),
   default_currency: z.string().regex(/^[A-Z]{3}$/u),
+  quiet_hours_start_minute: z.number().int().min(0).max(1_439).nullable(),
+  quiet_hours_end_minute: z.number().int().min(0).max(1_439).nullable(),
   version: z.number().int().positive(),
 });
 
@@ -72,7 +81,8 @@ export class D1PreferenceRepository implements PreferenceRepository {
   async get(scope: UserScope): Promise<PreferenceProfile | null> {
     const row = await this.database
       .prepare(
-        `SELECT language, time_zone, hour_format, default_currency, version
+        `SELECT language, time_zone, hour_format, default_currency,
+                quiet_hours_start_minute, quiet_hours_end_minute, version
          FROM user_preferences
          WHERE user_id = ?`,
       )
@@ -90,6 +100,14 @@ export class D1PreferenceRepository implements PreferenceRepository {
       timeZone: parsed.data.time_zone,
       hourFormat: parsed.data.hour_format,
       defaultCurrency: parsed.data.default_currency,
+      quietHours:
+        parsed.data.quiet_hours_start_minute === null ||
+        parsed.data.quiet_hours_end_minute === null
+          ? null
+          : {
+              startMinute: parsed.data.quiet_hours_start_minute,
+              endMinute: parsed.data.quiet_hours_end_minute,
+            },
       version: parsed.data.version,
     };
   }
@@ -133,7 +151,14 @@ export class D1PreferenceRepository implements PreferenceRepository {
 
     const current = await this.get(scope);
     const nextProfile: PreferenceProfile = {
-      ...values,
+      language: values.language,
+      timeZone: values.timeZone,
+      hourFormat: values.hourFormat,
+      defaultCurrency: values.defaultCurrency,
+      quietHours:
+        values.quietHours === undefined
+          ? (current?.quietHours ?? null)
+          : values.quietHours,
       version: (current?.version ?? 0) + 1,
     };
     const timestamp = context.now.getTime();
@@ -147,13 +172,16 @@ export class D1PreferenceRepository implements PreferenceRepository {
         .prepare(
           `INSERT INTO user_preferences (
              user_id, language, time_zone, hour_format, default_currency,
+             quiet_hours_start_minute, quiet_hours_end_minute,
              version, last_mutation_key, created_at, updated_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(user_id) DO UPDATE SET
              language = excluded.language,
              time_zone = excluded.time_zone,
              hour_format = excluded.hour_format,
              default_currency = excluded.default_currency,
+             quiet_hours_start_minute = excluded.quiet_hours_start_minute,
+             quiet_hours_end_minute = excluded.quiet_hours_end_minute,
              version = excluded.version,
              last_mutation_key = excluded.last_mutation_key,
              updated_at = excluded.updated_at
@@ -165,6 +193,8 @@ export class D1PreferenceRepository implements PreferenceRepository {
           values.timeZone,
           values.hourFormat,
           values.defaultCurrency,
+          nextProfile.quietHours?.startMinute ?? null,
+          nextProfile.quietHours?.endMinute ?? null,
           nextProfile.version,
           context.idempotencyKey,
           timestamp,
@@ -340,7 +370,8 @@ export class D1PreferenceRepository implements PreferenceRepository {
             .prepare(
               `UPDATE user_preferences
                SET language = ?, time_zone = ?, hour_format = ?,
-                   default_currency = ?, version = ?, last_mutation_key = ?,
+                   default_currency = ?, quiet_hours_start_minute = ?,
+                   quiet_hours_end_minute = ?, version = ?, last_mutation_key = ?,
                    updated_at = ?
                WHERE user_id = ? AND version = ?
                  AND EXISTS (
@@ -354,6 +385,8 @@ export class D1PreferenceRepository implements PreferenceRepository {
               restored.timeZone,
               restored.hourFormat,
               restored.defaultCurrency,
+              restored.quietHours?.startMinute ?? null,
+              restored.quietHours?.endMinute ?? null,
               restored.version,
               context.idempotencyKey,
               timestamp,

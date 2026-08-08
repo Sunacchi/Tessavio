@@ -16,8 +16,9 @@ Evidenza di baseline: A1 implementava solo `/start`, normalizzazione testo minim
 inbox durevole, dedupe, Queue, identità interna, authorization self-scope,
 audit/effect/delivery ledger e test foundation. Dopo l'audit, B1.1 ha aggiunto
 preferenze temporali private e B1.2 eventi one-off privati `date_only|instant`,
-comandi deterministici, audit, Undo e viste `/oggi`/`/domani`. Reminder, task,
-finanze, documenti, persone e spazi restano nello stato indicato nelle tabelle.
+comandi deterministici, audit, Undo e viste `/oggi`/`/domani`. B2 ha aggiunto
+reminder one-off, quiet hours, Cron/Queue e delivery deduplicata. Task, finanze,
+documenti, persone e spazi restano nello stato indicato nelle tabelle.
 
 ## 1. Tessavio Inbox
 
@@ -89,17 +90,17 @@ finanze, documenti, persone e spazi restano nello stato indicato nelle tabelle.
 
 ## 4. Briefing e assistenza proattiva
 
-| Funzione                                            | Stato iniziale | Evidenza / gap                                     | Collocazione                      |
-| --------------------------------------------------- | -------------- | -------------------------------------------------- | --------------------------------- |
-| Briefing mattutino                                  | Mancante       | assente                                            | G1                                |
-| Riepilogo serale facoltativo                        | Mancante       | assente                                            | G1                                |
-| Riepilogo settimanale e mensile                     | Mancante       | report generici non includevano delivery proattiva | G2                                |
-| Eventi, task, scadenze, turni e reminder            | Parziale       | domini pianificati, composizione proattiva assente | G1-G2 dopo B                      |
-| Situazione economica e spese programmate            | Mancante       | finanza avanzata assente                           | K3, poi contributor attivato in O |
-| Documenti in scadenza e persone da ricontattare     | Mancante       | domini assenti                                     | J, poi contributor attivato in O  |
-| Elementi incompleti                                 | Parziale       | task previsti, attention policy assente            | G1-G3                             |
-| Contenuti/orari/frequenza/quiet hours configurabili | Mancante       | preferenze B1 non li comprendevano                 | G1                                |
-| Notifiche concise, non ansiogene e non ripetitive   | Mancante       | dedupe reminder previsto, policy UX assente        | G1 + DoD                          |
+| Funzione                                            | Stato iniziale | Evidenza / gap                                                | Collocazione                      |
+| --------------------------------------------------- | -------------- | ------------------------------------------------------------- | --------------------------------- |
+| Briefing mattutino                                  | Mancante       | assente                                                       | G1                                |
+| Riepilogo serale facoltativo                        | Mancante       | assente                                                       | G1                                |
+| Riepilogo settimanale e mensile                     | Mancante       | report generici non includevano delivery proattiva            | G2                                |
+| Eventi, task, scadenze, turni e reminder            | Parziale       | domini pianificati, composizione proattiva assente            | G1-G2 dopo B                      |
+| Situazione economica e spese programmate            | Mancante       | finanza avanzata assente                                      | K3, poi contributor attivato in O |
+| Documenti in scadenza e persone da ricontattare     | Mancante       | domini assenti                                                | J, poi contributor attivato in O  |
+| Elementi incompleti                                 | Parziale       | task previsti, attention policy assente                       | G1-G3                             |
+| Contenuti/orari/frequenza/quiet hours configurabili | Parziale       | quiet hours B2 presenti; contenuti/frequenza briefing assenti | G1                                |
+| Notifiche concise, non ansiogene e non ripetitive   | Parziale       | reminder B2 concisi e deduplicati; briefing assente           | G1 + DoD                          |
 
 ## 5. Documenti e amministrazione personale
 
@@ -238,9 +239,9 @@ finanze, documenti, persone e spazi restano nello stato indicato nelle tabelle.
 
 ## Sintesi operativa
 
-- **Implementato:** foundation A1, preferenze temporali B1.1 ed eventi one-off
-  B1.2 con viste agenda giornaliere; reminder ed entità successive restano non
-  implementati.
+- **Implementato:** foundation A1, preferenze temporali B1.1, eventi one-off
+  B1.2 con viste agenda giornaliere e reminder end-to-end B2; le entità
+  successive restano non implementate.
 - **Già pianificato in modo significativo:** core B, AI C, voice/vision D,
   planner E, sharing F, Mini App, Google export e hardening.
 - **Parziale o assente prima dell'audit:** Inbox universale completa, entrate e

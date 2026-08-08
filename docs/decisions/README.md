@@ -15,6 +15,7 @@ Gli ADR registrano decisioni difficili da ricostruire dal codice. Stato ammesso:
 - [ADR-0011 — Google Calendar a livelli di affidabilità](0011-google-calendar-sync-levels.md)
 - [ADR-0012 — Preferenze B1.1 e Undo versionato](0012-b1-preferences-and-undo.md)
 - [ADR-0013 — Contratto temporale degli eventi one-off B1.2](0013-b1-one-off-event-time-contract.md)
+- [ADR-0014 — B2 reminder one-off, quiet hours e delivery leased](0014-b2-reminder-delivery.md)
 
 ## Template
 

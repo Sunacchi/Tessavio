@@ -1,12 +1,15 @@
 import { processInboundMessage } from "../application/process-inbound";
+import { sendReminderNotification } from "../application/send-reminder-notification";
 import type { TelegramReplyPort } from "../application/ports";
-import { inboundMessageEnvelopeSchema } from "../application/queue-envelope";
+import { queueEnvelopeSchema } from "../application/queue-envelope";
 import { D1DeliveryRepository } from "../infrastructure/db/delivery-repository";
 import { D1EffectRepository } from "../infrastructure/db/effect-repository";
 import { D1EventRepository } from "../infrastructure/db/event-repository";
 import { D1IdentityRepository } from "../infrastructure/db/identity-repository";
 import { D1InboundRepository } from "../infrastructure/db/inbound-repository";
+import { D1NotificationDeliveryRepository } from "../infrastructure/db/notification-delivery-repository";
 import { D1PreferenceRepository } from "../infrastructure/db/preference-repository";
+import { D1ReminderRepository } from "../infrastructure/db/reminder-repository";
 import { SelfScopeAuthorizer } from "../security/authorization";
 import { parseConfig } from "../shared/config";
 import {
@@ -43,6 +46,7 @@ export async function handleInboundQueue(
     ids: overrides.ids ?? cryptoIdGenerator,
     inbox,
     preferences: new D1PreferenceRepository(env.DB),
+    reminders: new D1ReminderRepository(env.DB),
     reply:
       overrides.reply ??
       new GrammyTelegramReplyAdapter(
@@ -53,7 +57,7 @@ export async function handleInboundQueue(
   };
 
   for (const message of batch.messages) {
-    const parsed = inboundMessageEnvelopeSchema.safeParse(message.body);
+    const parsed = queueEnvelopeSchema.safeParse(message.body);
     if (!parsed.success) {
       logEvent("warn", "queue.invalid_envelope", {
         errorCode: "INVALID_INPUT",
@@ -64,6 +68,47 @@ export async function handleInboundQueue(
 
     const envelope = parsed.data;
     const startedAt = clock.now().getTime();
+    if (envelope.type === "SEND_NOTIFICATION") {
+      try {
+        const result = await sendReminderNotification(envelope, {
+          clock,
+          identities: dependencies.identities,
+          notificationDeliveries: new D1NotificationDeliveryRepository(env.DB),
+          preferences: dependencies.preferences,
+          reminders: dependencies.reminders,
+          reply: dependencies.reply,
+          maxDeliveryAttempts: config.REMINDER_MAX_DELIVERY_ATTEMPTS,
+        });
+        logEvent("info", `reminder.${result}`, {
+          correlationId: envelope.correlationId,
+          jobId: envelope.jobId,
+          reminderId: envelope.payload.reminderId,
+          state: result,
+          attempt: message.attempts,
+          latencyMs: clock.now().getTime() - startedAt,
+        });
+        message.ack();
+      } catch (error) {
+        const retryable =
+          !(error instanceof AppError) || error.code === "RETRYABLE_EXTERNAL";
+        logEvent(retryable ? "warn" : "error", "reminder.delivery_failed", {
+          correlationId: envelope.correlationId,
+          jobId: envelope.jobId,
+          reminderId: envelope.payload.reminderId,
+          errorCode: errorCodeOf(error),
+          attempt: message.attempts,
+          latencyMs: clock.now().getTime() - startedAt,
+        });
+        if (retryable) {
+          message.retry({
+            delaySeconds: config.REMINDER_RETRY_DELAY_SECONDS,
+          });
+        } else {
+          message.ack();
+        }
+      }
+      continue;
+    }
     try {
       const result = await processInboundMessage(envelope, dependencies);
       logEvent("info", `queue.${result.outcome}`, {

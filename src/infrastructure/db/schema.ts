@@ -40,6 +40,8 @@ export const userPreferences = sqliteTable(
     timeZone: text("time_zone").notNull(),
     hourFormat: text("hour_format", { enum: ["12h", "24h"] }).notNull(),
     defaultCurrency: text("default_currency").notNull(),
+    quietHoursStartMinute: integer("quiet_hours_start_minute"),
+    quietHoursEndMinute: integer("quiet_hours_end_minute"),
     version: integer("version").notNull(),
     lastMutationKey: text("last_mutation_key").notNull(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
@@ -55,6 +57,13 @@ export const userPreferences = sqliteTable(
     check(
       "user_preferences_currency_ck",
       sql`${table.defaultCurrency} GLOB '[A-Z][A-Z][A-Z]'`,
+    ),
+    check(
+      "user_preferences_quiet_hours_ck",
+      sql`(${table.quietHoursStartMinute} IS NULL AND ${table.quietHoursEndMinute} IS NULL)
+          OR (${table.quietHoursStartMinute} BETWEEN 0 AND 1439
+              AND ${table.quietHoursEndMinute} BETWEEN 0 AND 1439
+              AND ${table.quietHoursStartMinute} <> ${table.quietHoursEndMinute})`,
     ),
   ],
 );
@@ -182,6 +191,138 @@ export const eventUndoActions = sqliteTable(
     index("event_undo_scope_expiry_idx").on(table.scopeUserId, table.expiresAt),
     index("event_undo_purge_idx").on(table.expiresAt, table.consumedAt),
     check("event_undo_version_ck", sql`${table.expectedVersion} > 0`),
+  ],
+);
+
+export const reminders = sqliteTable(
+  "reminders",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    text: text("text").notNull(),
+    requestedAtUtc: integer("requested_at_utc", {
+      mode: "timestamp_ms",
+    }).notNull(),
+    dueAtUtc: integer("due_at_utc", { mode: "timestamp_ms" }).notNull(),
+    originalTimeZone: text("original_time_zone").notNull(),
+    status: text("status", {
+      enum: [
+        "pending",
+        "claimed",
+        "sending",
+        "sent",
+        "cancelled",
+        "permanent_failure",
+        "ambiguous",
+      ],
+    }).notNull(),
+    version: integer("version").notNull(),
+    lastMutationKey: text("last_mutation_key").notNull(),
+    claimJobId: text("claim_job_id"),
+    claimCorrelationId: text("claim_correlation_id"),
+    claimedAt: integer("claimed_at", { mode: "timestamp_ms" }),
+    claimExpiresAt: integer("claim_expires_at", { mode: "timestamp_ms" }),
+    enqueuedAt: integer("enqueued_at", { mode: "timestamp_ms" }),
+    deliveryPreferenceVersion: integer("delivery_preference_version"),
+    deliveryQuietStartMinute: integer("delivery_quiet_start_minute"),
+    deliveryQuietEndMinute: integer("delivery_quiet_end_minute"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    lastErrorCode: text("last_error_code"),
+    sentAt: integer("sent_at", { mode: "timestamp_ms" }),
+    cancelledAt: integer("cancelled_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("reminders_scope_id_uq").on(table.userId, table.id),
+    uniqueIndex("reminders_claim_job_uq").on(table.claimJobId),
+    index("reminders_due_claim_idx").on(table.status, table.dueAtUtc),
+    index("reminders_scope_list_idx").on(
+      table.userId,
+      table.status,
+      table.dueAtUtc,
+    ),
+    index("reminders_recovery_idx").on(
+      table.status,
+      table.enqueuedAt,
+      table.claimExpiresAt,
+    ),
+    check("reminders_text_ck", sql`length(${table.text}) BETWEEN 1 AND 200`),
+    check(
+      "reminders_status_ck",
+      sql`${table.status} IN ('pending', 'claimed', 'sending', 'sent', 'cancelled', 'permanent_failure', 'ambiguous')`,
+    ),
+    check("reminders_version_ck", sql`${table.version} > 0`),
+    check("reminders_attempt_ck", sql`${table.attemptCount} >= 0`),
+  ],
+);
+
+export const reminderUndoActions = sqliteTable(
+  "reminder_undo_actions",
+  {
+    token: text("token").primaryKey(),
+    scopeUserId: text("scope_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    reminderId: text("reminder_id").notNull(),
+    sourceIdempotencyKey: text("source_idempotency_key").notNull(),
+    beforeJson: text("before_json"),
+    expectedVersion: integer("expected_version").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    consumedAt: integer("consumed_at", { mode: "timestamp_ms" }),
+    consumedByIdempotencyKey: text("consumed_by_idempotency_key"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("reminder_undo_source_uq").on(
+      table.scopeUserId,
+      table.sourceIdempotencyKey,
+    ),
+    index("reminder_undo_scope_expiry_idx").on(
+      table.scopeUserId,
+      table.expiresAt,
+    ),
+    check("reminder_undo_version_ck", sql`${table.expectedVersion} > 0`),
+  ],
+);
+
+export const notificationDeliveries = sqliteTable(
+  "notification_deliveries",
+  {
+    dedupeKey: text("dedupe_key").primaryKey(),
+    scopeUserId: text("scope_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    reminderId: text("reminder_id").notNull(),
+    jobId: text("job_id").notNull(),
+    status: text("status", {
+      enum: ["pending", "sending", "sent", "ambiguous", "permanent_failure"],
+    }).notNull(),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    remoteMessageId: text("remote_message_id"),
+    lastErrorCode: text("last_error_code"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("notification_deliveries_reminder_uq").on(
+      table.scopeUserId,
+      table.reminderId,
+    ),
+    index("notification_deliveries_scope_idx").on(
+      table.scopeUserId,
+      table.createdAt,
+    ),
+    check(
+      "notification_deliveries_status_ck",
+      sql`${table.status} IN ('pending', 'sending', 'sent', 'ambiguous', 'permanent_failure')`,
+    ),
+    check(
+      "notification_deliveries_attempt_ck",
+      sql`${table.attemptCount} >= 0`,
+    ),
   ],
 );
 
