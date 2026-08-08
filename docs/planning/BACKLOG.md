@@ -56,20 +56,20 @@ end-to-end della Phase B; non costituiscono una milestone Foundation separata.
 La milestone esecutiva è definita in `CURRENT_MILESTONE.md`; non preparare
 scaffold B2 durante questa slice.
 
-- [ ] **B1.1 prossimo incremento:** fissare scenari/sintassi e consegnare
+- [x] **B1.1:** fissare scenari/sintassi e consegnare
       create/read/update/Undo delle preferenze temporali user-scoped;
-- [ ] provare migration/recovery, timezone validation, duplicate, stale Undo e
+- [x] provare migration/recovery, timezone validation, duplicate, stale Undo e
       isolamento B1.1 prima di iniziare eventi;
-- [ ] **B1.2:** modellare e consegnare eventi `date-only` e instant con scope utente;
-- [ ] B1.1 valida timezone IANA con API standard (`Intl.DateTimeFormat`), senza
+- [ ] **B1.2 prossimo incremento:** modellare e consegnare eventi `date-only` e instant con scope utente;
+- [x] B1.1 valida timezone IANA con API standard (`Intl.DateTimeFormat`), senza
       richiedere Temporal o un polyfill;
 - [ ] B1.2 ripete il probe Workers e sceglie/fissa un solo polyfill Temporal
       just-in-time soltanto se il runtime continua a non esporre `Temporal`;
-- [ ] aggiungere migration, indici e query tenant-scoped;
+- [x] aggiungere migration, indici e query tenant-scoped per le preferenze;
 - [ ] implementare create/read/update/cancel e Undo idempotenti e auditabili;
 - [ ] implementare `/oggi` e `/domani` nella timezone IANA dell'utente;
 - [ ] coprire DST, mezzanotte, duplicate, stale Undo e cross-tenant con test;
-- [ ] documentare retention, purge, rollout e migration recovery;
+- [x] documentare retention, purge, rollout e migration recovery B1.1;
 - [ ] chiudere tutti i gate applicabili prima di attivare B2.
 
 ## Later phases

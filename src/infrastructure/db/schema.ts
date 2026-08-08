@@ -30,6 +30,67 @@ export const telegramIdentities = sqliteTable(
   (table) => [uniqueIndex("telegram_identities_user_id_uq").on(table.userId)],
 );
 
+export const userPreferences = sqliteTable(
+  "user_preferences",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    language: text("language", { enum: ["it"] }).notNull(),
+    timeZone: text("time_zone").notNull(),
+    hourFormat: text("hour_format", { enum: ["12h", "24h"] }).notNull(),
+    defaultCurrency: text("default_currency").notNull(),
+    version: integer("version").notNull(),
+    lastMutationKey: text("last_mutation_key").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    check("user_preferences_language_ck", sql`${table.language} IN ('it')`),
+    check(
+      "user_preferences_hour_format_ck",
+      sql`${table.hourFormat} IN ('12h', '24h')`,
+    ),
+    check("user_preferences_version_ck", sql`${table.version} > 0`),
+    check(
+      "user_preferences_currency_ck",
+      sql`${table.defaultCurrency} GLOB '[A-Z][A-Z][A-Z]'`,
+    ),
+  ],
+);
+
+export const preferenceUndoActions = sqliteTable(
+  "preference_undo_actions",
+  {
+    token: text("token").primaryKey(),
+    scopeUserId: text("scope_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sourceIdempotencyKey: text("source_idempotency_key").notNull(),
+    beforeJson: text("before_json"),
+    expectedVersion: integer("expected_version").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    consumedAt: integer("consumed_at", { mode: "timestamp_ms" }),
+    consumedByIdempotencyKey: text("consumed_by_idempotency_key"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("preference_undo_source_uq").on(
+      table.scopeUserId,
+      table.sourceIdempotencyKey,
+    ),
+    index("preference_undo_scope_expiry_idx").on(
+      table.scopeUserId,
+      table.expiresAt,
+    ),
+    index("preference_undo_purge_idx").on(table.expiresAt, table.consumedAt),
+    check(
+      "preference_undo_expected_version_ck",
+      sql`${table.expectedVersion} > 0`,
+    ),
+  ],
+);
+
 export const inboundUpdates = sqliteTable(
   "inbound_updates",
   {

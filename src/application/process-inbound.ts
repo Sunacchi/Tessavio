@@ -3,9 +3,12 @@ import type {
   EffectRepository,
   IdentityRepository,
   InboundRepository,
+  PreferenceRepository,
   TelegramReplyPort,
 } from "./ports";
 import type { InboundMessageEnvelope } from "./queue-envelope";
+import { parseDeterministicCommand } from "./deterministic-command";
+import { managePreferences } from "./manage-preferences";
 import { startOnboarding } from "../domains/onboarding/start";
 import type { Authorizer } from "../security/authorization";
 import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
@@ -19,6 +22,7 @@ export interface ProcessInboundDependencies {
   readonly identities: IdentityRepository;
   readonly ids: IdGenerator;
   readonly inbox: InboundRepository;
+  readonly preferences: PreferenceRepository;
   readonly reply: TelegramReplyPort;
   readonly leaseSeconds: number;
 }
@@ -51,8 +55,18 @@ export async function processInboundMessage(
     message === undefined ||
     message.sender.isBot ||
     message.chat.type !== "private" ||
-    message.text?.trim().split(/\s+/u)[0]?.toLowerCase() !== "/start"
+    message.text === undefined
   ) {
+    await dependencies.inbox.complete(
+      envelope.jobId,
+      dependencies.clock.now(),
+      false,
+    );
+    return { outcome: "unsupported" };
+  }
+
+  const command = parseDeterministicCommand(message.text);
+  if (command.kind === "unsupported") {
     await dependencies.inbox.complete(
       envelope.jobId,
       dependencies.clock.now(),
@@ -69,25 +83,39 @@ export async function processInboundMessage(
     dependencies.clock.now(),
   );
   const scope: UserScope = { userId: identity.userId };
-  await dependencies.authorizer.authorize({
-    actorUserId: identity.userId,
-    scope,
-    action: "onboarding:start",
-  });
+  let replyText: string;
+  if (command.kind === "start") {
+    await dependencies.authorizer.authorize({
+      actorUserId: identity.userId,
+      scope,
+      action: "onboarding:start",
+    });
 
-  const effectKey = `onboarding-start:${envelope.jobId}`;
-  await dependencies.effects.claim(
-    scope,
-    effectKey,
-    envelope.jobId,
-    dependencies.clock.now(),
-  );
-  const result = startOnboarding();
-  await dependencies.effects.complete(
-    scope,
-    effectKey,
-    dependencies.clock.now(),
-  );
+    const effectKey = `onboarding-start:${envelope.jobId}`;
+    await dependencies.effects.claim(
+      scope,
+      effectKey,
+      envelope.jobId,
+      dependencies.clock.now(),
+    );
+    replyText = startOnboarding().text;
+    await dependencies.effects.complete(
+      scope,
+      effectKey,
+      dependencies.clock.now(),
+    );
+  } else {
+    replyText = await managePreferences(
+      {
+        actorUserId: identity.userId,
+        scope,
+        correlationId: envelope.correlationId,
+        idempotencyKey: envelope.idempotencyKey,
+        command,
+      },
+      dependencies,
+    );
+  }
 
   const deliveryKey = `telegram-reply:${envelope.jobId}`;
   const currentDelivery = await dependencies.deliveries.prepare(
@@ -127,7 +155,7 @@ export async function processInboundMessage(
   }
 
   try {
-    const sent = await dependencies.reply.send(message.chat.id, result.text);
+    const sent = await dependencies.reply.send(message.chat.id, replyText);
     await dependencies.deliveries.markSent(
       scope,
       deliveryKey,

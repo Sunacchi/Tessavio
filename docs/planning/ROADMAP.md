@@ -28,7 +28,7 @@ deterministico con test. L'infrastruttura reminder è stata assorbita in B2.
 
 ## Phase B — Core deterministico
 
-Stato: **attiva con B1; prossimo incremento B1.1**.
+Stato: **attiva con B1; B1.1 completata, prossimo incremento B1.2**.
 
 | Milestone                          | Outcome                                                                                             | Criteri di uscita essenziali                                                                                             |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |

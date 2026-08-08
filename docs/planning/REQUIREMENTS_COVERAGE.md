@@ -12,10 +12,12 @@ implementazione completata.
 - **Pianificata**: non implementata, ma già collocata concretamente prima dell'audit.
 - **Mancante**: né implementata né collocata concretamente prima dell'audit.
 
-Evidenza di baseline: A1 implementa solo `/start`, normalizzazione testo minima,
+Evidenza di baseline: A1 implementava solo `/start`, normalizzazione testo minima,
 inbox durevole, dedupe, Queue, identità interna, authorization self-scope,
 audit/effect/delivery ledger e test foundation. Lo schema D1 non contiene ancora
-eventi, reminder, task, finanze, documenti, persone o spazi.
+eventi, reminder, task, finanze, documenti, persone o spazi. Dopo l'audit, B1.1
+ha aggiunto preferenze temporali private, comandi deterministici, audit e Undo
+versionato; gli altri domini restano nello stato indicato nelle tabelle.
 
 ## 1. Tessavio Inbox
 
@@ -236,7 +238,8 @@ eventi, reminder, task, finanze, documenti, persone o spazi.
 
 ## Sintesi operativa
 
-- **Implementato:** soltanto la foundation A1 descritta in apertura.
+- **Implementato:** foundation A1 e preferenze temporali B1.1; agenda ed entità
+  successive restano non implementate.
 - **Già pianificato in modo significativo:** core B, AI C, voice/vision D,
   planner E, sharing F, Mini App, Google export e hardening.
 - **Parziale o assente prima dell'audit:** Inbox universale completa, entrate e

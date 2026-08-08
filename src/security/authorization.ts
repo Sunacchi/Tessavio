@@ -1,7 +1,11 @@
 import type { UserScope } from "../shared/contracts";
 import { AppError } from "../shared/errors";
 
-export type Action = "onboarding:start";
+export type Action =
+  | "onboarding:start"
+  | "preferences:read"
+  | "preferences:write"
+  | "preferences:undo";
 
 export interface AuthorizationRequest {
   readonly actorUserId: string;

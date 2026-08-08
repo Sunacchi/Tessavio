@@ -14,6 +14,8 @@
 | ActionProposal           | 30-90 giorni, da approvare prima di C     |
 | effect/delivery A1       | 30 giorni                                 |
 | audit identità A1        | minimo 90 giorni; approvazione produzione |
+| preferenze temporali B1  | fino a cancellazione utente               |
+| token Undo preferenze    | TTL 15 minuti; purge bounded user-scoped  |
 | dati core                | fino a cancellazione utente               |
 | metadata AI usage        | quanto necessario a budget e report       |
 | OAuth Google             | fino a revoca/disconnessione              |
@@ -31,6 +33,12 @@ confine. Rate bucket e lease scadono rispettivamente entro due finestre e 30
 secondi; user/identity restano fino al percorso di cancellazione account. La
 purge periodica dei record a 7/30/90 giorni è un gate pre-beta e non è ancora una
 promessa di deploy production.
+
+In B1.1 il profilo conserva soltanto lingua, timezone IANA, formato ora e valuta
+predefinita. I token Undo sono UUID opachi, legati all'utente e mai inseriti nei
+log; scadono dopo 15 minuti e la loro purge non elimina l'audit della mutation.
+Non è stato inventato alcun toggle privacy ulteriore: le preferenze di briefing,
+AI e condivisione entrano solo nelle rispettive slice autorizzate.
 
 ## Diritti e operazioni
 

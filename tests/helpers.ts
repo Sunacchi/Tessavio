@@ -40,6 +40,14 @@ export function telegramStartUpdate(
   updateId = 101,
   telegramUserId = 2001,
 ): object {
+  return telegramTextUpdate("/start", updateId, telegramUserId);
+}
+
+export function telegramTextUpdate(
+  text: string,
+  updateId = 101,
+  telegramUserId = 2001,
+): object {
   return {
     update_id: updateId,
     message: {
@@ -52,7 +60,7 @@ export function telegramStartUpdate(
         username: "never_persist_this",
       },
       chat: { id: telegramUserId, type: "private" },
-      text: "/start",
+      text,
     },
   };
 }

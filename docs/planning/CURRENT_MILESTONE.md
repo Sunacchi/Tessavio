@@ -16,7 +16,7 @@ La sequenza di prodotto e i gate trasversali sono nel
 [master action plan](MASTER_ACTION_PLAN.md#phase-b--core-product-interamente-deterministica).
 In caso di conflitto questo file definisce lo scope della milestone attiva.
 
-## Prossimo singolo incremento verificabile — B1.1 Preferenze temporali
+## Incremento completato — B1.1 Preferenze temporali
 
 Prima di implementare eventi, consegnare il profilo preferenze minimo tramite
 comandi deterministici: lingua supportata, timezone IANA, formato ora, valuta
@@ -24,11 +24,20 @@ predefinita e lettura delle impostazioni. La write deve essere user-scoped,
 autorizzata, idempotente e auditata; una modifica reversibile produce Undo
 single-use con TTL/version check.
 
-Evidenza richiesta: migration fresh/upgrade e recovery, validazione timezone
+Evidenza consegnata: migration fresh/upgrade e recovery, validazione timezone
 senza offset fisso, create/read/update/Undo, duplicate update e test negativi in
 cui l'utente A non legge o modifica le preferenze di B. Solo dopo questi gate la
 stessa milestone passa a B1.2 eventi one-off. Nessun requisito delle fasi C-O
-autorizza scaffold durante B1.1.
+autorizza scaffold durante B1.1. Il contratto e la policy sono registrati in
+[ADR-0012](../decisions/0012-b1-preferences-and-undo.md); i comandi e il recovery
+sono nel [runbook B1.1](../runbooks/B1_PREFERENCES_RECOVERY.md).
+
+## Prossimo singolo incremento verificabile — B1.2 Eventi one-off
+
+B1.2 deve definire prima il contratto `date-only` rispetto a instant UTC con
+timezone originale, poi consegnare create/read/update/cancel, Undo e viste
+`/oggi` e `/domani`. Nessun codice evento, Temporal polyfill o migration B1.2 è
+stato anticipato da B1.1.
 
 ## Modello Codex suggerito
 

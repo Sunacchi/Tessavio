@@ -11,6 +11,7 @@ import { D1DeliveryRepository } from "../../src/infrastructure/db/delivery-repos
 import { D1EffectRepository } from "../../src/infrastructure/db/effect-repository";
 import { D1IdentityRepository } from "../../src/infrastructure/db/identity-repository";
 import { D1InboundRepository } from "../../src/infrastructure/db/inbound-repository";
+import { D1PreferenceRepository } from "../../src/infrastructure/db/preference-repository";
 import { SelfScopeAuthorizer } from "../../src/security/authorization";
 import { AppError } from "../../src/shared/errors";
 import {
@@ -102,6 +103,7 @@ function processDependencies(
     identities: new D1IdentityRepository(env.DB),
     ids,
     inbox: new D1InboundRepository(env.DB),
+    preferences: new D1PreferenceRepository(env.DB),
     reply,
     leaseSeconds: 60,
   };

@@ -15,6 +15,8 @@ describe("foundation migration", () => {
         "effects",
         "deliveries",
         "audit_log",
+        "user_preferences",
+        "preference_undo_actions",
       ]),
     );
 
@@ -26,6 +28,33 @@ describe("foundation migration", () => {
     expect(
       plan.results.some((row) =>
         row.detail.includes("inbound_updates_recovery_idx"),
+      ),
+    ).toBe(true);
+
+    const preferencePlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN
+       SELECT language, time_zone, hour_format, default_currency, version
+       FROM user_preferences WHERE user_id = ?`,
+    )
+      .bind("user-a")
+      .all<{ detail: string }>();
+    expect(
+      preferencePlan.results.some((row) =>
+        row.detail.includes("sqlite_autoindex_user_preferences_1"),
+      ),
+    ).toBe(true);
+
+    const purgePlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN
+       SELECT token FROM preference_undo_actions
+       WHERE scope_user_id = ? AND expires_at <= ?
+       ORDER BY expires_at LIMIT 100`,
+    )
+      .bind("user-a", Date.now())
+      .all<{ detail: string }>();
+    expect(
+      purgePlan.results.some((row) =>
+        row.detail.includes("preference_undo_scope_expiry_idx"),
       ),
     ).toBe(true);
   });

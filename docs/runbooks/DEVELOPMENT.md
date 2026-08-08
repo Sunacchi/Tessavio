@@ -37,7 +37,7 @@ Per bootstrap e recovery vedere [D1_PROVISIONING.md](D1_PROVISIONING.md) e
 [PRE_PILOT_OPERATIONS.md](PRE_PILOT_OPERATIONS.md) e la matrice di
 [residenza/subprocessori](../privacy/PROCESSOR_AND_RESIDENCY_MATRIX.md).
 
-## Comandi A1
+## Comandi di verifica
 
 ```powershell
 npm run format:check

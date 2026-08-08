@@ -13,6 +13,7 @@ Gli ADR registrano decisioni difficili da ricostruire dal codice. Stato ammesso:
 - [ADR-0009 — Open Banking escluso dal prodotto](0009-no-open-banking.md)
 - [ADR-0010 — Tessavio Inbox e confini dei domini personali](0010-inbox-and-domain-boundaries.md)
 - [ADR-0011 — Google Calendar a livelli di affidabilità](0011-google-calendar-sync-levels.md)
+- [ADR-0012 — Preferenze B1.1 e Undo versionato](0012-b1-preferences-and-undo.md)
 
 ## Template
 

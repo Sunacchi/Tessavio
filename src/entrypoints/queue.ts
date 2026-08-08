@@ -5,6 +5,7 @@ import { D1DeliveryRepository } from "../infrastructure/db/delivery-repository";
 import { D1EffectRepository } from "../infrastructure/db/effect-repository";
 import { D1IdentityRepository } from "../infrastructure/db/identity-repository";
 import { D1InboundRepository } from "../infrastructure/db/inbound-repository";
+import { D1PreferenceRepository } from "../infrastructure/db/preference-repository";
 import { SelfScopeAuthorizer } from "../security/authorization";
 import { parseConfig } from "../shared/config";
 import {
@@ -39,6 +40,7 @@ export async function handleInboundQueue(
     identities: new D1IdentityRepository(env.DB),
     ids: overrides.ids ?? cryptoIdGenerator,
     inbox,
+    preferences: new D1PreferenceRepository(env.DB),
     reply:
       overrides.reply ??
       new GrammyTelegramReplyAdapter(

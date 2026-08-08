@@ -61,3 +61,6 @@ npm run test:integration
 La rimozione riguarda esclusivamente lo stato D1/Queue locale ricreabile. Per
 remote non eseguire rollback SQL manuali: fermare il deploy, conservare il backup
 D1 e applicare una nuova migration forward correttiva.
+
+Per la migration additiva delle preferenze e la relativa verifica upgrade,
+vedere il [runbook B1.1](B1_PREFERENCES_RECOVERY.md).
