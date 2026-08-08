@@ -1,95 +1,203 @@
-# Tessavio — assistente personale Telegram
+# Tessavio
 
-Assistente personale conversazionale, multiutente e BYOK, progettato per Telegram e Cloudflare Workers.
+[![CI](https://github.com/Sunacchi/Tessavio/actions/workflows/ci.yml/badge.svg)](https://github.com/Sunacchi/Tessavio/actions/workflows/ci.yml)
 
-Il principio guida è semplice: **il prodotto deve funzionare anche quando l'AI non funziona**. L'AI interpreta input non strutturati e formula proposte; validazione, autorizzazione, pianificazione, persistenza e invio dei reminder restano deterministici.
+Assistente personale multiutente per Telegram, costruito su Cloudflare Workers.
+Tessavio trasforma comandi e, in futuro, input naturali in operazioni
+deterministiche, autorizzate e verificabili su agenda, reminder, task, lavoro e
+finanze personali.
 
-## Stato
+> [!IMPORTANT]
+> Tessavio è in sviluppo iniziale. Foundation e milestone B1-B5 sono completate
+> e validate localmente; B6 è la prossima milestone prevista ma non è attiva.
+> Non esiste ancora un deploy Cloudflare pubblico e il progetto non è pronto per
+> dati o utenti di produzione.
 
-La Phase A — Foundation è completata e revalidata localmente: la review A1 è
-chiusa con `npm run validate` verde e `npm audit --omit=dev` senza
-vulnerabilità. Nessuna risorsa Cloudflare remota è stata creata e nessun deploy è
-stato eseguito. **B1 — Preferenze + agenda one-off**, **B2 — Reminder
-end-to-end**, **B3 — Task**, **B4 — Lavoro** e **B5 — Finanze base** sono completate localmente:
-preferenze temporali/quiet hours, eventi one-off, reminder con
-Cron/Queue/delivery, task privati, turni/consuntivi/pause e movimenti economici
-manuali con totali esatti sono implementati senza AI. B6 è prevista ma non attivata. Lo stato e lo scope
-sono nella
-[milestone corrente](docs/planning/CURRENT_MILESTONE.md).
+## Perché Tessavio
+
+- **Funziona senza AI:** il core deterministico resta utilizzabile quando un
+  provider non è configurato o disponibile.
+- **D1 è la fonte della verità:** l'AI potrà soltanto proporre azioni strutturate;
+  validator, policy e servizi di dominio decideranno se applicarle.
+- **Multi-tenant dal primo giorno:** ogni accesso ai dati usa uno scope utente o
+  spazio esplicito.
+- **Retry sicuri:** write ed effetti esterni sono idempotenti, auditabili e,
+  quando possibile, annullabili.
+- **Tempo e denaro corretti:** timezone IANA e date civili esplicite; importi in
+  unità minori intere, mai `float`.
+
+La [visione di prodotto](docs/PROJECT.md) descrive lo scope completo; la
+[milestone corrente](docs/planning/CURRENT_MILESTONE.md) è l'unico perimetro
+autorizzato per l'implementazione.
+
+## Funzionalità disponibili
+
+| Area       | Disponibile oggi                                                                            |
+| ---------- | ------------------------------------------------------------------------------------------- |
+| Fondazione | Webhook Telegram, Queue, identità interna, rate limit, idempotenza, audit e logging redatto |
+| Preferenze | Lingua, timezone IANA, formato ora, valuta, privacy e quiet hours                           |
+| Agenda     | Eventi privati one-off, date-only o temporali, con viste `/oggi` e `/domani`                |
+| Reminder   | Creazione, claim atomico via Cron, Queue, retry, deduplica e delivery Telegram              |
+| Task       | Priorità, scadenze, completamento, riapertura e Undo                                        |
+| Lavoro     | Regole, turni pianificati, consuntivi, pause e report per periodo                           |
+| Finanze    | Spese ed entrate manuali, correzione, soft delete, Undo e totali esatti per valuta          |
+
+Non sono ancora implementati AI/BYOK, input multimediali, liste e ricorrenze,
+Google Calendar, Mini App o deploy di produzione. Open Banking e pagamenti sono
+esclusi dal prodotto.
+
+## Architettura
+
+```mermaid
+flowchart LR
+    TG["Telegram"] --> WH["Webhook verificato"]
+    WH --> Q["Cloudflare Queue"]
+    Q --> APP["Application layer"]
+    APP --> DOM["Domini deterministici"]
+    DOM --> D1["D1 — fonte della verità"]
+    CRON["Cron"] --> Q
+    AI["AI opzionale — futura"] -. "ActionProposal[]" .-> APP
+    DOM --> OUT["Audit, Undo e delivery ledger"]
+```
+
+Il webhook esegue soltanto verifica, validazione, deduplica ed enqueue. Ogni
+write attraversa authorization, validazione, policy e servizio di dominio.
+L'[architettura completa](docs/architecture/ARCHITECTURE.md) documenta confini,
+flussi e invarianti.
 
 ## Avvio locale
 
-Prerequisiti: Node.js 24.13.1 e npm 11.8.0.
+### Prerequisiti
+
+- Git;
+- Node.js `24.13.1`;
+- npm `11.8.0`;
+- un bot Telegram di sviluppo con token e webhook secret dedicati.
+
+Le versioni npm sono fissate in `package.json` e `package-lock.json`.
+
+### Installazione
 
 ```powershell
+git clone https://github.com/Sunacchi/Tessavio.git
+Set-Location Tessavio
 npm ci
 Copy-Item .dev.vars.example .dev.vars
+```
+
+Inserire in `.dev.vars` soltanto credenziali di sviluppo:
+
+```dotenv
+TELEGRAM_WEBHOOK_SECRET=replace-with-a-random-development-secret
+TELEGRAM_BOT_TOKEN=replace-with-a-development-bot-token
+```
+
+Non committare `.dev.vars` e non usare segreti di produzione in locale.
+
+Applicare le migration al database D1 locale e avviare il Worker:
+
+```powershell
 npx wrangler d1 migrations apply DB --local --persist-to .wrangler/state
 npm run dev
 ```
 
-Prima di un handoff eseguire `npm run validate`. I valori reali di bot token e
-webhook secret restano solo in `.dev.vars` o nei secret Cloudflare.
+Il Worker locale conserva lo stato in `.wrangler/state`. Per un flusso Telegram
+completo serve inoltre un endpoint HTTPS raggiungibile dal webhook. Consultare il
+[runbook di sviluppo](docs/runbooks/DEVELOPMENT.md) e quello di
+[provisioning D1](docs/runbooks/D1_PROVISIONING.md) prima di configurare ambienti
+remoti.
 
-## Mappa della documentazione
+## Comandi Telegram
 
-- [AGENTS.md](AGENTS.md): istruzioni vincolanti per Codex e per gli agenti delegati.
-- [Visione e requisiti](docs/PROJECT.md): obiettivi, scope e invarianti di prodotto.
-- [Architettura](docs/architecture/ARCHITECTURE.md): componenti, confini e flussi.
-- [Sicurezza e privacy](SECURITY.md): baseline obbligatoria.
-- [Residenza e subprocessori](docs/privacy/PROCESSOR_AND_RESIDENCY_MATRIX.md):
-  data-flow e gate DPIA pre-pilot.
-- [Roadmap](docs/planning/ROADMAP.md): sequenza delle fasi A-O.
-- [Matrice requisiti](docs/planning/REQUIREMENTS_COVERAGE.md): stato reale e
-  milestone di Inbox, finanze, briefing, documenti, persone, casa, viaggi,
-  benessere e Google Calendar.
-- [Master action plan](docs/planning/MASTER_ACTION_PLAN.md): checklist operativa,
-  flusso utente, gate e routing del lavoro fino al prodotto esteso.
-- [Milestone corrente](docs/planning/CURRENT_MILESTONE.md): perimetro operativo attuale.
-- [Definition of Done](docs/planning/DEFINITION_OF_DONE.md): gate per dichiarare completo il lavoro.
-- [Strategia di test](docs/TESTING.md): livelli, fixture e prove per dominio.
-- [Gate operativi pre-pilot](docs/runbooks/PRE_PILOT_OPERATIONS.md): capacità
-  D1, Queue lag, DLQ, alert e trigger di revisit.
-- [Manuale agenti](docs/agents/README.md): ruoli, delega e ownership.
-- [Decisioni](docs/decisions/README.md): ADR accettati e decisioni differite.
+La superficie deterministica attuale comprende:
 
-## Stack deciso
+| Comando              | Scopo                                       |
+| -------------------- | ------------------------------------------- |
+| `/start`             | Onboarding e identificazione utente         |
+| `/impostazioni`      | Lettura e modifica delle preferenze         |
+| `/evento`            | Gestione degli eventi one-off               |
+| `/oggi`, `/domani`   | Agenda ed elementi in scadenza              |
+| `/promemoria`        | Gestione dei reminder                       |
+| `/task`              | Gestione delle task                         |
+| `/lavoro`            | Turni, consuntivi, pause e report           |
+| `/finanze`, `/spese` | Movimenti e totali per valuta               |
+| `/annulla`           | Undo single-use delle operazioni supportate |
 
-- TypeScript strict su Cloudflare Workers.
-- Telegram tramite grammY, salvo evidenza contraria in uno spike limitato.
-- Hono solo se riduce davvero il routing senza appesantire il Worker.
-- Cloudflare D1 in giurisdizione EU, con Drizzle per schema/query normali e SQL
-  preparato per hot path motivati; la giurisdizione D1 non regionalizza Worker,
-  Queue, Cron, Telegram, subrequest o provider AI.
-- Zod e JSON Schema strict ai confini runtime.
-- B1.1 valida timezone IANA con `Intl.DateTimeFormat`; il probe Workers B1.2 ha
-  confermato l'assenza del global Temporal e ha fissato un solo polyfill,
-  `@js-temporal/polyfill@0.5.1`.
-- Vitest; fast-check per invarianti temporali, monetari e di pianificazione.
+I contratti esatti sono versionati negli
+[ADR](docs/decisions/README.md) e nei [runbook](docs/README.md), evitando che il
+README diventi una seconda specifica destinata a divergere.
 
-Comandi reminder B2: `/promemoria crea YYYY-MM-DDTHH:mm | Testo`,
-`/promemoria leggi <id>`, `/promemoria lista`, `/promemoria annulla <id>` e
-`/impostazioni quiete HH:mm HH:mm`.
+## Sviluppo e verifica
 
-Comandi task B3: `/task crea <nessuna|YYYY-MM-DD|YYYY-MM-DDTHH:mm> |
-<bassa|media|alta> | Titolo`, `/task leggi <id>`, `/task lista`,
-`/task completa <id>` e `/task riapri <id>`. Le viste `/oggi` e `/domani`
-includono le task aperte in scadenza.
+Il gate completo usato anche dalla CI è:
 
-Comandi finanze B5: `/finanze crea <spesa|entrata> <importo-minore> <valuta>
-<YYYY-MM-DD> | Categoria | Esercente-o-- | Metodo-o-- | Note-o--`,
-`/finanze leggi <id>`, `/finanze lista <inizio> <fine>`, `/finanze correggi …`,
-`/finanze elimina <id> <versione>` e `/finanze totali <inizio> <fine>`.
-`/spese` è alias di `/finanze`; importi e totali restano sempre in unità minori.
+```powershell
+npm run validate
+```
 
-Le versioni A1 sono esatte in `package.json` e `package-lock.json`; le decisioni
-sono registrate in ADR-0008.
+Comprende formattazione, lint, verifica dei tipi Cloudflare, typecheck, controllo
+dello schema Drizzle, test e build Worker dry-run.
 
-## Scope durevole
+| Comando                    | Verifica                                |
+| -------------------------- | --------------------------------------- |
+| `npm run format:check`     | Formattazione Prettier                  |
+| `npm run lint`             | Regole ESLint                           |
+| `npm run typecheck`        | TypeScript strict                       |
+| `npm run db:check`         | Coerenza schema/migration Drizzle       |
+| `npm run test:unit`        | Regole di dominio                       |
+| `npm run test:integration` | Flussi applicativi, Queue e migration   |
+| `npm run test:security`    | Authorization e isolamento cross-tenant |
+| `npm run build`            | Bundle Cloudflare Workers in dry-run    |
 
-Tessavio include nella roadmap corrente l'Inbox universale, finanze personali,
-briefing, documenti, persone, spazi/casa, planner, viaggi, routine/benessere e
-Google Calendar a livelli dall'export alla sincronizzazione bidirezionale. Si
-implementa una sola vertical slice alla volta. Open Banking e pagamenti
-automatici sono esclusi; le altre integrazioni esterne sono differite finché il
-dominio locale non è utile da solo.
+La [strategia di test](docs/TESTING.md) copre anche idempotenza, retry, casi DST,
+property test monetari e recovery.
+
+## Struttura del repository
+
+| Percorso             | Responsabilità                            |
+| -------------------- | ----------------------------------------- |
+| `src/entrypoints`    | Handler HTTP, Queue e Cron                |
+| `src/application`    | Use case, porte, routing e orchestrazione |
+| `src/domains`        | Regole pure e AI-independent              |
+| `src/infrastructure` | Repository D1 e adapter infrastrutturali  |
+| `src/security`       | Authorization e gestione dei segreti      |
+| `src/telegram`       | Contratti e adapter Telegram              |
+| `migrations`         | Migration D1 versionate                   |
+| `tests`              | Test unitari, integration e security      |
+| `docs`               | Specifiche, ADR, pianificazione e runbook |
+
+Per i vincoli tra layer vedere la
+[struttura architetturale](docs/architecture/REPOSITORY_STRUCTURE.md).
+
+## Documentazione
+
+- [Indice completo](docs/README.md)
+- [Visione e requisiti](docs/PROJECT.md)
+- [Architettura](docs/architecture/ARCHITECTURE.md)
+- [Roadmap](docs/planning/ROADMAP.md)
+- [Copertura dei requisiti](docs/planning/REQUIREMENTS_COVERAGE.md)
+- [Definition of Done](docs/planning/DEFINITION_OF_DONE.md)
+- [Decisioni architetturali](docs/decisions/README.md)
+- [Sicurezza](SECURITY.md)
+
+## Contribuire e chiedere supporto
+
+Prima di proporre modifiche leggere [AGENTS.md](AGENTS.md), la
+[milestone corrente](docs/planning/CURRENT_MILESTONE.md) e la
+[Definition of Done](docs/planning/DEFINITION_OF_DONE.md). Il progetto accetta
+solo lavoro coerente con la vertical slice attiva; niente scaffold speculativo
+per milestone future.
+
+Bug e proposte non sensibili possono essere discussi nelle
+[GitHub Issues](https://github.com/Sunacchi/Tessavio/issues). Le vulnerabilità non
+devono essere pubblicate in una issue: seguire la procedura descritta in
+[SECURITY.md](SECURITY.md).
+
+Il progetto è mantenuto da [Sunacchi](https://github.com/Sunacchi).
+
+## Licenza
+
+Non è ancora stata pubblicata una licenza. La visibilità pubblica del repository
+non concede automaticamente diritti di utilizzo, modifica o redistribuzione;
+non considerare Tessavio open source finché non verrà aggiunto un file
+`LICENSE`.
