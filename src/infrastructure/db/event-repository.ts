@@ -217,7 +217,16 @@ export class D1EventRepository implements EventRepository {
   async listForDay(
     scope: UserScope,
     window: EventDayWindow,
+    limit?: number,
   ): Promise<EventRecord[]> {
+    const suffix = limit === undefined ? "" : " LIMIT ?";
+    const bindings: (string | number)[] = [
+      scope.userId,
+      window.localDate,
+      window.endAtUtc.getTime(),
+      window.startAtUtc.getTime(),
+    ];
+    if (limit !== undefined) bindings.push(limit);
     const rows = await this.database
       .prepare(
         `SELECT id, event_kind, title, local_date, start_at_utc, end_at_utc,
@@ -229,14 +238,9 @@ export class D1EventRepository implements EventRepository {
            (event_kind = 'instant' AND start_at_utc < ? AND end_at_utc > ?)
          )
          ORDER BY CASE event_kind WHEN 'date_only' THEN 0 ELSE 1 END,
-                  start_at_utc, title, id`,
+                  start_at_utc, title, id${suffix}`,
       )
-      .bind(
-        scope.userId,
-        window.localDate,
-        window.endAtUtc.getTime(),
-        window.startAtUtc.getTime(),
-      )
+      .bind(...bindings)
       .all();
     return rows.results.map(fromStoredRow);
   }

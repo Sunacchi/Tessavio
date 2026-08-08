@@ -10,11 +10,11 @@ La Phase A — Foundation è completata e revalidata localmente: la review A1 è
 chiusa con `npm run validate` verde e `npm audit --omit=dev` senza
 vulnerabilità. Nessuna risorsa Cloudflare remota è stata creata e nessun deploy è
 stato eseguito. **B1 — Preferenze + agenda one-off**, **B2 — Reminder
-end-to-end** e **B3 — Task** sono completate localmente: preferenze
-temporali/quiet hours, eventi one-off, reminder con Cron/Queue/delivery e task
-private con priorità, scadenze e Undo sono implementati senza AI. B4 non è stato
-attivato. Lo stato
-e lo scope sono nella
+end-to-end**, **B3 — Task** e **B4 — Lavoro** sono completate localmente:
+preferenze temporali/quiet hours, eventi one-off, reminder con
+Cron/Queue/delivery, task privati e turni/consuntivi/pause con report verificabili
+sono implementati senza AI. B5 è prevista ma non attivata. Lo stato e lo scope
+sono nella
 [milestone corrente](docs/planning/CURRENT_MILESTONE.md).
 
 ## Avvio locale

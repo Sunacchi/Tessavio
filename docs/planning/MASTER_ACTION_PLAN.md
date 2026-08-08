@@ -464,7 +464,7 @@ Cron/Queue/delivery; review sicurezza e qualità dopo integrazione.
       leased claim, delivery ledger, retry/recovery, timezone/DST e infrastruttura A2.
 - [x] **B3 Task.** Inbox task, scadenze date-only o temporali, stato/priorità
       espliciti, completamento idempotente, riapertura e Undo.
-- [ ] **B4 Lavoro.** Turni pianificati separati dai consuntivi, pause e regole
+- [x] **B4 Lavoro.** Turni pianificati separati dai consuntivi, pause e regole
       data-driven; attraversamento mezzanotte e report verificabili.
 - [ ] **B5 Finanze base.** Spese/entrate, minor unit, valuta, data, categoria,
       esercente/note/metodo facoltativi, correzione/delete/Undo e totali senza `float`.

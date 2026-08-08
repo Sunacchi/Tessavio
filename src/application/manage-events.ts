@@ -5,8 +5,10 @@ import type {
   MutateEventResult,
   PreferenceRepository,
   TaskRepository,
+  WorkRepository,
 } from "./ports";
 import { renderTask } from "./manage-tasks";
+import { renderBoundedSections, renderPlannedShift } from "./manage-work";
 import {
   eventDayWindow,
   eventUndoTtlMs,
@@ -27,6 +29,7 @@ export interface ManageEventsDependencies {
   readonly ids: IdGenerator;
   readonly preferences: PreferenceRepository;
   readonly tasks?: TaskRepository;
+  readonly work?: WorkRepository;
 }
 
 export interface ManageEventsRequest {
@@ -51,6 +54,7 @@ const usage = [
 
 const missingPreferences =
   "Configura prima la timezone con /impostazioni imposta it Europe/Rome 24h EUR.";
+const dayViewLimit = 50;
 
 function validationMessage(issue: EventValidationIssue): string {
   switch (issue) {
@@ -190,36 +194,72 @@ export async function manageEvents(
     request.command.kind === "events.today" ||
     request.command.kind === "events.tomorrow"
   ) {
+    if (dependencies.work !== undefined) {
+      await dependencies.authorizer.authorize({
+        actorUserId: request.actorUserId,
+        scope: request.scope,
+        action: "work:read",
+      });
+    }
     const window = eventDayWindow(
       request.sentAtUnix,
       profile.timeZone,
       request.command.kind === "events.today" ? 0 : 1,
     );
-    const [events, tasks] = await Promise.all([
-      dependencies.events.listForDay(request.scope, window),
-      dependencies.tasks?.listForDay(request.scope, window) ??
+    const [eventRows, taskRows, workDay] = await Promise.all([
+      dependencies.events.listForDay(request.scope, window, dayViewLimit + 1),
+      dependencies.tasks?.listForDay(request.scope, window, dayViewLimit + 1) ??
         Promise.resolve([]),
+      dependencies.work?.listForDay(request.scope, {
+        startAtUtc: window.startAtUtc,
+        endAtUtc: window.endAtUtc,
+        timeZone: profile.timeZone,
+      }) ??
+        Promise.resolve({
+          plannedShifts: [],
+          workLogs: [],
+          breaks: [],
+          truncated: false,
+          plannedShiftsTruncated: false,
+        }),
     ]);
+    const events = eventRows.slice(0, dayViewLimit);
+    const tasks = taskRows.slice(0, dayViewLimit);
     const heading = request.command.kind === "events.today" ? "Oggi" : "Domani";
-    if (events.length === 0 && tasks.length === 0) {
-      return `${heading} (${window.localDate}): nessun evento o task in scadenza.`;
+    if (
+      events.length === 0 &&
+      tasks.length === 0 &&
+      workDay.plannedShifts.length === 0
+    ) {
+      return dependencies.work === undefined
+        ? `${heading} (${window.localDate}): nessun evento o task in scadenza.`
+        : `${heading} (${window.localDate}): nessun evento, task in scadenza o turno pianificato.`;
     }
-    const sections = [`${heading} (${window.localDate}):`];
+    const sections: string[] = [];
     if (events.length > 0) {
       sections.push(
-        ["Eventi:", ...events.map((event) => renderEvent(event, profile))].join(
-          "\n\n",
-        ),
+        "Eventi:",
+        ...events.map((event) => renderEvent(event, profile)),
       );
     }
     if (tasks.length > 0) {
+      sections.push("Task:", ...tasks.map((task) => renderTask(task, profile)));
+    }
+    if (workDay.plannedShifts.length > 0) {
       sections.push(
-        ["Task:", ...tasks.map((task) => renderTask(task, profile))].join(
-          "\n\n",
+        "Turni pianificati:",
+        ...workDay.plannedShifts.map((shift) =>
+          renderPlannedShift(shift, profile),
         ),
       );
     }
-    return sections.join("\n\n");
+    return renderBoundedSections(
+      `${heading} (${window.localDate}):`,
+      sections,
+      eventRows.length > dayViewLimit ||
+        taskRows.length > dayViewLimit ||
+        workDay.plannedShiftsTruncated,
+    );
   }
 
   if (request.command.kind === "events.cancel") {

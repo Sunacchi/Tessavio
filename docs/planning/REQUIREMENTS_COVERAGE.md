@@ -19,8 +19,9 @@ preferenze temporali private e B1.2 eventi one-off privati `date_only|instant`,
 comandi deterministici, audit, Undo e viste `/oggi`/`/domani`. B2 ha aggiunto
 reminder one-off, quiet hours, Cron/Queue e delivery deduplicata. B3 ha aggiunto
 task private, priorità, scadenze tipizzate, complete/reopen, Undo e viste
-giornaliere. Finanze, documenti, persone e spazi restano nello stato indicato
-nelle tabelle.
+giornaliere. B4 ha aggiunto regole lavoro private, turni pianificati, consuntivi,
+pause e report temporali riproducibili, tutti deterministici e user-scoped.
+Finanze, documenti, persone e spazi restano nello stato indicato nelle tabelle.
 
 ## 1. Tessavio Inbox
 

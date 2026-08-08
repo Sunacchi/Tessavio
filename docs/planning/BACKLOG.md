@@ -105,7 +105,9 @@ imply premature APIs. Open Banking is not a later phase.
 - [x] assign every approved capability to concrete milestones A-O;
 - [x] record universal Inbox/domain boundaries, no Open Banking and staged
       Google Calendar reliability in ADR-0009..0011;
-- [x] complete B1, B2 and B3 sequentially without scaffolding B4;
+- [x] complete B1-B4 sequentially without scaffolding B5;
+- [x] complete B4 work rules, planned shifts, logs, breaks, bounded reports,
+      migration/recovery and tenant/retry/DST/Undo tests;
 - [ ] do not mark a planned capability complete until code, tests and all
       applicable DoD gates exist.
 

@@ -7,6 +7,7 @@ import type {
   PreferenceRepository,
   ReminderRepository,
   TaskRepository,
+  WorkRepository,
   TelegramReplyPort,
 } from "./ports";
 import type { InboundMessageEnvelope } from "./queue-envelope";
@@ -16,6 +17,7 @@ import { manageEvents } from "./manage-events";
 import { manageUndo } from "./manage-undo";
 import { manageReminders } from "./manage-reminders";
 import { manageTasks } from "./manage-tasks";
+import { manageWork } from "./manage-work";
 import { startOnboarding } from "../domains/onboarding/start";
 import type { Authorizer } from "../security/authorization";
 import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
@@ -33,6 +35,7 @@ export interface ProcessInboundDependencies {
   readonly preferences: PreferenceRepository;
   readonly reminders: ReminderRepository;
   readonly tasks: TaskRepository;
+  readonly work?: WorkRepository;
   readonly reply: TelegramReplyPort;
   readonly leaseSeconds: number;
 }
@@ -178,6 +181,32 @@ export async function processInboundMessage(
         command,
       },
       dependencies,
+    );
+  } else if (
+    command.kind === "work.rule.create" ||
+    command.kind === "work.rule.read" ||
+    command.kind === "work.rule.list" ||
+    command.kind === "work.shift.create" ||
+    command.kind === "work.shift.read" ||
+    command.kind === "work.log.create" ||
+    command.kind === "work.log.read" ||
+    command.kind === "work.break.create" ||
+    command.kind === "work.break.read" ||
+    command.kind === "work.day" ||
+    command.kind === "work.report" ||
+    command.kind === "work.invalid"
+  ) {
+    const work = dependencies.work;
+    if (work === undefined) throw new AppError("INTERNAL_REDACTED", false);
+    replyText = await manageWork(
+      {
+        actorUserId: identity.userId,
+        scope,
+        correlationId: envelope.correlationId,
+        idempotencyKey: envelope.idempotencyKey,
+        command,
+      },
+      { ...dependencies, work },
     );
   } else {
     replyText = await manageEvents(

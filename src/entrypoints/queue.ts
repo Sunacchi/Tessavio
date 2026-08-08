@@ -11,6 +11,7 @@ import { D1NotificationDeliveryRepository } from "../infrastructure/db/notificat
 import { D1PreferenceRepository } from "../infrastructure/db/preference-repository";
 import { D1ReminderRepository } from "../infrastructure/db/reminder-repository";
 import { D1TaskRepository } from "../infrastructure/db/task-repository";
+import { D1WorkRepository } from "../infrastructure/db/work-repository";
 import { SelfScopeAuthorizer } from "../security/authorization";
 import { parseConfig } from "../shared/config";
 import {
@@ -49,6 +50,7 @@ export async function handleInboundQueue(
     preferences: new D1PreferenceRepository(env.DB),
     reminders: new D1ReminderRepository(env.DB),
     tasks: new D1TaskRepository(env.DB),
+    work: new D1WorkRepository(env.DB),
     reply:
       overrides.reply ??
       new GrammyTelegramReplyAdapter(

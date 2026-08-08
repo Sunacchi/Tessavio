@@ -177,7 +177,10 @@ temporanei user-scoped. B1.2 aggiunge eventi privati `date_only|instant` e Undo
 eventi user-scoped. B2 aggiunge reminder one-off privati, Undo, snapshot delle
 quiet hours, claim leased e ledger delivery dedicato; non introduce ricorrenze.
 B3 aggiunge task private `none|date_only|instant`, priorità, state machine
-open/completed e Undo user-scoped. Le categorie future sono
+open/completed e Undo user-scoped. B4 aggiunge regole lavoro private versionate,
+turni pianificati, consuntivi con snapshot della regola, pause figlie e Undo
+user-scoped; piano, consuntivo e pause restano in tabelle distinte e i report
+usano intervalli UTC clamped a finestre civili IANA. Le categorie future sono
 introdotte quando attive e devono definire owner/space, indici, lifecycle,
 export/delete, audit/Undo e test cross-tenant.
 

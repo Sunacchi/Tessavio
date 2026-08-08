@@ -1,7 +1,58 @@
 import { env } from "cloudflare:workers";
+import { applyD1Migrations } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 
 describe("foundation migration", () => {
+  it("upgrades a populated B3 database to B4 without changing B3 records", async () => {
+    const b4MigrationIndex = env.TEST_MIGRATIONS.findIndex((migration) =>
+      migration.name.startsWith("0005_"),
+    );
+    expect(b4MigrationIndex).toBeGreaterThan(0);
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(0, b4MigrationIndex),
+    );
+    const timestamp = Date.parse("2026-08-08T10:00:00Z");
+    await env.UPGRADE_DB.batch([
+      env.UPGRADE_DB.prepare(
+        "INSERT INTO users (id, status, created_at) VALUES ('upgrade-user', 'active', ?)",
+      ).bind(timestamp),
+      env.UPGRADE_DB.prepare(
+        `INSERT INTO tasks (
+          id, user_id, title, priority, due_kind, due_date_local, due_at_utc,
+          time_zone, status, version, last_mutation_key, created_at, updated_at,
+          completed_at
+        ) VALUES ('upgrade-task', 'upgrade-user', 'Fixture B3', 'medium',
+          'none', NULL, NULL, NULL, 'open', 1, 'fixture', ?, ?, NULL)`,
+      ).bind(timestamp, timestamp),
+    ]);
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(b4MigrationIndex),
+    );
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT title, version FROM tasks WHERE user_id = ? AND id = ?",
+      )
+        .bind("upgrade-user", "upgrade-task")
+        .first(),
+    ).resolves.toEqual({ title: "Fixture B3", version: 1 });
+    const workTables = await env.UPGRADE_DB.prepare(
+      `SELECT name FROM sqlite_master
+       WHERE type = 'table' AND name IN (
+         'work_rules', 'planned_shifts', 'work_logs', 'work_breaks',
+         'work_undo_actions'
+       ) ORDER BY name`,
+    ).all<{ name: string }>();
+    expect(workTables.results.map((row) => row.name)).toEqual([
+      "planned_shifts",
+      "work_breaks",
+      "work_logs",
+      "work_rules",
+      "work_undo_actions",
+    ]);
+  });
+
   it("creates the expected tables and uses the recovery index", async () => {
     const tables = await env.DB.prepare(
       "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
@@ -24,6 +75,11 @@ describe("foundation migration", () => {
         "notification_deliveries",
         "tasks",
         "task_undo_actions",
+        "work_rules",
+        "planned_shifts",
+        "work_logs",
+        "work_breaks",
+        "work_undo_actions",
       ]),
     );
 
@@ -201,6 +257,70 @@ describe("foundation migration", () => {
     expect(
       taskUndoPlan.results.some((row) =>
         row.detail.includes("task_undo_scope_expiry_idx"),
+      ),
+    ).toBe(true);
+
+    const workDayPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT id FROM work_logs
+       WHERE user_id = ? AND start_at_utc < ? AND end_at_utc > ?
+       ORDER BY start_at_utc, id LIMIT 50`,
+    )
+      .bind("user-a", Date.now() + 86_400_000, Date.now())
+      .all<{ detail: string }>();
+    expect(
+      workDayPlan.results.some((row) =>
+        row.detail.includes("work_logs_scope_time_idx"),
+      ),
+    ).toBe(true);
+
+    const plannedShiftPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT id FROM planned_shifts
+       WHERE user_id = ? AND start_at_utc < ? AND end_at_utc > ?
+       ORDER BY start_at_utc, id LIMIT 50`,
+    )
+      .bind("user-a", Date.now() + 86_400_000, Date.now())
+      .all<{ detail: string }>();
+    expect(
+      plannedShiftPlan.results.some((row) =>
+        row.detail.includes("planned_shifts_scope_time_idx"),
+      ),
+    ).toBe(true);
+
+    const workRulesPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT id FROM work_rules
+       WHERE user_id = ? ORDER BY created_at, id LIMIT 50`,
+    )
+      .bind("user-a")
+      .all<{ detail: string }>();
+    expect(
+      workRulesPlan.results.some((row) =>
+        row.detail.includes("work_rules_scope_list_idx"),
+      ),
+    ).toBe(true);
+
+    const workBreakPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT id FROM work_breaks
+       WHERE user_id = ? AND work_log_id = ?
+         AND start_at_utc < ? AND end_at_utc > ? LIMIT 1`,
+    )
+      .bind("user-a", "log-a", Date.now() + 3_600_000, Date.now())
+      .all<{ detail: string }>();
+    expect(
+      workBreakPlan.results.some((row) =>
+        row.detail.includes("work_breaks_scope_log_time_idx"),
+      ),
+    ).toBe(true);
+
+    const workUndoPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT token FROM work_undo_actions
+       WHERE scope_user_id = ? AND expires_at <= ?
+       ORDER BY expires_at LIMIT 100`,
+    )
+      .bind("user-a", Date.now())
+      .all<{ detail: string }>();
+    expect(
+      workUndoPlan.results.some((row) =>
+        row.detail.includes("work_undo_scope_expiry_idx"),
       ),
     ).toBe(true);
   });

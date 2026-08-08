@@ -5,6 +5,7 @@ import type {
   PreferenceRepository,
   ReminderRepository,
   TaskRepository,
+  WorkRepository,
 } from "./ports";
 import type { Authorizer } from "../security/authorization";
 import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
@@ -17,6 +18,7 @@ export interface ManageUndoDependencies {
   readonly preferences: PreferenceRepository;
   readonly reminders: ReminderRepository;
   readonly tasks: TaskRepository;
+  readonly work?: WorkRepository;
 }
 
 export interface ManageUndoRequest {
@@ -41,6 +43,36 @@ export async function manageUndo(
   }
 
   if (!request.command.token.startsWith("evt_")) {
+    if (request.command.token.startsWith("wrk_")) {
+      await dependencies.authorizer.authorize({
+        actorUserId: request.actorUserId,
+        scope: request.scope,
+        action: "work:undo",
+      });
+      const work = dependencies.work;
+      if (work === undefined) return "Undo lavoro non disponibile.";
+      const result = await work.undo(request.scope, request.command.token, {
+        actorUserId: request.actorUserId,
+        correlationId: request.correlationId,
+        idempotencyKey: request.idempotencyKey,
+        auditId: dependencies.ids.newId(),
+        now: dependencies.clock.now(),
+      });
+      switch (result.outcome) {
+        case "reverted":
+          return `Creazione lavoro annullata (${result.entityKind}). ID: ${result.entityId}`;
+        case "duplicate":
+          return `Undo lavoro già applicato (${result.entityKind}). ID: ${result.entityId}`;
+        case "expired":
+          return "Undo lavoro scaduto: nessuna modifica applicata.";
+        case "used":
+          return "Undo lavoro già usato: nessuna modifica applicata.";
+        case "stale":
+          return "Undo lavoro non applicabile: l'entità è cambiata o ha dati collegati.";
+        case "not_found":
+          return "Undo lavoro non disponibile per questo utente.";
+      }
+    }
     if (request.command.token.startsWith("tsk_")) {
       await dependencies.authorizer.authorize({
         actorUserId: request.actorUserId,

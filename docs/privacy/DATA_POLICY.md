@@ -19,6 +19,8 @@
 | reminder B2              | fino a cancellazione utente               |
 | token Undo reminder      | TTL 15 minuti; purge bounded user-scoped  |
 | delivery notification B2 | 30 giorni; purge da attivare pre-pilot    |
+| lavoro B4                | fino a cancellazione utente               |
+| token Undo lavoro        | TTL 15 minuti; purge bounded user-scoped  |
 | dati core                | fino a cancellazione utente               |
 | metadata AI usage        | quanto necessario a budget e report       |
 | OAuth Google             | fino a revoca/disconnessione              |
@@ -56,6 +58,13 @@ minuti locali, non una copia del profilo. Il testo viene letto per l'invio ma no
 entra in log, delivery ledger o DLQ diagnostica. I token `rem_…` scadono dopo 15
 minuti; reminder e audit restano fino alla cancellazione account, mentre la purge
 del ledger notification a 30 giorni è un gate pre-pilot.
+
+In B4 regole, turni pianificati, consuntivi e pause sono privati. Conservano
+soltanto etichette inserite, intervalli UTC con timezone originale, versioni e lo
+snapshot minimo della regola necessario a riprodurre i report. I report sono
+calcolati e non persistono una copia dei contenuti. I token `wrk_…` scadono dopo
+15 minuti e non entrano nei log; i dati lavoro e l'audit restano fino alla
+cancellazione account.
 
 ## Diritti e operazioni
 

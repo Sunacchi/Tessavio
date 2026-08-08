@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   check,
+  foreignKey,
   index,
   integer,
   sqliteTable,
@@ -565,4 +566,193 @@ export const webhookConcurrencyLeases = sqliteTable(
     expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [index("webhook_concurrency_expiry_idx").on(table.expiresAt)],
+);
+
+export const workRules = sqliteTable(
+  "work_rules",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    breakTreatment: text("break_treatment", {
+      enum: ["paid", "unpaid"],
+    }).notNull(),
+    version: integer("version").notNull(),
+    lastMutationKey: text("last_mutation_key").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("work_rules_scope_id_uq").on(table.userId, table.id),
+    index("work_rules_scope_list_idx").on(
+      table.userId,
+      table.createdAt,
+      table.id,
+    ),
+    check("work_rules_name_ck", sql`length(${table.name}) BETWEEN 1 AND 100`),
+    check(
+      "work_rules_break_treatment_ck",
+      sql`${table.breakTreatment} IN ('paid', 'unpaid')`,
+    ),
+    check("work_rules_version_ck", sql`${table.version} > 0`),
+  ],
+);
+
+export const plannedShifts = sqliteTable(
+  "planned_shifts",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    startAtUtc: integer("start_at_utc", { mode: "timestamp_ms" }).notNull(),
+    endAtUtc: integer("end_at_utc", { mode: "timestamp_ms" }).notNull(),
+    originalTimeZone: text("original_time_zone").notNull(),
+    version: integer("version").notNull(),
+    lastMutationKey: text("last_mutation_key").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("planned_shifts_scope_id_uq").on(table.userId, table.id),
+    index("planned_shifts_scope_time_idx").on(
+      table.userId,
+      table.startAtUtc,
+      table.endAtUtc,
+    ),
+    check(
+      "planned_shifts_title_ck",
+      sql`length(${table.title}) BETWEEN 1 AND 200`,
+    ),
+    check(
+      "planned_shifts_interval_ck",
+      sql`${table.endAtUtc} > ${table.startAtUtc} AND ${table.endAtUtc} - ${table.startAtUtc} <= 172800000`,
+    ),
+    check("planned_shifts_version_ck", sql`${table.version} > 0`),
+  ],
+);
+
+export const workLogs = sqliteTable(
+  "work_logs",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    startAtUtc: integer("start_at_utc", { mode: "timestamp_ms" }).notNull(),
+    endAtUtc: integer("end_at_utc", { mode: "timestamp_ms" }).notNull(),
+    originalTimeZone: text("original_time_zone").notNull(),
+    ruleId: text("rule_id").notNull(),
+    ruleVersion: integer("rule_version").notNull(),
+    ruleName: text("rule_name").notNull(),
+    breakTreatment: text("break_treatment", {
+      enum: ["paid", "unpaid"],
+    }).notNull(),
+    version: integer("version").notNull(),
+    lastMutationKey: text("last_mutation_key").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.userId, table.ruleId],
+      foreignColumns: [workRules.userId, workRules.id],
+      name: "work_logs_scope_rule_fk",
+    }).onDelete("restrict"),
+    uniqueIndex("work_logs_scope_id_uq").on(table.userId, table.id),
+    index("work_logs_scope_time_idx").on(
+      table.userId,
+      table.startAtUtc,
+      table.endAtUtc,
+    ),
+    index("work_logs_scope_rule_idx").on(table.userId, table.ruleId),
+    check("work_logs_title_ck", sql`length(${table.title}) BETWEEN 1 AND 200`),
+    check(
+      "work_logs_rule_name_ck",
+      sql`length(${table.ruleName}) BETWEEN 1 AND 100`,
+    ),
+    check(
+      "work_logs_break_treatment_ck",
+      sql`${table.breakTreatment} IN ('paid', 'unpaid')`,
+    ),
+    check(
+      "work_logs_interval_ck",
+      sql`${table.endAtUtc} > ${table.startAtUtc} AND ${table.endAtUtc} - ${table.startAtUtc} <= 172800000`,
+    ),
+    check("work_logs_rule_version_ck", sql`${table.ruleVersion} > 0`),
+    check("work_logs_version_ck", sql`${table.version} > 0`),
+  ],
+);
+
+export const workBreaks = sqliteTable(
+  "work_breaks",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    workLogId: text("work_log_id").notNull(),
+    startAtUtc: integer("start_at_utc", { mode: "timestamp_ms" }).notNull(),
+    endAtUtc: integer("end_at_utc", { mode: "timestamp_ms" }).notNull(),
+    originalTimeZone: text("original_time_zone").notNull(),
+    version: integer("version").notNull(),
+    lastMutationKey: text("last_mutation_key").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.userId, table.workLogId],
+      foreignColumns: [workLogs.userId, workLogs.id],
+      name: "work_breaks_scope_log_fk",
+    }).onDelete("restrict"),
+    uniqueIndex("work_breaks_scope_id_uq").on(table.userId, table.id),
+    index("work_breaks_scope_log_time_idx").on(
+      table.userId,
+      table.workLogId,
+      table.startAtUtc,
+      table.endAtUtc,
+    ),
+    check(
+      "work_breaks_interval_ck",
+      sql`${table.endAtUtc} > ${table.startAtUtc} AND ${table.endAtUtc} - ${table.startAtUtc} <= 172800000`,
+    ),
+    check("work_breaks_version_ck", sql`${table.version} > 0`),
+  ],
+);
+
+export const workUndoActions = sqliteTable(
+  "work_undo_actions",
+  {
+    token: text("token").primaryKey(),
+    scopeUserId: text("scope_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    entityKind: text("entity_kind", {
+      enum: ["rule", "shift", "log", "break"],
+    }).notNull(),
+    entityId: text("entity_id").notNull(),
+    sourceIdempotencyKey: text("source_idempotency_key").notNull(),
+    expectedVersion: integer("expected_version").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    consumedAt: integer("consumed_at", { mode: "timestamp_ms" }),
+    consumedByIdempotencyKey: text("consumed_by_idempotency_key"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("work_undo_source_uq").on(
+      table.scopeUserId,
+      table.sourceIdempotencyKey,
+    ),
+    index("work_undo_scope_expiry_idx").on(table.scopeUserId, table.expiresAt),
+    check(
+      "work_undo_entity_kind_ck",
+      sql`${table.entityKind} IN ('rule', 'shift', 'log', 'break')`,
+    ),
+    check("work_undo_version_ck", sql`${table.expectedVersion} > 0`),
+  ],
 );

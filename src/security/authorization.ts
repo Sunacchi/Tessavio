@@ -14,7 +14,10 @@ export type Action =
   | "reminders:undo"
   | "tasks:read"
   | "tasks:write"
-  | "tasks:undo";
+  | "tasks:undo"
+  | "work:read"
+  | "work:write"
+  | "work:undo";
 
 export interface AuthorizationRequest {
   readonly actorUserId: string;

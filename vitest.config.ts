@@ -15,6 +15,7 @@ export default defineConfig({
     cloudflareTest(async () => ({
       wrangler: { configPath: "./wrangler.jsonc" },
       miniflare: {
+        d1Databases: ["UPGRADE_DB"],
         bindings: {
           TEST_MIGRATIONS: await readD1Migrations(
             path.join(projectDirectory, "migrations"),

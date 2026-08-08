@@ -1,73 +1,84 @@
-# Milestone corrente — B3 Task (completata)
+# Milestone corrente — B4 Lavoro (completata)
 
-**Stato: completata localmente il 2026-08-08.** B3 consegna task private
-deterministiche con priorità, scadenze tipizzate, complete/reopen e Undo.
-Nessuna risorsa Cloudflare remota è stata creata e nessun deploy è stato
-eseguito. B4 è la prossima milestone ma non viene attivata da questa consegna.
+**Stato: completata localmente il 2026-08-08.** B1-B4 sono completate. B5 è la
+prossima milestone prevista ma non è attivata: nessun suo schema o adapter è
+autorizzato. Nessuna risorsa Cloudflare remota è stata creata e nessun deploy è
+stato eseguito.
 
 ## Obiettivo
 
-Permettere a un utente Telegram di creare, leggere, elencare, completare e
-riaprire task esplicite senza AI, mantenendo separate assenza di scadenza, giorno
-locale e istante temporale.
+Permettere a un utente Telegram di registrare separatamente turni pianificati,
+consuntivi e pause, applicando una regola esplicita sul trattamento delle pause
+e producendo report temporali riproducibili senza AI.
 
-## Contratto consegnato
+## Contratto autorizzato
 
-- `/task crea <nessuna|YYYY-MM-DD|YYYY-MM-DDTHH:mm> |
-<bassa|media|alta> | Titolo` crea una task privata;
-- `/task leggi <id>`, `/task lista`, `/task completa <id>` e
-  `/task riapri <id>` sono user-scoped;
-- `/annulla tsk_<token>` applica Undo single-use con TTL di 15 minuti e version
-  check a create, complete o reopen;
-- `date_only` conserva il giorno locale senza inventare un orario; `instant`
-  conserva UTC e timezone IANA originale; `none` non conserva dati temporali;
-- gap e fold DST vengono rifiutati; le scadenze passate esplicite sono ammesse
-  per rappresentare lavoro arretrato;
-- `/task lista` ordina deterministicamente per priorità, tipo/valore della
-  scadenza, creazione e ID;
-- `/oggi` e `/domani` includono eventi e task aperte in scadenza nella finestra
-  civile dell'utente;
-- non sono introdotti parsing naturale, AI, modifica task, ricorrenze, subtasks,
-  planner, condivisione o Google Tasks.
+- una regola lavoro privata dichiara se le pause sono `paid` oppure `unpaid`;
+- un consuntivo conserva uno snapshot versionato della regola usata, così un
+  report storico non cambia se la regola evolve in una milestone successiva;
+- turni pianificati, consuntivi e pause sono entità e tabelle distinte;
+- ogni intervallo è semiaperto `[start, end)`, conserva istanti UTC e timezone
+  IANA originale e può attraversare mezzanotte o un cambio DST;
+- input locali in un gap o fold DST vengono rifiutati; la durata massima di un
+  singolo intervallo è 48 ore;
+- una pausa deve appartenere a un consuntivo dello stesso utente, essere
+  contenuta nel suo intervallo e non sovrapporsi a un'altra pausa;
+- il report usa un periodo civile inclusivo di massimo 366 giorni, converte i
+  confini in modo DST-safe e clampa ogni intervallo ai confini richiesti;
+- i totali interi sono minuti pianificati, consuntivi lordi, pause e minuti
+  conteggiati. Le pause `paid` restano conteggiate; le `unpaid` vengono sottratte.
 
-## State machine e persistenza
+Comandi espliciti:
 
 ```text
-open -> completed
-  ^         |
-  |---------|  reopen
+/lavoro regola crea <retribuita|non_retribuita> | Nome
+/lavoro regola leggi <id>
+/lavoro regole
+/lavoro turno crea <YYYY-MM-DDTHH:mm> <YYYY-MM-DDTHH:mm> | Titolo
+/lavoro turno leggi <id>
+/lavoro consuntivo crea <inizio> <fine> <regola-id> | Titolo
+/lavoro consuntivo leggi <id>
+/lavoro pausa crea <consuntivo-id> <inizio> <fine>
+/lavoro pausa leggi <id>
+/lavoro giorno <YYYY-MM-DD>
+/lavoro report <YYYY-MM-DD> <YYYY-MM-DD>
+/annulla wrk_<token>
 ```
 
-Complete su una task completata e reopen su una task aperta sono no-op
-espliciti. Ogni mutation applicata usa authorization centralizzata, idempotency
-key, batch D1 atomico con audit e Undo, e version check per concorrenza/restore.
-Ogni repository richiede `UserScope`; non esiste accesso tenant-scoped per ID
-nudo. I record restano fino alla cancellazione account; gli Undo scaduti sono
-eliminati in batch bounded user-scoped.
+Ogni create è autorizzata, idempotente e atomica con audit e Undo single-use di
+15 minuti. L'Undo elimina solo l'entità appena creata e fallisce `stale` se una
+regola è già referenziata o un consuntivo ha già pause. Ogni accesso repository
+richiede `UserScope`; i dati restano fino alla cancellazione account e gli Undo
+scaduti vengono eliminati in batch bounded user-scoped.
 
-Decisione e recovery sono documentati in
-[ADR-0015](../decisions/0015-b3-task-contract.md) e nel
-[runbook B3](../runbooks/B3_TASKS_RECOVERY.md).
+## Exit criteria
 
-## Exit criteria soddisfatti localmente
-
-- create/read/list/complete/reopen e Undo sono autorizzati, idempotenti e
-  auditati;
-- `none|date_only|instant`, priorità e stato hanno shape e check SQL espliciti;
-- ogni accesso repository include owner scope e i test negativi provano
-  isolamento read/list/write/Undo;
-- retry della stessa mutation non duplica task, audit o Undo;
-- Undo prova replay, scadenza e stale version; purge è bounded e user-scoped;
-- viste e ordinamento sono deterministici; DST gap/fold e giorni civili usano il
-  solo polyfill Temporal fissato;
-- migration fresh/upgrade, indici hot e rollback additivo sono riproducibili;
+- create/read/list/report funzionano senza AI o integrazioni esterne;
+- piano, consuntivo e pause non si sovrascrivono e hanno scope esplicito;
+- retry non duplica entità, audit o Undo;
+- Undo copre replay, scadenza, stale version e isolamento cross-user;
+- mezzanotte, giorni civili da 23/25 ore, gap/fold e intervalli clamped sono
+  coperti da test unitari/property e integrazione;
+- i report espongono timezone, policy/versione e record contributori;
+- totali e formula restano visibili entro il limite Telegram; solo il dettaglio
+  dei contributori può essere troncato esplicitamente;
+- migration fresh/upgrade, indici hot, query plan e recovery sono documentati;
 - format, lint, typecheck, unit, integration, security, migration, build e audit
-  dipendenze sono gate obbligatori della consegna locale.
+  dipendenze sono verdi.
 
 ## Out of scope
 
-- modifica di titolo, priorità o scadenza;
-- delete/cancel, subtasks, durate, dipendenze e planner;
-- ricorrenze, reminder collegati, assegnazioni o spazi condivisi;
-- AI, `ActionProposal[]`, media e integrazioni esterne;
-- deploy staging/production o creazione di risorse remote.
+- modifica o cancellazione persistente dopo la finestra Undo;
+- retribuzione, valuta, tariffe, maggiorazioni, straordinari o buste paga;
+- ricorrenze/rotazioni, import/export CSV, planner e collegamenti a task/eventi;
+- condivisione, team, timbratura automatica, geolocalizzazione o integrazioni;
+- parsing naturale, AI, reminder e notifiche dedicate.
+
+## Evidenza di chiusura
+
+La vertical slice comprende parser e routing deterministici, porte applicative,
+repository D1 tenant-scoped, authorization `work:read|write|undo`, audit/Undo,
+migration additiva `0005_milky_gargoyle.sql`, report bounded e integrazione dei
+turni in `/oggi` e `/domani`. I test coprono fresh migration e upgrade da una
+fixture B3 popolata, indici/query plan, cross-tenant, DST, clamp, retry Queue dopo
+una write già committata, replay/expiry/stale e limiti di risposta.

@@ -275,7 +275,16 @@ export class D1TaskRepository implements TaskRepository {
   async listForDay(
     scope: UserScope,
     window: TaskDayWindow,
+    limit?: number,
   ): Promise<TaskRecord[]> {
+    const suffix = limit === undefined ? "" : " LIMIT ?";
+    const bindings: (string | number)[] = [
+      scope.userId,
+      window.localDate,
+      window.startAtUtc.getTime(),
+      window.endAtUtc.getTime(),
+    ];
+    if (limit !== undefined) bindings.push(limit);
     const rows = await this.database
       .prepare(
         `SELECT ${selectColumns}
@@ -286,14 +295,9 @@ export class D1TaskRepository implements TaskRepository {
          )
          ORDER BY CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
                   CASE due_kind WHEN 'date_only' THEN 0 ELSE 1 END,
-                  due_at_utc, title, id`,
+                  due_at_utc, title, id${suffix}`,
       )
-      .bind(
-        scope.userId,
-        window.localDate,
-        window.startAtUtc.getTime(),
-        window.endAtUtc.getTime(),
-      )
+      .bind(...bindings)
       .all();
     return rows.results.map(fromStoredRow);
   }
