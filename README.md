@@ -9,7 +9,9 @@ Il principio guida è semplice: **il prodotto deve funzionare anche quando l'AI 
 La Phase A — Foundation è implementata localmente: webhook Telegram, inbox D1,
 Queue at-least-once, identità interna, authorization, `/start`, audit e delivery
 ledger sono coperti da test. Nessuna risorsa Cloudflare remota è stata creata e
-nessun deploy è stato eseguito.
+nessun deploy è stato eseguito. La milestone attiva è **B1 — Preferenze + agenda
+one-off**; scope e modello Codex suggerito sono nella
+[milestone corrente](docs/planning/CURRENT_MILESTONE.md).
 
 ## Avvio locale
 

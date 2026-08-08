@@ -17,7 +17,13 @@ Uscita: una vertical slice riceve un update Telegram fittizio, lo deduplica, lo 
 
 ## Phase B — Core Product
 
-Eventi, reminder, task, turni, consuntivi, liste e report base. Introdurre recurrence soltanto quando un caso della fase la richiede.
+Stato: attiva dal 2026-08-08 con **B1 — Preferenze + agenda one-off**. B1
+introduce preferenze temporali, eventi singoli privati e viste `/oggi`/`/domani`;
+la milestone operativa e il modello Codex suggerito sono in
+[CURRENT_MILESTONE.md](CURRENT_MILESTONE.md).
+
+Seguono reminder, task, turni, consuntivi, spese, liste e report base. Introdurre
+recurrence soltanto quando un caso della fase la richiede.
 
 ## Phase C — AI Layer
 

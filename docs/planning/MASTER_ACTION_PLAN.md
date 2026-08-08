@@ -426,13 +426,13 @@ Cron/Queue/delivery; review sicurezza e qualità dopo integrazione.
 
 ### Gate di ingresso e preparazione just-in-time
 
-- [ ] A1 completata senza finding critici e posizione A2/B2 decisa;
-- [ ] attivare una sola vertical slice B alla volta;
+- [x] A1 completata senza finding critici e posizione A2/B2 decisa;
+- [x] attivare una sola vertical slice B alla volta: B1 dal 2026-08-08;
 - [ ] scrivere scenari utente normali, ambigui, duplicate, unauthorized e Undo;
 - [ ] definire modello dati minimo, porte e policy prima degli adapter;
 - [ ] decidere per ogni entità private-by-default e futura condivisione esplicita;
 - [ ] introdurre Temporal/recurrence solo quando la slice lo richiede davvero;
-- [ ] aggiornare milestone e backlog senza generare scaffold delle slice successive.
+- [x] aggiornare milestone e backlog senza generare scaffold delle slice successive.
 
 ### Sequenza di valore
 

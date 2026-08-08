@@ -40,6 +40,21 @@ end-to-end della Phase B; non costituiscono una milestone Foundation separata.
 - [ ] temporary/permanent error classification;
 - [ ] scheduled/queue retry integration tests.
 
+## B1 — Preferenze + agenda one-off (active)
+
+La milestone esecutiva è definita in `CURRENT_MILESTONE.md`; non preparare
+scaffold B2 durante questa slice.
+
+- [ ] fissare scenari e sintassi dei comandi deterministici;
+- [ ] modellare preferenze, eventi `date-only` e instant con scope utente;
+- [ ] scegliere e fissare un solo polyfill Temporal solo se necessario;
+- [ ] aggiungere migration, indici e query tenant-scoped;
+- [ ] implementare create/read/update/cancel e Undo idempotenti e auditabili;
+- [ ] implementare `/oggi` e `/domani` nella timezone IANA dell'utente;
+- [ ] coprire DST, mezzanotte, duplicate, stale Undo e cross-tenant con test;
+- [ ] documentare retention, purge, rollout e migration recovery;
+- [ ] chiudere tutti i gate applicabili prima di attivare B2.
+
 ## Later phases
 
 Break down Phase B onward only when the preceding exit criteria are met. The ordered feature list remains in `ROADMAP.md`; avoid speculative tickets that imply premature APIs.
