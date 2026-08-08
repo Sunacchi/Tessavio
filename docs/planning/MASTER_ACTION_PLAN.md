@@ -462,7 +462,7 @@ Cron/Queue/delivery; review sicurezza e qualità dopo integrazione.
       nessun default temporale inventato.
 - [x] **B2 Reminder end-to-end.** Creazione/query esplicite, state machine,
       leased claim, delivery ledger, retry/recovery, timezone/DST e infrastruttura A2.
-- [ ] **B3 Task.** Inbox task, scadenze date-only o temporali, stato/priorità
+- [x] **B3 Task.** Inbox task, scadenze date-only o temporali, stato/priorità
       espliciti, completamento idempotente, riapertura e Undo.
 - [ ] **B4 Lavoro.** Turni pianificati separati dai consuntivi, pause e regole
       data-driven; attraversamento mezzanotte e report verificabili.

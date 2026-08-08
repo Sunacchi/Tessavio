@@ -1,76 +1,73 @@
-# Milestone corrente — B2 Reminder end-to-end (completata)
+# Milestone corrente — B3 Task (completata)
 
-**Stato: completata localmente il 2026-08-08.** B2 consegna reminder one-off
-deterministici, claim leased da Cron, Queue dedicata e delivery Telegram
-deduplicata. Nessuna risorsa Cloudflare remota è stata creata e nessun deploy è
-stato eseguito. B3 è la prossima milestone ma non viene attivata da questa
-consegna.
+**Stato: completata localmente il 2026-08-08.** B3 consegna task private
+deterministiche con priorità, scadenze tipizzate, complete/reopen e Undo.
+Nessuna risorsa Cloudflare remota è stata creata e nessun deploy è stato
+eseguito. B4 è la prossima milestone ma non viene attivata da questa consegna.
 
 ## Obiettivo
 
-Permettere a un utente Telegram di creare, leggere, elencare e annullare un
-promemoria esplicito nel proprio fuso IANA e riceverlo tramite una sola
-esecuzione logica, anche con Cron concorrenti, enqueue duplicati e retry Queue.
+Permettere a un utente Telegram di creare, leggere, elencare, completare e
+riaprire task esplicite senza AI, mantenendo separate assenza di scadenza, giorno
+locale e istante temporale.
 
 ## Contratto consegnato
 
-- `/promemoria crea YYYY-MM-DDTHH:mm | Testo` crea un reminder privato one-off;
-- `/promemoria leggi <id>`, `/promemoria lista` e
-  `/promemoria annulla <id>` sono query/mutation user-scoped;
-- `/impostazioni quiete HH:mm HH:mm` configura una finestra locale, anche
-  cross-midnight; `/impostazioni quiete disattiva` la rimuove;
-- `/annulla rem_<token>` applica Undo single-use con TTL di 15 minuti e version
-  check a creazione o cancellazione;
-- date e ore locali inesistenti o ambigue nei cambi DST vengono rifiutate; un
-  reminder deve essere futuro rispetto al timestamp del messaggio;
-- non sono introdotti parsing naturale, AI, ricorrenze, task o condivisione.
+- `/task crea <nessuna|YYYY-MM-DD|YYYY-MM-DDTHH:mm> |
+<bassa|media|alta> | Titolo` crea una task privata;
+- `/task leggi <id>`, `/task lista`, `/task completa <id>` e
+  `/task riapri <id>` sono user-scoped;
+- `/annulla tsk_<token>` applica Undo single-use con TTL di 15 minuti e version
+  check a create, complete o reopen;
+- `date_only` conserva il giorno locale senza inventare un orario; `instant`
+  conserva UTC e timezone IANA originale; `none` non conserva dati temporali;
+- gap e fold DST vengono rifiutati; le scadenze passate esplicite sono ammesse
+  per rappresentare lavoro arretrato;
+- `/task lista` ordina deterministicamente per priorità, tipo/valore della
+  scadenza, creazione e ID;
+- `/oggi` e `/domani` includono eventi e task aperte in scadenza nella finestra
+  civile dell'utente;
+- non sono introdotti parsing naturale, AI, modifica task, ricorrenze, subtasks,
+  planner, condivisione o Google Tasks.
 
-## State machine e delivery
+## State machine e persistenza
 
 ```text
-pending -> claimed -> sending -> sent
-                    |         -> permanent_failure
-                    |         -> ambiguous
-                    -> claimed              (errore retryable certo)
-claimed -> pending                          (quiet hours)
-pending -> cancelled                       (azione utente)
+open -> completed
+  ^         |
+  |---------|  reopen
 ```
 
-Il Cron seleziona solo ID, owner e timestamp dovuti, quindi effettua un update
-condizionale sempre su `(id, user_id)`. Il claim persiste `job_id`, correlation
-ID e lease prima dell'enqueue. Il recovery riaccoda lo stesso envelope e la
-stessa idempotency key dopo crash prima dell'enqueue o lease scaduta.
-
-Il consumer rivalida `SEND_NOTIFICATION`, ricostruisce `UserScope`, valuta le
-preferenze correnti e registra lo snapshot di timezone/quiet hours usato. La
-delivery usa `telegram-reminder:<reminder_id>` come dedupe key. Un rifiuto certo
-429/5xx è retryable; un rifiuto permanente chiude il reminder; un errore HTTP o
-di rete ambiguo applica policy at-most-once e non ritenta l'invio. I tentativi
-esterni sono limitati a 6 anche attraverso recovery successivi.
+Complete su una task completata e reopen su una task aperta sono no-op
+espliciti. Ogni mutation applicata usa authorization centralizzata, idempotency
+key, batch D1 atomico con audit e Undo, e version check per concorrenza/restore.
+Ogni repository richiede `UserScope`; non esiste accesso tenant-scoped per ID
+nudo. I record restano fino alla cancellazione account; gli Undo scaduti sono
+eliminati in batch bounded user-scoped.
 
 Decisione e recovery sono documentati in
-[ADR-0014](../decisions/0014-b2-reminder-delivery.md) e nel
-[runbook B2](../runbooks/B2_REMINDERS_RECOVERY.md).
+[ADR-0015](../decisions/0015-b3-task-contract.md) e nel
+[runbook B3](../runbooks/B3_TASKS_RECOVERY.md).
 
 ## Exit criteria soddisfatti localmente
 
-- create/read/list/cancel e Undo sono autorizzati, idempotenti e auditati;
-- ogni repository tenant-scoped richiede `UserScope` e i test negativi provano
-  isolamento read/write/list/Undo;
-- claim concorrenti convergono a una sola riga claimed;
-- crash prima/dopo enqueue recupera lo stesso envelope stabile;
-- duplicate Queue e retry Telegram non duplicano reminder, audit o delivery;
-- quiet hours cross-midnight e DST usano il solo polyfill Temporal già fissato;
-- errori retryable, permanent e ambiguous producono stati distinti e log senza
-  testo del reminder;
-- migration fresh/upgrade, indici hot e recovery sono riproducibili;
+- create/read/list/complete/reopen e Undo sono autorizzati, idempotenti e
+  auditati;
+- `none|date_only|instant`, priorità e stato hanno shape e check SQL espliciti;
+- ogni accesso repository include owner scope e i test negativi provano
+  isolamento read/list/write/Undo;
+- retry della stessa mutation non duplica task, audit o Undo;
+- Undo prova replay, scadenza e stale version; purge è bounded e user-scoped;
+- viste e ordinamento sono deterministici; DST gap/fold e giorni civili usano il
+  solo polyfill Temporal fissato;
+- migration fresh/upgrade, indici hot e rollback additivo sono riproducibili;
 - format, lint, typecheck, unit, integration, security, migration, build e audit
   dipendenze sono gate obbligatori della consegna locale.
 
 ## Out of scope
 
-- ricorrenze e `rrule`;
-- reminder collegati a eventi/task/documenti o spazi condivisi;
-- briefing e notifiche proattive non richieste esplicitamente;
-- AI, `ActionProposal[]`, media e Google Calendar;
-- deploy staging/production o creazione di Queue/D1 remote.
+- modifica di titolo, priorità o scadenza;
+- delete/cancel, subtasks, durate, dipendenze e planner;
+- ricorrenze, reminder collegati, assegnazioni o spazi condivisi;
+- AI, `ActionProposal[]`, media e integrazioni esterne;
+- deploy staging/production o creazione di risorse remote.

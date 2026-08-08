@@ -6,6 +6,7 @@ import type {
   InboundRepository,
   PreferenceRepository,
   ReminderRepository,
+  TaskRepository,
   TelegramReplyPort,
 } from "./ports";
 import type { InboundMessageEnvelope } from "./queue-envelope";
@@ -14,6 +15,7 @@ import { managePreferences } from "./manage-preferences";
 import { manageEvents } from "./manage-events";
 import { manageUndo } from "./manage-undo";
 import { manageReminders } from "./manage-reminders";
+import { manageTasks } from "./manage-tasks";
 import { startOnboarding } from "../domains/onboarding/start";
 import type { Authorizer } from "../security/authorization";
 import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
@@ -30,6 +32,7 @@ export interface ProcessInboundDependencies {
   readonly inbox: InboundRepository;
   readonly preferences: PreferenceRepository;
   readonly reminders: ReminderRepository;
+  readonly tasks: TaskRepository;
   readonly reply: TelegramReplyPort;
   readonly leaseSeconds: number;
 }
@@ -154,6 +157,24 @@ export async function processInboundMessage(
         correlationId: envelope.correlationId,
         idempotencyKey: envelope.idempotencyKey,
         sentAtUnix: message.sentAtUnix,
+        command,
+      },
+      dependencies,
+    );
+  } else if (
+    command.kind === "tasks.create" ||
+    command.kind === "tasks.read" ||
+    command.kind === "tasks.list" ||
+    command.kind === "tasks.complete" ||
+    command.kind === "tasks.reopen" ||
+    command.kind === "tasks.invalid"
+  ) {
+    replyText = await manageTasks(
+      {
+        actorUserId: identity.userId,
+        scope,
+        correlationId: envelope.correlationId,
+        idempotencyKey: envelope.idempotencyKey,
         command,
       },
       dependencies,

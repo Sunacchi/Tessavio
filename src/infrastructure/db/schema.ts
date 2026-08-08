@@ -194,6 +194,111 @@ export const eventUndoActions = sqliteTable(
   ],
 );
 
+export const tasks = sqliteTable(
+  "tasks",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    priority: text("priority", { enum: ["low", "medium", "high"] }).notNull(),
+    dueKind: text("due_kind", {
+      enum: ["none", "date_only", "instant"],
+    }).notNull(),
+    dueDateLocal: text("due_date_local"),
+    dueAtUtc: integer("due_at_utc", { mode: "timestamp_ms" }),
+    timeZone: text("time_zone"),
+    status: text("status", { enum: ["open", "completed"] }).notNull(),
+    version: integer("version").notNull(),
+    lastMutationKey: text("last_mutation_key").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    completedAt: integer("completed_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    uniqueIndex("tasks_scope_id_uq").on(table.userId, table.id),
+    index("tasks_scope_status_idx").on(
+      table.userId,
+      table.status,
+      table.priority,
+      table.createdAt,
+    ),
+    index("tasks_scope_date_idx").on(
+      table.userId,
+      table.status,
+      table.dueDateLocal,
+    ),
+    index("tasks_scope_instant_idx").on(
+      table.userId,
+      table.status,
+      table.dueAtUtc,
+    ),
+    check("tasks_title_ck", sql`length(${table.title}) BETWEEN 1 AND 200`),
+    check(
+      "tasks_priority_ck",
+      sql`${table.priority} IN ('low', 'medium', 'high')`,
+    ),
+    check(
+      "tasks_due_kind_ck",
+      sql`${table.dueKind} IN ('none', 'date_only', 'instant')`,
+    ),
+    check("tasks_status_ck", sql`${table.status} IN ('open', 'completed')`),
+    check("tasks_version_ck", sql`${table.version} > 0`),
+    check(
+      "tasks_due_shape_ck",
+      sql`(
+        ${table.dueKind} = 'none'
+        AND ${table.dueDateLocal} IS NULL
+        AND ${table.dueAtUtc} IS NULL
+        AND ${table.timeZone} IS NULL
+      ) OR (
+        ${table.dueKind} = 'date_only'
+        AND ${table.dueDateLocal} IS NOT NULL
+        AND ${table.dueAtUtc} IS NULL
+        AND ${table.timeZone} IS NULL
+      ) OR (
+        ${table.dueKind} = 'instant'
+        AND ${table.dueDateLocal} IS NULL
+        AND ${table.dueAtUtc} IS NOT NULL
+        AND ${table.timeZone} IS NOT NULL
+      )`,
+    ),
+    check(
+      "tasks_completed_at_ck",
+      sql`(${table.status} = 'open' AND ${table.completedAt} IS NULL)
+          OR (${table.status} = 'completed' AND ${table.completedAt} IS NOT NULL)`,
+    ),
+  ],
+);
+
+export const taskUndoActions = sqliteTable(
+  "task_undo_actions",
+  {
+    token: text("token").primaryKey(),
+    scopeUserId: text("scope_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    taskId: text("task_id").notNull(),
+    sourceIdempotencyKey: text("source_idempotency_key").notNull(),
+    beforeJson: text("before_json"),
+    expectedVersion: integer("expected_version").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    consumedAt: integer("consumed_at", { mode: "timestamp_ms" }),
+    consumedByIdempotencyKey: text("consumed_by_idempotency_key"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("task_undo_source_uq").on(
+      table.scopeUserId,
+      table.sourceIdempotencyKey,
+    ),
+    index("task_undo_scope_expiry_idx").on(table.scopeUserId, table.expiresAt),
+    index("task_undo_purge_idx").on(table.expiresAt, table.consumedAt),
+    check("task_undo_version_ck", sql`${table.expectedVersion} > 0`),
+  ],
+);
+
 export const reminders = sqliteTable(
   "reminders",
   {

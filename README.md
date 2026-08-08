@@ -9,10 +9,11 @@ Il principio guida è semplice: **il prodotto deve funzionare anche quando l'AI 
 La Phase A — Foundation è completata e revalidata localmente: la review A1 è
 chiusa con `npm run validate` verde e `npm audit --omit=dev` senza
 vulnerabilità. Nessuna risorsa Cloudflare remota è stata creata e nessun deploy è
-stato eseguito. **B1 — Preferenze + agenda one-off** e **B2 — Reminder
-end-to-end** sono completate localmente: preferenze temporali/quiet hours,
-eventi one-off, reminder con Cron/Queue/delivery, Undo e viste
-`/oggi`/`/domani` sono implementati senza AI. B3 non è stato attivato. Lo stato
+stato eseguito. **B1 — Preferenze + agenda one-off**, **B2 — Reminder
+end-to-end** e **B3 — Task** sono completate localmente: preferenze
+temporali/quiet hours, eventi one-off, reminder con Cron/Queue/delivery e task
+private con priorità, scadenze e Undo sono implementati senza AI. B4 non è stato
+attivato. Lo stato
 e lo scope sono nella
 [milestone corrente](docs/planning/CURRENT_MILESTONE.md).
 
@@ -69,6 +70,11 @@ webhook secret restano solo in `.dev.vars` o nei secret Cloudflare.
 Comandi reminder B2: `/promemoria crea YYYY-MM-DDTHH:mm | Testo`,
 `/promemoria leggi <id>`, `/promemoria lista`, `/promemoria annulla <id>` e
 `/impostazioni quiete HH:mm HH:mm`.
+
+Comandi task B3: `/task crea <nessuna|YYYY-MM-DD|YYYY-MM-DDTHH:mm> |
+<bassa|media|alta> | Titolo`, `/task leggi <id>`, `/task lista`,
+`/task completa <id>` e `/task riapri <id>`. Le viste `/oggi` e `/domani`
+includono le task aperte in scadenza.
 
 Le versioni A1 sono esatte in `package.json` e `package-lock.json`; le decisioni
 sono registrate in ADR-0008.

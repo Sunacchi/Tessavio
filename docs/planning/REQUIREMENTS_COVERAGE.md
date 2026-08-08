@@ -17,8 +17,10 @@ inbox durevole, dedupe, Queue, identità interna, authorization self-scope,
 audit/effect/delivery ledger e test foundation. Dopo l'audit, B1.1 ha aggiunto
 preferenze temporali private e B1.2 eventi one-off privati `date_only|instant`,
 comandi deterministici, audit, Undo e viste `/oggi`/`/domani`. B2 ha aggiunto
-reminder one-off, quiet hours, Cron/Queue e delivery deduplicata. Task, finanze,
-documenti, persone e spazi restano nello stato indicato nelle tabelle.
+reminder one-off, quiet hours, Cron/Queue e delivery deduplicata. B3 ha aggiunto
+task private, priorità, scadenze tipizzate, complete/reopen, Undo e viste
+giornaliere. Finanze, documenti, persone e spazi restano nello stato indicato
+nelle tabelle.
 
 ## 1. Tessavio Inbox
 
@@ -31,7 +33,7 @@ documenti, persone e spazi restano nello stato indicato nelle tabelle.
 | PDF e altri documenti supportati            | Mancante       | schema Telegram e lifecycle documenti assenti                               | D3                                       |
 | Ricevute, scontrini e bollette              | Parziale       | vision generica prevista; routing economico/documentale assente             | D3, J1 e K1                              |
 | Link                                        | Mancante       | nessun normalizer o policy fetch                                            | C3; fetch remoto resta adapter esplicito |
-| Riconoscere appuntamenti, reminder e task   | Parziale       | domini B pianificati separatamente, Inbox AI non implementata               | B1-B3, poi C3                            |
+| Riconoscere appuntamenti, reminder e task   | Parziale       | domini deterministici B1-B3 presenti; Inbox AI non implementata             | C3                                       |
 | Riconoscere spese, entrate e bollette       | Parziale       | spese base B5 pianificate; entrate/bollette non dettagliate                 | B5, C3, D3, K1                           |
 | Riconoscere documenti e scadenze            | Mancante       | dominio documenti assente                                                   | D3 e J1-J2                               |
 | Riconoscere elementi lista e note           | Parziale       | liste B6 pianificate, note non esplicite                                    | B6 e C3                                  |
@@ -240,8 +242,8 @@ documenti, persone e spazi restano nello stato indicato nelle tabelle.
 ## Sintesi operativa
 
 - **Implementato:** foundation A1, preferenze temporali B1.1, eventi one-off
-  B1.2 con viste agenda giornaliere e reminder end-to-end B2; le entità
-  successive restano non implementate.
+  B1.2, reminder end-to-end B2 e task private B3 con viste giornaliere; le
+  entità successive restano non implementate.
 - **Già pianificato in modo significativo:** core B, AI C, voice/vision D,
   planner E, sharing F, Mini App, Google export e hardening.
 - **Parziale o assente prima dell'audit:** Inbox universale completa, entrate e

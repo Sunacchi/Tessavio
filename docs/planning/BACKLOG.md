@@ -82,6 +82,15 @@ B1 è chiusa; la milestone esecutiva corrente è definita in
 - [x] test concorrenza, DST, duplicate, recovery e cross-tenant;
 - [x] migration, query plan, ADR e runbook recovery/rollback.
 
+## B3 — Task (completed)
+
+- [x] comandi espliciti create/read/list/complete/reopen e Undo user-scoped;
+- [x] scadenze `none|date_only|instant`, priorità e stato senza default inventati;
+- [x] mutation/audit/Undo atomici, idempotenti e version-checked;
+- [x] `/oggi` e `/domani` aggregano task in scadenza con finestre IANA/DST;
+- [x] test property temporali, duplicate, stale/expired/replay e cross-tenant;
+- [x] migration, query plan, ADR e runbook recovery/rollback.
+
 ## Later phases
 
 Break down Phase B onward only when the preceding exit criteria are met. The
@@ -96,7 +105,7 @@ imply premature APIs. Open Banking is not a later phase.
 - [x] assign every approved capability to concrete milestones A-O;
 - [x] record universal Inbox/domain boundaries, no Open Banking and staged
       Google Calendar reliability in ADR-0009..0011;
-- [x] complete B1 and B2 sequentially without scaffolding B3;
+- [x] complete B1, B2 and B3 sequentially without scaffolding B4;
 - [ ] do not mark a planned capability complete until code, tests and all
       applicable DoD gates exist.
 

@@ -22,6 +22,8 @@ describe("foundation migration", () => {
         "reminders",
         "reminder_undo_actions",
         "notification_deliveries",
+        "tasks",
+        "task_undo_actions",
       ]),
     );
 
@@ -144,6 +146,61 @@ describe("foundation migration", () => {
     expect(
       reminderRecoveryPlan.results.some((row) =>
         row.detail.includes("reminders_recovery_idx"),
+      ),
+    ).toBe(true);
+
+    const taskListPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN
+       SELECT id FROM tasks
+       WHERE user_id = ? AND status = 'open'
+       ORDER BY priority, created_at LIMIT 50`,
+    )
+      .bind("user-a")
+      .all<{ detail: string }>();
+    expect(
+      taskListPlan.results.some((row) =>
+        row.detail.includes("tasks_scope_status_idx"),
+      ),
+    ).toBe(true);
+
+    const taskDatePlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN
+       SELECT id FROM tasks
+       WHERE user_id = ? AND status = 'open' AND due_date_local = ?`,
+    )
+      .bind("user-a", "2026-08-08")
+      .all<{ detail: string }>();
+    expect(
+      taskDatePlan.results.some((row) =>
+        row.detail.includes("tasks_scope_date_idx"),
+      ),
+    ).toBe(true);
+
+    const taskInstantPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN
+       SELECT id FROM tasks
+       WHERE user_id = ? AND status = 'open'
+         AND due_at_utc >= ? AND due_at_utc < ?`,
+    )
+      .bind("user-a", Date.now(), Date.now() + 86_400_000)
+      .all<{ detail: string }>();
+    expect(
+      taskInstantPlan.results.some((row) =>
+        row.detail.includes("tasks_scope_instant_idx"),
+      ),
+    ).toBe(true);
+
+    const taskUndoPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN
+       SELECT token FROM task_undo_actions
+       WHERE scope_user_id = ? AND expires_at <= ?
+       ORDER BY expires_at LIMIT 100`,
+    )
+      .bind("user-a", Date.now())
+      .all<{ detail: string }>();
+    expect(
+      taskUndoPlan.results.some((row) =>
+        row.detail.includes("task_undo_scope_expiry_idx"),
       ),
     ).toBe(true);
   });

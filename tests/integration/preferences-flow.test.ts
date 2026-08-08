@@ -15,6 +15,7 @@ import { D1IdentityRepository } from "../../src/infrastructure/db/identity-repos
 import { D1InboundRepository } from "../../src/infrastructure/db/inbound-repository";
 import { D1PreferenceRepository } from "../../src/infrastructure/db/preference-repository";
 import { D1ReminderRepository } from "../../src/infrastructure/db/reminder-repository";
+import { D1TaskRepository } from "../../src/infrastructure/db/task-repository";
 import { SelfScopeAuthorizer } from "../../src/security/authorization";
 import type { UserScope } from "../../src/shared/contracts";
 import { AppError } from "../../src/shared/errors";
@@ -353,6 +354,7 @@ describe("B1.1 deterministic Telegram flow", () => {
       inbox,
       preferences: new D1PreferenceRepository(env.DB),
       reminders: new D1ReminderRepository(env.DB),
+      tasks: new D1TaskRepository(env.DB),
       reply,
       leaseSeconds: 60,
     };
@@ -426,6 +428,7 @@ describe("B1.1 deterministic Telegram flow", () => {
       inbox,
       preferences: new D1PreferenceRepository(env.DB),
       reminders: new D1ReminderRepository(env.DB),
+      tasks: new D1TaskRepository(env.DB),
       reply,
       leaseSeconds: 60,
     };

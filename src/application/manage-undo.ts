@@ -4,6 +4,7 @@ import type {
   EventRepository,
   PreferenceRepository,
   ReminderRepository,
+  TaskRepository,
 } from "./ports";
 import type { Authorizer } from "../security/authorization";
 import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
@@ -15,6 +16,7 @@ export interface ManageUndoDependencies {
   readonly ids: IdGenerator;
   readonly preferences: PreferenceRepository;
   readonly reminders: ReminderRepository;
+  readonly tasks: TaskRepository;
 }
 
 export interface ManageUndoRequest {
@@ -39,6 +41,42 @@ export async function manageUndo(
   }
 
   if (!request.command.token.startsWith("evt_")) {
+    if (request.command.token.startsWith("tsk_")) {
+      await dependencies.authorizer.authorize({
+        actorUserId: request.actorUserId,
+        scope: request.scope,
+        action: "tasks:undo",
+      });
+      const result = await dependencies.tasks.undo(
+        request.scope,
+        request.command.token,
+        {
+          actorUserId: request.actorUserId,
+          correlationId: request.correlationId,
+          idempotencyKey: request.idempotencyKey,
+          auditId: dependencies.ids.newId(),
+          now: dependencies.clock.now(),
+        },
+      );
+      switch (result.outcome) {
+        case "reverted":
+          return result.task === null
+            ? "Creazione task annullata."
+            : `Modifica task annullata. ID: ${result.task.id}`;
+        case "duplicate":
+          return result.task === null
+            ? "Undo task già applicato: la task non esiste."
+            : `Undo task già applicato. ID: ${result.task.id}`;
+        case "expired":
+          return "Undo task scaduto: nessuna modifica applicata.";
+        case "used":
+          return "Undo task già usato: nessuna modifica applicata.";
+        case "stale":
+          return "Undo task non applicabile: la task è cambiata nel frattempo.";
+        case "not_found":
+          return "Undo task non disponibile per questo utente.";
+      }
+    }
     if (request.command.token.startsWith("rem_")) {
       await dependencies.authorizer.authorize({
         actorUserId: request.actorUserId,

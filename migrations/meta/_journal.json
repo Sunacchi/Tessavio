@@ -29,6 +29,13 @@
       "when": 1786202145995,
       "tag": "0003_giant_mentor",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1786204694344,
+      "tag": "0004_low_moondragon",
+      "breakpoints": true
     }
   ]
 }

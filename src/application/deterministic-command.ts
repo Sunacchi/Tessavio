@@ -40,6 +40,19 @@ export type ReminderCommand =
   | { readonly kind: "reminders.cancel"; readonly reminderId: string }
   | { readonly kind: "reminders.invalid" };
 
+export type TaskCommand =
+  | {
+      readonly kind: "tasks.create";
+      readonly due: string;
+      readonly priority: string;
+      readonly title: string;
+    }
+  | { readonly kind: "tasks.read"; readonly taskId: string }
+  | { readonly kind: "tasks.list" }
+  | { readonly kind: "tasks.complete"; readonly taskId: string }
+  | { readonly kind: "tasks.reopen"; readonly taskId: string }
+  | { readonly kind: "tasks.invalid" };
+
 export type EventCommand =
   | ({ readonly kind: "events.create" } & EventDraftCommand)
   | { readonly kind: "events.read"; readonly eventId: string }
@@ -61,6 +74,7 @@ export type DeterministicCommand =
   | PreferenceCommand
   | EventCommand
   | ReminderCommand
+  | TaskCommand
   | UndoCommand
   | { readonly kind: "unsupported" };
 
@@ -180,6 +194,46 @@ function parseReminderCommand(text: string): ReminderCommand {
   return { kind: "reminders.invalid" };
 }
 
+function parseTaskCommand(text: string): TaskCommand {
+  const separators = Array.from(text.matchAll(/\|/gu));
+  const firstSeparator = separators[0]?.index;
+  const secondSeparator = separators[1]?.index;
+  if (firstSeparator !== undefined && secondSeparator !== undefined) {
+    const commandText = text.slice(0, firstSeparator).trim();
+    const priority = text.slice(firstSeparator + 1, secondSeparator);
+    const title = text.slice(secondSeparator + 1);
+    const parts = commandText.split(/\s+/u);
+    if (parts[1]?.toLowerCase() === "crea" && parts.length === 3) {
+      return {
+        kind: "tasks.create",
+        due: parts[2] ?? "",
+        priority,
+        title,
+      };
+    }
+  }
+  if (separators.length > 0) return { kind: "tasks.invalid" };
+  const parts = text.split(/\s+/u);
+  const operation = parts[1]?.toLowerCase();
+  if (operation === "lista" && parts.length === 2) {
+    return { kind: "tasks.list" };
+  }
+  const taskId = parts[2] ?? "";
+  if (parts.length !== 3 || !entityIdPattern.test(taskId)) {
+    return { kind: "tasks.invalid" };
+  }
+  switch (operation) {
+    case "leggi":
+      return { kind: "tasks.read", taskId };
+    case "completa":
+      return { kind: "tasks.complete", taskId };
+    case "riapri":
+      return { kind: "tasks.reopen", taskId };
+    default:
+      return { kind: "tasks.invalid" };
+  }
+}
+
 export function parseDeterministicCommand(text: string): DeterministicCommand {
   const normalized = text.trim();
   const parts = normalized.split(/\s+/u);
@@ -220,6 +274,9 @@ export function parseDeterministicCommand(text: string): DeterministicCommand {
   }
   if (command === "/promemoria") {
     return parseReminderCommand(normalized);
+  }
+  if (command === "/task") {
+    return parseTaskCommand(normalized);
   }
   if (command === "/oggi" && parts.length === 1) {
     return { kind: "events.today" };

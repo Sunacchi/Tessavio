@@ -4,7 +4,9 @@ import type {
   EventRepository,
   MutateEventResult,
   PreferenceRepository,
+  TaskRepository,
 } from "./ports";
+import { renderTask } from "./manage-tasks";
 import {
   eventDayWindow,
   eventUndoTtlMs,
@@ -24,6 +26,7 @@ export interface ManageEventsDependencies {
   readonly events: EventRepository;
   readonly ids: IdGenerator;
   readonly preferences: PreferenceRepository;
+  readonly tasks?: TaskRepository;
 }
 
 export interface ManageEventsRequest {
@@ -192,15 +195,31 @@ export async function manageEvents(
       profile.timeZone,
       request.command.kind === "events.today" ? 0 : 1,
     );
-    const events = await dependencies.events.listForDay(request.scope, window);
+    const [events, tasks] = await Promise.all([
+      dependencies.events.listForDay(request.scope, window),
+      dependencies.tasks?.listForDay(request.scope, window) ??
+        Promise.resolve([]),
+    ]);
     const heading = request.command.kind === "events.today" ? "Oggi" : "Domani";
-    if (events.length === 0) {
-      return `${heading} (${window.localDate}): nessun evento.`;
+    if (events.length === 0 && tasks.length === 0) {
+      return `${heading} (${window.localDate}): nessun evento o task in scadenza.`;
     }
-    return [
-      `${heading} (${window.localDate}):`,
-      ...events.map((event) => renderEvent(event, profile)),
-    ].join("\n\n");
+    const sections = [`${heading} (${window.localDate}):`];
+    if (events.length > 0) {
+      sections.push(
+        ["Eventi:", ...events.map((event) => renderEvent(event, profile))].join(
+          "\n\n",
+        ),
+      );
+    }
+    if (tasks.length > 0) {
+      sections.push(
+        ["Task:", ...tasks.map((task) => renderTask(task, profile))].join(
+          "\n\n",
+        ),
+      );
+    }
+    return sections.join("\n\n");
   }
 
   if (request.command.kind === "events.cancel") {

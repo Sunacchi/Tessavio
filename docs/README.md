@@ -23,6 +23,7 @@
 - [B1.1 preferences recovery runbook](runbooks/B1_PREFERENCES_RECOVERY.md)
 - [B1.2 one-off events recovery runbook](runbooks/B1_EVENTS_RECOVERY.md)
 - [B2 reminder delivery recovery runbook](runbooks/B2_REMINDERS_RECOVERY.md)
+- [B3 task recovery runbook](runbooks/B3_TASKS_RECOVERY.md)
 - [Pre-pilot operational gates](runbooks/PRE_PILOT_OPERATIONS.md)
 
 ## Agents and decisions
