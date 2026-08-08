@@ -1,9 +1,9 @@
 # Milestone corrente — B1 Preferenze + agenda one-off
 
-**Stato: attiva dal 2026-08-08.** A1 Foundation è completata localmente; nessuna
-risorsa Cloudflare remota è stata creata e nessun deploy è stato eseguito. B1 è
-la prima vertical slice della Phase B e resta interamente deterministica e
-utilizzabile senza provider AI.
+**Stato: attiva dal 2026-08-08 dopo la revalidazione A1.** I finding Foundation
+sono chiusi con `npm run validate` verde e `npm audit --omit=dev` senza
+vulnerabilità. Nessuna risorsa Cloudflare remota è stata creata e nessun deploy è
+stato eseguito. B1 resta deterministica e utilizzabile senza provider AI.
 
 ## Obiettivo
 
@@ -15,6 +15,20 @@ dati di altri utenti.
 La sequenza di prodotto e i gate trasversali sono nel
 [master action plan](MASTER_ACTION_PLAN.md#phase-b--core-product-interamente-deterministica).
 In caso di conflitto questo file definisce lo scope della milestone attiva.
+
+## Prossimo singolo incremento verificabile — B1.1 Preferenze temporali
+
+Prima di implementare eventi, consegnare il profilo preferenze minimo tramite
+comandi deterministici: lingua supportata, timezone IANA, formato ora, valuta
+predefinita e lettura delle impostazioni. La write deve essere user-scoped,
+autorizzata, idempotente e auditata; una modifica reversibile produce Undo
+single-use con TTL/version check.
+
+Evidenza richiesta: migration fresh/upgrade e recovery, validazione timezone
+senza offset fisso, create/read/update/Undo, duplicate update e test negativi in
+cui l'utente A non legge o modifica le preferenze di B. Solo dopo questi gate la
+stessa milestone passa a B1.2 eventi one-off. Nessun requisito delle fasi C-O
+autorizza scaffold durante B1.1.
 
 ## Modello Codex suggerito
 
@@ -35,8 +49,10 @@ Phase C. La raccomandazione segue la
 - fissare scenari e sintassi dei comandi per preferenze, creazione, lettura,
   modifica, annullamento e Undo di un evento;
 - distinguere nel contratto `date-only`, ora civile locale e instant UTC;
-- verificare il supporto Temporal del runtime e scegliere un solo polyfill,
-  con versione esatta, soltanto se necessario;
+- per B1.1 validare identificatori IANA con API standard come
+  `Intl.DateTimeFormat`, senza richiedere Temporal;
+- per B1.2 ripetere il probe sul runtime Workers e scegliere un solo polyfill,
+  con versione esatta verificata just-in-time, soltanto se necessario;
 - definire schema, indici, state transition e query sempre `UserScope`-scoped;
 - definire audit atomico, idempotency key e policy Undo single-use con TTL e
   version check;
@@ -51,8 +67,8 @@ per B2 e slice successive.
 
 - preferenze utente minime: lingua supportata, timezone IANA, formato ora,
   valuta predefinita e impostazioni privacy già richieste dalla slice;
-- validazione esplicita della timezone tramite API standard/polyfill, senza
-  tabelle DST manuali o offset fisso;
+- validazione esplicita della timezone B1.1 tramite API standard, senza tabelle
+  DST manuali, offset fisso o dipendenza Temporal prematura;
 - eventi one-off privati con ID interno e accesso sempre tenant-scoped;
 - rappresentazione distinta di eventi `date-only` ed eventi con instant;
 - comandi Telegram deterministici per creare, leggere, modificare e annullare
@@ -72,6 +88,8 @@ per B2 e slice successive.
 - parsing in linguaggio naturale, provider AI e `ActionProposal[]`;
 - vocali, immagini, Mini App e Google Calendar;
 - condivisione fra utenti o spazi;
+- briefing, documenti, persone, finanza avanzata, casa, viaggi e benessere;
+- Open Banking, che è escluso dal prodotto e non una fase futura;
 - deploy staging/production salvo richiesta esplicita separata.
 
 ## Exit criteria

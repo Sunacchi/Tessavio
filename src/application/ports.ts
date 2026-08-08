@@ -85,6 +85,11 @@ export interface DeliveryRepository {
     deliveryKey: string,
     now: Date,
   ): Promise<void>;
+  markRetryableFailure(
+    scope: UserScope,
+    deliveryKey: string,
+    now: Date,
+  ): Promise<void>;
   markPermanentFailure(
     scope: UserScope,
     deliveryKey: string,

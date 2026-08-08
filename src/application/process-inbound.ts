@@ -154,6 +154,14 @@ export async function processInboundMessage(
       );
       return { outcome: "completed" };
     }
+    if (error instanceof AppError && error.code === "RETRYABLE_EXTERNAL") {
+      await dependencies.deliveries.markRetryableFailure(
+        scope,
+        deliveryKey,
+        dependencies.clock.now(),
+      );
+      throw error;
+    }
 
     await dependencies.deliveries.markAmbiguous(
       scope,

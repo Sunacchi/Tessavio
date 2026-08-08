@@ -1,4 +1,5 @@
 import { processInboundMessage } from "../application/process-inbound";
+import type { TelegramReplyPort } from "../application/ports";
 import { inboundMessageEnvelopeSchema } from "../application/queue-envelope";
 import { D1DeliveryRepository } from "../infrastructure/db/delivery-repository";
 import { D1EffectRepository } from "../infrastructure/db/effect-repository";
@@ -6,29 +7,44 @@ import { D1IdentityRepository } from "../infrastructure/db/identity-repository";
 import { D1InboundRepository } from "../infrastructure/db/inbound-repository";
 import { SelfScopeAuthorizer } from "../security/authorization";
 import { parseConfig } from "../shared/config";
-import { cryptoIdGenerator, systemClock } from "../shared/contracts";
+import {
+  cryptoIdGenerator,
+  systemClock,
+  type Clock,
+  type IdGenerator,
+} from "../shared/contracts";
 import { AppError, errorCodeOf } from "../shared/errors";
 import { logEvent } from "../shared/logger";
 import { GrammyTelegramReplyAdapter } from "../telegram/reply-adapter";
 
+export interface InboundQueueOverrides {
+  readonly clock?: Clock;
+  readonly ids?: IdGenerator;
+  readonly reply?: TelegramReplyPort;
+}
+
 export async function handleInboundQueue(
   batch: MessageBatch,
   env: Env,
+  overrides: InboundQueueOverrides = {},
 ): Promise<void> {
   const config = parseConfig(env);
   const inbox = new D1InboundRepository(env.DB);
+  const clock = overrides.clock ?? systemClock;
   const dependencies = {
     authorizer: new SelfScopeAuthorizer(),
-    clock: systemClock,
+    clock,
     deliveries: new D1DeliveryRepository(env.DB),
     effects: new D1EffectRepository(env.DB),
     identities: new D1IdentityRepository(env.DB),
-    ids: cryptoIdGenerator,
+    ids: overrides.ids ?? cryptoIdGenerator,
     inbox,
-    reply: new GrammyTelegramReplyAdapter(
-      env.TELEGRAM_BOT_TOKEN,
-      config.TELEGRAM_API_BASE_URL,
-    ),
+    reply:
+      overrides.reply ??
+      new GrammyTelegramReplyAdapter(
+        env.TELEGRAM_BOT_TOKEN,
+        config.TELEGRAM_API_BASE_URL,
+      ),
     leaseSeconds: config.INBOX_LEASE_SECONDS,
   };
 
@@ -43,7 +59,7 @@ export async function handleInboundQueue(
     }
 
     const envelope = parsed.data;
-    const startedAt = Date.now();
+    const startedAt = clock.now().getTime();
     try {
       const result = await processInboundMessage(envelope, dependencies);
       logEvent("info", `queue.${result.outcome}`, {
@@ -52,7 +68,7 @@ export async function handleInboundQueue(
         updateId: envelope.payload.updateId,
         state: result.outcome,
         attempt: message.attempts,
-        latencyMs: Date.now() - startedAt,
+        latencyMs: clock.now().getTime() - startedAt,
       });
       message.ack();
     } catch (error) {
@@ -62,7 +78,7 @@ export async function handleInboundQueue(
         !(error instanceof AppError) ||
         (error.code !== "DUPLICATE" && error.code !== "INVALID_INPUT");
       if (failureOwnsClaim) {
-        await inbox.fail(envelope.jobId, systemClock.now(), code, !retryable);
+        await inbox.fail(envelope.jobId, clock.now(), code, !retryable);
       }
       logEvent(retryable ? "warn" : "error", "queue.failed", {
         correlationId: envelope.correlationId,
@@ -70,7 +86,7 @@ export async function handleInboundQueue(
         updateId: envelope.payload.updateId,
         errorCode: code,
         attempt: message.attempts,
-        latencyMs: Date.now() - startedAt,
+        latencyMs: clock.now().getTime() - startedAt,
       });
       if (retryable) {
         message.retry({ delaySeconds: config.INBOX_LEASE_SECONDS });

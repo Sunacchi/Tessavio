@@ -33,7 +33,9 @@ Drizzle compatibile e prima della beta.
 Mai usare token prod in locale. La creazione o modifica di risorse remote richiede autorizzazione esplicita dell'utente.
 
 Per bootstrap e recovery vedere [D1_PROVISIONING.md](D1_PROVISIONING.md) e
-[A1_RECOVERY.md](A1_RECOVERY.md).
+[A1_RECOVERY.md](A1_RECOVERY.md). Prima di staging/pilot applicare
+[PRE_PILOT_OPERATIONS.md](PRE_PILOT_OPERATIONS.md) e la matrice di
+[residenza/subprocessori](../privacy/PROCESSOR_AND_RESIDENCY_MATRIX.md).
 
 ## Comandi A1
 

@@ -4,105 +4,202 @@
 
 ```mermaid
 flowchart TD
-    TG["Telegram"] --> WH["Webhook Worker: verify, validate, dedupe"]
+    TG["Telegram"] --> WH["Webhook: verify, validate, dedupe"]
     WH --> Q["Cloudflare Queue"]
-    Q --> SI["Smart Inbox / command bus"]
-    SI --> DET["Core deterministico"]
-    SI --> AIR["AI Router opzionale"]
-    AIR --> AP["ActionProposal strict"]
-    AP --> VAL["Validator + policy"]
-    DET --> DOM["Domain services"]
-    VAL --> DOM
+    Q --> IN["Tessavio Inbox: normalize + route"]
+    IN --> CMD["Comandi deterministici"]
+    IN --> AIR["AI Router opzionale"]
+    AIR --> AP["ActionProposal[] strict"]
+    CMD --> VAL["Validator + policy"]
+    AP --> VAL
+    VAL --> DOM["Domain services"]
     DOM --> D1["D1 EU — fonte della verità"]
-    CRON["Cron"] --> CLAIM["Claim reminder atomico"]
+    CRON["Cron"] --> CLAIM["Claim atomico"]
     CLAIM --> Q
-    Q --> SEND["Telegram delivery"]
+    DOM --> OUT["Outbox / delivery ledger"]
+    OUT --> Q
+    Q --> TGOUT["Telegram / Google Calendar"]
 ```
 
 ## Confini
 
 ### Entrypoints
 
-`fetch`, `queue` e `scheduled` traducono eventi Cloudflare in input applicativi. Non contengono logica di dominio.
+`fetch`, `queue` e `scheduled` traducono eventi Cloudflare in input applicativi.
+Non contengono logica di dominio. Il webhook esegue solo controlli HTTP/secret,
+validazione, dedupe, registrazione Inbox, enqueue e risposta rapida.
 
 ### Telegram
 
-Gestisce protocollo Bot API, webhook, messaggi, tastiere e comandi. L'identità Telegram viene mappata a un ID utente interno prima dell'accesso al dominio.
+Gestisce Bot API, messaggi, tastiere, comandi e metadata minimi di provenance.
+L'identità Telegram viene mappata a un ID interno prima dell'accesso al dominio.
+File e media si scaricano solo nel consumer, con allowlist, limiti e lifecycle
+transitorio.
 
-### Application
+### Application e Tessavio Inbox
 
-Orchestra use case, Smart Inbox, command bus, ActionProposal validator/executor e policy di conferma. Coordina transazioni e idempotenza senza incorporare dettagli Telegram o provider AI.
+La Inbox è un punto di acquisizione, non un aggregate di dominio. Normalizza
+testo, forward, link e allegati supportati, conserva solo provenance necessaria e
+instrada verso comandi oppure `ActionProposal[]`. Un input può produrre più
+proposte con idempotency key distinte; nessuna proposta scrive da sola.
+
+Application orchestra use case, validator, confirmation policy, transazioni
+bounded, audit, Undo e idempotenza. Ambiguità produce una domanda mirata; azioni
+sensibili, distruttive, bulk o condivise richiedono preview.
 
 ### Domains
 
-Contengono regole pure per utenti, agenda, reminder, task, planner, lavoro, spese, liste, routine, spazi e report. Dipendono da porte, non da D1, Workers o SDK esterni.
+I domini sono moduli deterministici, AI-independent e con persistenza propria:
+
+- identità e preferenze;
+- agenda, reminder, task, lavoro, planner e routine;
+- finanze personali;
+- liste e note;
+- documenti e amministrazione;
+- persone e follow-up;
+- spazi, casa e famiglia;
+- viaggi;
+- briefing/attention e report;
+- privacy, export e cancellazione.
+
+Un modulo non legge direttamente le tabelle di un altro. Collegamenti
+cross-domain sono riferimenti tipizzati e tenant-scoped introdotti con la slice
+che li usa; non si crea una tabella universale o una FK polimorfa speculativa.
+Il proprietario del dato resta il dominio sorgente: per esempio il documento
+conserva provenance estratta, mentre la spesa validata resta autorevole in
+finanze.
 
 ### AI
 
-Espone un adapter provider-agnostic per trascrizione, structured completion, vision, reasoning e usage. Il router seleziona per capability, benchmark, latenza, costo, modalità utente, privacy, budget e disponibilità.
+Espone adapter provider-agnostic per structured completion, trascrizione, vision,
+reasoning e usage. Il router seleziona per capability, benchmark, latenza, costo,
+modalità utente, privacy, budget e disponibilità.
 
-Classi iniziali:
+Classi:
 
 - T0: nessuna AI;
-- T1: estrazione strutturata economica;
+- T1: estrazione strutturata testuale;
 - T2: estrazione multimodale;
-- T3: reasoning/planning;
+- T3: normalizzazione di vincoli e spiegazione;
 - T-STT: trascrizione dedicata.
+
+L'AI non riceve SQL, repository, credenziali o accesso diretto a D1.
 
 ### Infrastructure
 
-Implementa repository D1, Queue, crittografia, clock, logging e ID. Tutte le query tenant-scoped includono owner/space scope.
+Implementa repository D1, Queue, outbox/delivery ledger, crittografia, clock,
+logging, ID e storage transitorio. Tutte le query tenant-scoped includono owner o
+space scope. Parser di file, CSV e contenuti remoti sono confini non fidati.
+
+### Integrations
+
+Le integrazioni sono adapter opzionali e non diventano fonti della verità dei
+domini. Google Calendar è l'unica integrazione nella roadmap corrente:
+
+- H1 export controllato con OAuth, mapping, outbox e retry;
+- H2 riconciliazione/import in staging;
+- H3 sync bidirezionale con conflict policy e loop prevention.
+
+D1 resta autorevole e ogni modifica importata attraversa gli stessi validator e
+servizi del core. Gmail, Drive, Contacts, Tasks, meteo, mappe e altri servizi sono
+differiti. Open Banking, adapter bancari e pagamenti sono vietati da ADR-0009.
 
 ### Security
 
-Centralizza authorization, encryption, rate limiting e privacy. È un confine obbligatorio per ogni use case, non una utility opzionale.
+Centralizza authorization, encryption, rate limiting, data classification e
+privacy. È un confine obbligatorio per ogni use case. Documenti personali,
+finanze, relazioni e benessere richiedono context minimization, export/delete e
+retention espliciti prima della persistenza.
 
 ## Flussi critici
 
 ### Telegram inbound
 
-1. accetta solo `POST`;
-2. verifica `X-Telegram-Bot-Api-Secret-Token`;
-3. valida il JSON;
-4. registra/deduplica `update_id`;
-5. pubblica `INBOUND_MESSAGE`;
-6. risponde rapidamente con `200`.
-
-Il queue consumer normalizza, classifica, usa eventualmente l'AI, produce e valida proposte, applica policy, esegue il dominio e risponde con correlation ID continuo.
-
-### Reminder
-
-Il Cron seleziona reminder `pending` e dovuti. Ogni riga viene acquisita con update condizionale `pending -> claimed`; solo chi modifica una riga pubblica `SEND_NOTIFICATION`. La delivery usa una `dedupe_key` univoca, classifica errori temporanei/permanenti e registra l'esito.
+1. accetta solo `POST` sul path esatto;
+2. applica limiti e verifica `X-Telegram-Bot-Api-Secret-Token`;
+3. valida e normalizza il JSON minimo;
+4. registra/deduplica `update_id` prima del publish;
+5. pubblica `INBOUND_MESSAGE` e risponde rapidamente;
+6. il consumer ricostruisce identità/scope, classifica e instrada;
+7. validator/policy/domain eseguono, auditano e producono risposta.
 
 ### ActionProposal
 
 ```text
 LLM -> JSON Schema strict -> Zod -> tenant/permission validator
-    -> ambiguity/conflict/budget policy -> preview oppure domain command
-    -> audit + undo token -> risposta
+    -> semantic/conflict/budget/risk policy -> domanda | preview | domain command
+    -> persistence + audit + Undo token -> risposta
 ```
 
-La confidence dichiarata dal modello non decide nulla. Ambiguità deriva da segnali deterministici: campi mancanti, più interpretazioni, timezone assente, duplicati, bulk o azione distruttiva.
+La confidence del modello non autorizza nulla. Ambiguità deriva da segnali
+deterministici: campi mancanti, interpretazioni multiple, timezone assente,
+duplicati, bulk, dati sensibili o azioni distruttive/condivise.
 
-### Tempo
+### Reminder, briefing e notifiche
+
+Cron seleziona record pending e dovuti con claim condizionale; solo chi modifica
+la riga pubblica il job. La delivery usa una dedupe key univoca, rispetta quiet
+hours e preference snapshot, classifica errori e impedisce di ripetere lo stesso
+avviso logico. Briefing e report aggregano viste autorizzate tramite porte dei
+domini, senza query cross-domain libere.
+
+### Google Calendar
+
+Le mutation locali committano prima in D1 e registrano un'operazione outbox. Il
+consumer applica l'operazione idempotente usando mapping locale/esterno
+tenant-scoped. Riconciliazione e import producono divergence record/proposte;
+solo una conflict policy può trasformarli in mutation Tessavio. Delete,
+tombstone, all-day, timezone e ricorrenze hanno semantica esplicita.
+
+### Media e documenti
+
+Il consumer verifica tipo/dimensione, scarica in storage transitorio, estrae con
+provenance e cancella in `finally`. Il risultato utile può diventare proposta o
+metadata. Conservare il documento originale richiede un use case esplicito,
+cifratura, authorization e retention; non è un effetto automatico dell'Inbox.
+
+### Tempo e denaro
 
 - evento one-off: UTC start/end più timezone originale;
 - scadenza senza ora: `due_date_local`, non timestamp arbitrario;
 - ricorrenza: ora locale e timezone IANA preservate;
 - date relative: timestamp messaggio + data locale + timezone utente;
-- un unico Temporal polyfill, con test DST.
+- denaro: minor unit intere e valuta esplicita;
+- split: somma delle quote uguale all'importo, con regola di arrotondamento
+  deterministica;
+- forecast: formula/versione/provenance e disclaimer, mai consulenza.
 
-## Dati principali
+## Dati e schema evolutivo
 
-Lo schema completo verrà introdotto per milestone. Le categorie previste sono: identità/preferenze/inviti, OAuth e AI usage, update/inbox/proposte, eventi/task/reminder, lavoro, spese/liste, spazi, delivery, integrazioni, audit/undo, budget e model policy.
+Lo schema arriva per vertical slice. A1 contiene solo identità, inbox, rate/lease,
+effect, delivery e audit. Le categorie future sono introdotte quando attive e
+devono definire owner/space, indici, lifecycle, export/delete, audit/Undo e test
+cross-tenant.
 
-Gli indici iniziali devono coprire identità Telegram, query temporali per owner/space, reminder dovuti, turni, spese, membership, usage, audit, delivery dedupe e routine. Prima della beta eseguire `EXPLAIN QUERY PLAN` sulle query hot.
+Non creare tabelle per Open Banking, integrazioni differite o domini futuri prima
+della relativa milestone. Prima di ogni gate eseguire `EXPLAIN QUERY PLAN` sulle
+query hot e validare migration fresh/upgrade/recovery.
 
 ## Affidabilità
 
 - correlation ID end-to-end;
-- retry solo per errori temporanei;
-- circuit breaker provider;
-- fallback AI soltanto compatibile, privacy-equivalente e sotto costo massimo;
+- trasporto at-least-once, una sola esecuzione logica;
+- retry solo per errori temporanei e dedupe degli effetti esterni;
+- outbox per Google e altri side effect che seguono una mutation D1;
+- circuit breaker e fallback AI compatibili con privacy/costo;
 - graceful degradation a comandi/core deterministici;
-- soft delete per la finestra Undo, poi purge.
+- soft delete per finestra Undo, poi purge secondo policy;
+- conflitti esterni osservabili e risolvibili, mai last-write-wins cieco.
+
+## Residenza e capacità
+
+`jurisdiction=eu` garantisce la collocazione di esecuzione e persistenza del
+solo D1. Worker HTTP, Queue, Cron, Telegram, subrequest e provider AI seguono
+controlli separati; il data-flow e i gate pre-pilot sono nella
+[matrice di residenza](../privacy/PROCESSOR_AND_RESIDENCY_MATRIX.md).
+
+Il singolo D1 condiviso è single-threaded e limitato a 10 GB. Prima del pilot si
+misurano dimensione, p95 delle query hot, errori `overloaded`, write throughput
+e Queue lag. I trigger e il go/no-go sono nel
+[runbook pre-pilot](../runbooks/PRE_PILOT_OPERATIONS.md); superarli riapre
+ADR-0003, non autorizza query non scoped o sharding speculativo.

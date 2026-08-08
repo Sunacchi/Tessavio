@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { GrammyError, HttpError } from "grammy";
 import { startOnboarding } from "../../src/domains/onboarding/start";
 import { readBoundedJson } from "../../src/entrypoints/body";
 import { SelfScopeAuthorizer } from "../../src/security/authorization";
@@ -7,6 +8,7 @@ import {
   normalizeTelegramUpdate,
   telegramUpdateSchema,
 } from "../../src/telegram/schemas";
+import { normalizeTelegramReplyError } from "../../src/telegram/reply-adapter";
 import { telegramStartUpdate } from "../helpers";
 
 describe("A1 deterministic boundaries", () => {
@@ -61,5 +63,69 @@ describe("A1 deterministic boundaries", () => {
     await expect(readBoundedJson(request, 32)).rejects.toMatchObject({
       code: "INVALID_INPUT",
     } satisfies Partial<AppError>);
+  });
+
+  it("classifies permanent Bot API rejections separately from temporary ones", () => {
+    const permanent = normalizeTelegramReplyError(
+      new GrammyError(
+        "send failed",
+        {
+          ok: false,
+          error_code: 403,
+          description: "synthetic permanent rejection",
+        },
+        "sendMessage",
+        {},
+      ),
+    );
+    const rateLimited = normalizeTelegramReplyError(
+      new GrammyError(
+        "send failed",
+        {
+          ok: false,
+          error_code: 429,
+          description: "synthetic temporary rejection",
+          parameters: { retry_after: 1 },
+        },
+        "sendMessage",
+        {},
+      ),
+    );
+    const serverFailure = normalizeTelegramReplyError(
+      new GrammyError(
+        "send failed",
+        {
+          ok: false,
+          error_code: 503,
+          description: "synthetic server rejection",
+        },
+        "sendMessage",
+        {},
+      ),
+    );
+
+    expect(permanent).toMatchObject({
+      code: "PERMANENT_EXTERNAL",
+      retryable: false,
+    });
+    expect(rateLimited).toMatchObject({
+      code: "RETRYABLE_EXTERNAL",
+      retryable: true,
+    });
+    expect(serverFailure).toMatchObject({
+      code: "RETRYABLE_EXTERNAL",
+      retryable: true,
+    });
+  });
+
+  it("classifies a network failure as an ambiguous remote result", () => {
+    const result = normalizeTelegramReplyError(
+      new HttpError("synthetic network failure", new Error("redacted")),
+    );
+
+    expect(result).toMatchObject({
+      code: "AMBIGUOUS_EXTERNAL",
+      retryable: false,
+    });
   });
 });

@@ -24,6 +24,26 @@ finge atomicità: non ripete la domain write, applica la policy at-most/at-least
 scelta per quel tipo di delivery e rende osservabile/recoverable l'ambiguità senza
 contenuto personale nei log.
 
+Per Telegram la tassonomia applicativa distingue:
+
+- `PERMANENT_EXTERNAL`: il Bot API ha risposto `ok: false` con un rifiuto
+  permanente; chiudere senza retry;
+- `RETRYABLE_EXTERNAL`: il Bot API ha risposto `ok: false` con un rifiuto
+  temporaneo certo (429 o 5xx); la reply non è stata inviata, il ledger torna
+  `pending` e la Queue può applicare il retry bounded configurato;
+- `AMBIGUOUS_EXTERNAL`: la chiamata HTTP/rete non ha fornito un esito remoto
+  affidabile; il ledger diventa `ambiguous` e la reply A1 non viene ritentata.
+
+La distinzione segue il contratto grammY: `GrammyError` rappresenta una
+risposta Bot API `ok: false`, mentre `HttpError` rappresenta il fallimento
+della chiamata HTTP. In tutti i rami effect, domain write e audit restano
+idempotenti; un retry certo può ripetere la chiamata Telegram solo perché il
+tentativo precedente è stato rifiutato prima dell'invio.
+
+Fonti:
+[grammY error handling](https://grammy.dev/guide/errors),
+[Telegram Bot API responses](https://core.telegram.org/bots/api).
+
 ## Consequences
 
 - il record di deduplica non è un semplice “seen flag”: deve supportare claim,
@@ -35,6 +55,8 @@ contenuto personale nei log.
   consegna fisica;
 - la UX ordinaria mira a una reply; un timeout remoto ambiguo segue la policy
   documentata e non può provocare una seconda domain write.
+- i retry Telegram certi sono limitati da `max_retries` e confluiscono nella
+  DLQ con lo stesso envelope e la stessa idempotency key se esauriti.
 
 ## Revisit when
 

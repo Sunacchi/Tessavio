@@ -2,37 +2,90 @@
 
 ## Retention proposta
 
-| Dato                     | Default                             |
-| ------------------------ | ----------------------------------- |
-| audio raw                | eliminato subito dopo STT           |
-| immagine raw             | eliminata subito dopo extraction    |
-| prompt raw nei log       | disabilitato                        |
-| testo normalizzato inbox | 7 giorni per A1                     |
-| ActionProposal           | 30-90 giorni                        |
-| effect/delivery A1       | 30 giorni                           |
-| audit identità A1        | minimo 90 giorni; approvazione prod |
-| dati core                | fino a cancellazione utente         |
-| metadata AI usage        | quanto necessario a budget e report |
+| Dato                     | Default                                   |
+| ------------------------ | ----------------------------------------- |
+| audio raw                | eliminato subito dopo STT                 |
+| immagine raw             | eliminata subito dopo extraction          |
+| PDF/documento raw Inbox  | eliminato dopo extraction                 |
+| documento archiviato     | solo opt-in/use case; fino a delete       |
+| estratto/provenance      | con l'entità utile; policy di dominio     |
+| prompt raw nei log       | disabilitato                              |
+| testo normalizzato inbox | 7 giorni per A1                           |
+| ActionProposal           | 30-90 giorni, da approvare prima di C     |
+| effect/delivery A1       | 30 giorni                                 |
+| audit identità A1        | minimo 90 giorni; approvazione produzione |
+| dati core                | fino a cancellazione utente               |
+| metadata AI usage        | quanto necessario a budget e report       |
+| OAuth Google             | fino a revoca/disconnessione              |
+| cursor/outbox Google     | minimo per sync, dedupe e recovery        |
 
-Conservare il risultato utile, non il materiale originale. La persistenza di media è futura, esplicita e opt-in.
+Conservare il risultato utile, non il materiale originale. La persistenza di un
+documento originale è separata dall'acquisizione Inbox, esplicita e cifrata. Le
+durate esatte di documento, estratto, link cross-domain, proposte, outbox e sync
+metadata sono gate della milestone che introduce la categoria e devono essere
+approvate prima di produzione.
 
 In A1 Telegram viene ridotto a update ID, ID numerici necessari, tipo chat,
 timestamp e testo del comando. Nome, username e payload raw vengono scartati al
 confine. Rate bucket e lease scadono rispettivamente entro due finestre e 30
-secondi; user/identity restano fino al futuro percorso di cancellazione account.
-La purge periodica dei record a 7/30/90 giorni è un gate pre-beta e non è ancora
-una promessa di deploy production.
+secondi; user/identity restano fino al percorso di cancellazione account. La
+purge periodica dei record a 7/30/90 giorni è un gate pre-beta e non è ancora una
+promessa di deploy production.
 
 ## Diritti e operazioni
 
-Il prodotto commerciale dovrà supportare accesso, rettifica, export, cancellazione e revoca integrazioni. Export minimo JSON; CSV utile per lavoro, spese, eventi e task.
+Il prodotto commerciale deve supportare accesso, rettifica, export,
+cancellazione e revoca integrazioni. Export minimo JSON; CSV per lavoro, finanze,
+eventi, task e altri domini tabellari pertinenti.
 
-La cancellazione account richiede conferma, revoca integrazioni, rimozione credenziali e dati attivi, gestione retention infrastrutturale e conservazione del solo audit legalmente necessario.
+La cancellazione account richiede conferma, revoca integrazioni, rimozione
+credenziali e dati attivi, gestione retention infrastrutturale e conservazione
+del solo audit legalmente necessario.
+
+L'export distingue dati inseriti, dati estratti con provenance, stime e relazioni
+condivise. La cancellazione di una risorsa collegata non lascia contenuto
+personale ricercabile tramite indici, cache, outbox o copie di briefing. Un
+tombstone minimo può sopravvivere solo per dedupe/recovery e non contiene il
+payload cancellato.
+
+## Classificazione e minimizzazione
+
+| Categoria           | Esempi                              | Regola minima                                                |
+| ------------------- | ----------------------------------- | ------------------------------------------------------------ |
+| identità esterna    | Telegram ID                         | mappare a ID interno; niente username/telefono come chiave   |
+| organizzazione      | eventi, task, liste, viaggi         | privato per default; scope esplicito                         |
+| economica           | movimenti, budget, debiti, forecast | minor unit; niente dati bancari; preview export/import       |
+| documento sensibile | identità, assicurazioni, contratti  | cifratura, accesso bounded, provenance e retention esplicita |
+| relazionale         | persone, note, follow-up            | niente CRM/profilazione esterna; context minimization        |
+| benessere           | farmaci-reminder, sonno, energia    | dato sensibile; nessuna inferenza clinica o invio superfluo  |
+| condivisa           | famiglia, casa, split               | membership/ruolo; revoca e delete policy esplicite           |
+
+Briefing e notifiche usano il minimo contenuto necessario e rispettano quiet
+hours. La dedupe impedisce ripetizioni, ma non giustifica retention illimitata
+del testo notificato.
 
 ## Processor map pre-lancio
 
-Documentare categorie di dati e finalità per Telegram, Cloudflare, OpenRouter, provider AI sottostante e Google quando collegato.
+La [matrice di residenza e subprocessori](PROCESSOR_AND_RESIDENCY_MATRIX.md) è
+un gate pre-pilot: documenta categorie/finalità, controparte, regione,
+trasferimenti, retention, delete e misure per Telegram, Cloudflare, OpenRouter e
+provider AI sottostante. `jurisdiction=eu` del D1 non regionalizza gli altri
+passaggi. Google Calendar entra quando collegato; le integrazioni differite
+soltanto con una milestone autorizzata. Open Banking non entra perché escluso.
+
+La DPIA è registrata come gate pre-pilot per dati altamente personali/sensibili
+e uso AI. Deve essere completata prima del trattamento reale, avere owner,
+approvazione e data di riesame; rischi elevati residui richiedono la procedura
+prevista dall'articolo 35 GDPR prima di procedere.
 
 ## Trasparenza AI
 
-L'onboarding deve dichiarare che modelli AI interpretano alcuni messaggi mentre dati e azioni sono gestiti dal software e controllabili/annullabili. I piani prodotti con AI vanno etichettati come suggerimenti, non decisioni oggettive. La revisione legale resta obbligatoria prima della commercializzazione.
+L'onboarding dichiara che i modelli interpretano alcuni messaggi mentre dati e
+azioni sono gestiti dal software e controllabili/annullabili. I piani AI sono
+suggerimenti, non decisioni oggettive.
+
+Le estrazioni da documenti mostrano provenance e consentono correzione. Le
+previsioni finanziarie dichiarano dati e periodo usati e sono etichettate come
+stime, non consulenza. Le proposte di adattamento benessere non sono diagnosi o
+trattamenti. La revisione legale resta obbligatoria prima della
+commercializzazione.

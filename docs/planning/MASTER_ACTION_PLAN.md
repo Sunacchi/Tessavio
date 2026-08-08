@@ -1,4 +1,4 @@
-# Master action plan — dalla baseline alla beta chiusa
+# Master action plan — dalla baseline al prodotto Tessavio
 
 ## Scopo e stato
 
@@ -13,12 +13,15 @@ Stato verificato il 2026-08-08:
 - [x] repository Git inizializzato, remote collegato e baseline A1 committata;
 - [x] toolchain/package manifest/lockfile presenti;
 - [x] codice applicativo, migration e test presenti;
-- [x] A1 Foundation vertical slice completata;
+- [x] A1 Foundation revalidata: seam Queue deterministico, delivery Telegram
+      definite/ambiguous, regression test, documentazione, `npm run validate` e
+      audit production dependencies verdi;
+- [x] requisiti di prodotto estesi assegnati a milestone concrete A-O;
 - [ ] release beta chiusa secondo la sezione finale di questo piano.
 
 La sola milestone autorizzata all'implementazione è sempre quella indicata in
-[CURRENT_MILESTONE.md](CURRENT_MILESTONE.md). Le fasi future qui sotto sono una
-planning horizon: definiscono outcome, UX, rischi e gate, ma non autorizzano
+[CURRENT_MILESTONE.md](CURRENT_MILESTONE.md). Le fasi future qui sotto sono
+impegni di prodotto ordinati: definiscono outcome, UX, rischi e gate, ma non autorizzano
 scaffold, dipendenze o API premature. Quando una fase diventa attiva, il main
 agent deve sostituire la milestone corrente con un piano esecutivo della sola
 vertical slice successiva.
@@ -32,9 +35,12 @@ release è riproducibile, la recovery è provata e ciò che non entra nella beta
 esplicitamente spostato nel backlog futuro. Il deploy o la creazione di risorse
 remote richiedono comunque autorizzazione esplicita del proprietario.
 
-La chiusura non significa che il software non riceverà manutenzione: significa
-che non restano attività implicite, rischi critici non accettati o criteri di
-uscita non verificati nello scope beta.
+La chiusura della core beta non cancella le milestone J-N già approvate: indica
+solo che il relativo release gate è verificato. La chiusura del prodotto esteso
+arriva con O. In entrambi i casi non devono restare attività implicite, rischi
+critici non accettati o criteri di uscita non verificati nello scope dichiarato.
+
+La chiusura non significa che il software non riceverà manutenzione.
 
 ## Decision register del main agent
 
@@ -52,17 +58,22 @@ registra in ADR le conseguenze durevoli.
       authorization senza trascinare timezone/Temporal dentro la slice.
 - [x] **Posizione A2:** fondere la reminder infrastructure nella
       prima vertical slice reminder della Phase B, senza uno scaffold orizzontale.
-- [ ] **Scope beta:** approvare se routine, recurrence e Google `EXPORT_ONLY` sono
-      gate obbligatori o capability rinviabili; spese restano nel core previsto.
+- [x] **Scope di prodotto:** Inbox, finanze, briefing, documenti, persone, casa,
+      planner, Google Calendar, viaggi e benessere sono assegnati a milestone
+      concrete; la core beta termina in I e il prodotto esteso in O.
+- [x] **Open Banking:** escluso definitivamente con ADR-0009; CSV solo manuale.
+- [x] **Inbox/confini:** acquisizione comune senza duplicare i domini (ADR-0010).
+- [x] **Google Calendar:** H1 export, H2 reconcile/import e H3 bidirezionale,
+      sempre con D1 autorevole (ADR-0011).
 - [x] **Retention A1:** fissate durate e recovery per inbox/dedupe,
       job/effect/delivery ledger, audit e identità in ADR-0008.
 - [ ] **Retention futura:** fissare durate e purge per ActionProposal, media,
       Undo/soft-delete, OAuth state, log, export e backup.
 - [ ] **OAuth/crypto:** prima di C approvare TTL, redirect allowlist, binding,
       consumo atomico, ciphertext format/AAD, KEK rotation e revoca.
-- [ ] **Sharing/delete:** prima di F/G approvare role matrix, ultimo owner,
+- [ ] **Sharing/delete:** prima di F/I approvare role matrix, ultimo owner,
       private-to-shared e trattamento di dati condivisi, audit e backup alla delete.
-- [ ] **Go/no-go:** prima di I approvare SLO, carico, RPO/RTO, autorità di firma e
+- [ ] **Go/no-go:** prima di I3 approvare SLO, carico, RPO/RTO, autorità di firma e
       regola sui finding residui.
 
 ## Invarianti che ogni checkbox deve preservare
@@ -80,31 +91,38 @@ registra in ADR le conseguenze durevoli.
 - [ ] ogni nuova categoria persistita definisce retention, purge idempotente,
       isolamento tenant, legal hold applicabile e comportamento di backup/restore;
 - [ ] nessuna dipendenza usa `latest` o range aperti e ogni API mutevole viene riverificata;
-- [ ] nessuna fase introduce microservizi, Workflow o sync bidirezionale non giustificati.
+- [ ] nessuna fase introduce microservizi o Workflow senza evidenza misurata;
+- [ ] il sync bidirezionale esiste solo nel gate H3 con conflict policy e loop prevention;
+- [ ] nessun secret, provider, adapter, schema o dipendenza Open Banking.
 
 ## Flusso utente di destinazione
 
 Questa è la storia che le vertical slice devono costruire senza salti.
 
-1. **Primo contatto.** L'utente apre il bot, riceve una spiegazione breve, sceglie
-   lingua/timezone e comprende cosa funziona senza AI e quali dati vengono trattati.
-2. **Core deterministico.** Comandi espliciti permettono di creare, leggere,
-   modificare e annullare eventi, task, reminder, turni, liste e spese anche senza provider.
-3. **AI opzionale.** L'utente collega il proprio provider fuori dalla chat. Un
-   messaggio naturale diventa una proposta strutturata; il software decide se
-   eseguire con Undo o mostrare una preview.
-4. **Voce e immagini.** I media vengono elaborati in modo transitorio. Import
-   multipli o incerti richiedono revisione esplicita prima di qualsiasi write.
-5. **Planner.** Il sistema propone slot calcolati deterministicamente, spiega
-   conflitti e applica il piano solo dopo preview.
-6. **Condivisione.** L'utente invita persone in uno spazio con ruolo chiaro. I
-   dati privati non diventano condivisi per effetto collaterale.
-7. **Controllo visuale.** La Mini App espone impostazioni, privacy, connessioni,
-   calendario, export e cancellazione tramite sessioni firmate e brevi.
-8. **Calendario esterno.** Google Calendar riceve esportazioni opzionali;
-   eventuali errori non cambiano la verità in D1.
-9. **Uscita e diritti.** L'utente può disconnettere provider, esportare i dati,
-   cancellare l'account e capire cosa resta per obblighi di retention.
+1. **Primo contatto.** L'utente sceglie lingua/timezone e comprende modalità
+   `NO_AI`, dati trattati e comandi disponibili.
+2. **Core deterministico.** Eventi, task, reminder, turni, liste e finanze base
+   funzionano con comandi, authorization, audit e Undo.
+3. **Tessavio Inbox.** Testo, forward e link diventano comandi o proposte verso i
+   domini; un input ambiguo genera una sola domanda mirata.
+4. **Voce, immagini e documenti.** I media sono elaborati in modo transitorio e
+   import multipli/incerti richiedono revisione.
+5. **Planner.** Slot e riprogrammazioni sono calcolati deterministicamente,
+   motivati e applicati solo dopo la policy prevista.
+6. **Condivisione.** Membership e ruoli rendono esplicito cosa è privato o
+   familiare/condiviso.
+7. **Proattività.** Briefing configurabili rispettano quiet hours e dedupe e si
+   arricchiscono solo dopo l'arrivo dei relativi domini.
+8. **Calendario esterno.** Google Calendar passa da export a riconciliazione e
+   sync bidirezionale controllata; D1 resta autorevole.
+9. **Controllo e diritti.** Mini App, export, revoca e delete account usano
+   sessioni brevi e purge verificabile.
+10. **Memoria personale.** Documenti, persone e follow-up sono ricercabili e
+    collegati senza duplicare eventi, task o finanze.
+11. **Vita domestica e viaggi.** Casa, pasti e viaggi funzionano localmente prima
+    delle integrazioni esterne.
+12. **Benessere prudente.** Routine e reminder personali non diventano diagnosi,
+    prescrizioni o trattamenti.
 
 ### Contratto UX comune
 
@@ -182,18 +200,20 @@ Regola pratica:
 
 ### Routing consigliato per fase
 
-| Fase               | Sol                                                            | Sonnet                                                              | Altri                                                                     |
-| ------------------ | -------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| **A1 Foundation**  | preflight, ADR, contratti inbox/effect, integrazione e gate    | toolchain, webhook, consumer, adapter D1/Telegram e test bounded    | modello rapido per inventario/link; reviewer security/quality read-only   |
-| **A2/B2 Reminder** | state machine, lease/recovery, semantica delivery              | repository, Cron/Queue adapter, Telegram delivery e fault test      | modello rapido solo per fixture/documenti                                 |
-| **B Core**         | contract packet di ogni slice, tempo/Undo e integrazione       | writer principale per eventi, task, lavoro, spese, liste e report   | modello rapido per fixture e documentazione derivata                      |
-| **C AI**           | `ActionProposal`, policy, OAuth/crypto, budget e gate privacy  | adapter OpenRouter, config, provider mock, benchmark harness e test | modello rapido per dataset sintetico, sempre revisionato                  |
-| **D Media**        | threat model, lifecycle/retention e integrazione pipeline      | download/STT/vision adapter, cleanup e test failure                 | strumenti media solo su fixture sintetiche                                |
-| **E Planner**      | invarianti, algoritmo/contratti, preview/apply e property gate | implementazione pura dopo specifica, ottimizzazioni e test          | modello rapido per generare casi, non per giudicare correttezza           |
-| **F Sharing**      | role matrix, tenancy, invite lifecycle e security gate         | repository/use case/UI Telegram bounded                             | modello rapido per matrice fixture, con review Sol                        |
-| **G Mini App**     | trust boundary, sessioni, export/delete e integrazione         | frontend, API già contrattualizzate e test                          | modello visuale/browser per UX, responsive e accessibilità                |
-| **H Google**       | OAuth, mapping/idempotenza, conflict policy e gate             | adapter Calendar, Queue/retry e provider test                       | modello rapido per fixture API sanificate                                 |
-| **I Hardening**    | guida review, risk acceptance, go/no-go e release              | correzioni bounded e regression test                                | strumenti specializzati per load/security; modello rapido solo per report |
+| Fase                | Sol                                                            | Sonnet                                                              | Altri                                                                   |
+| ------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **A1 Foundation**   | preflight, ADR, contratti inbox/effect, integrazione e gate    | toolchain, webhook, consumer, adapter D1/Telegram e test bounded    | modello rapido per inventario/link; reviewer security/quality read-only |
+| **A2/B2 Reminder**  | state machine, lease/recovery, semantica delivery              | repository, Cron/Queue adapter, Telegram delivery e fault test      | modello rapido solo per fixture/documenti                               |
+| **B Core**          | contract packet di ogni slice, tempo/Undo e integrazione       | writer principale per eventi, task, lavoro, spese, liste e report   | modello rapido per fixture e documentazione derivata                    |
+| **C AI**            | `ActionProposal`, policy, OAuth/crypto, budget e gate privacy  | adapter OpenRouter, config, provider mock, benchmark harness e test | modello rapido per dataset sintetico, sempre revisionato                |
+| **D Media**         | threat model, lifecycle/retention e integrazione pipeline      | download/STT/vision adapter, cleanup e test failure                 | strumenti media solo su fixture sintetiche                              |
+| **E Planner**       | invarianti, algoritmo/contratti, preview/apply e property gate | implementazione pura dopo specifica, ottimizzazioni e test          | modello rapido per generare casi, non per giudicare correttezza         |
+| **F Sharing**       | role matrix, tenancy, invite lifecycle e security gate         | repository/use case/UI Telegram bounded                             | modello rapido per matrice fixture, con review Sol                      |
+| **G Proattività**   | contratti contributor, quiet hours, dedupe e policy UX         | query/report e delivery bounded                                     | reviewer privacy/quality su contenuto e ripetizioni                     |
+| **H Google**        | OAuth, mapping/idempotenza, conflict policy e gate             | adapter Calendar, Queue/retry e provider test                       | modello rapido per fixture API sanificate                               |
+| **I Mini App/beta** | trust boundary, export/delete, risk acceptance e go/no-go      | frontend, API contrattualizzate, fix bounded e regression test      | browser visuale + strumenti load/security                               |
+| **J-N Domini**      | confini/link, lifecycle, scope e integrazione finale           | una vertical slice dominio alla volta                               | reviewer security/quality secondo sensibilità                           |
+| **O Convergenza**   | ricerca cross-domain, release gate e risk acceptance           | fix bounded e prove end-to-end                                      | strumenti load/security; modello rapido solo per report                 |
 
 ### Protocollo obbligatorio di chiusura fase
 
@@ -255,8 +275,9 @@ writer diversi.
 - [x] consultare fonti ufficiali e fissare versioni esatte compatibili di Node/tooling,
       Wrangler, TypeScript, Vitest, grammY, Zod e Drizzle;
 - [x] eseguire uno spike minimo native Fetch vs Hono e registrare la decisione;
-- [x] verificare runtime/compatibility date per Temporal e scegliere un solo polyfill
-      soltanto se necessario;
+- [x] confermare che A1 non richiede Temporal; il probe sul runtime Workers
+      fissato non espone il global e la scelta dell'eventuale polyfill resta
+      just-in-time per B1.2;
 - [x] definire ownership tra migration Drizzle e SQL diretto preparato;
 - [x] definire la strategia locale per D1 e Queue, con fake/in-memory solo dove
       conserva la semantica che il test deve provare;
@@ -445,12 +466,12 @@ Cron/Queue/delivery; review sicurezza e qualità dopo integrazione.
       espliciti, completamento idempotente, riapertura e Undo.
 - [ ] **B4 Lavoro.** Turni pianificati separati dai consuntivi, pause e regole
       data-driven; attraversamento mezzanotte e report verificabili.
-- [ ] **B5 Spese.** Importi in minor unit, valuta, categorie, date locali,
-      correzione/Undo e totale deterministico senza `float`.
-- [ ] **B6 Liste e recurrence minima.** Liste private e item idempotenti; routine o
+- [ ] **B5 Finanze base.** Spese/entrate, minor unit, valuta, data, categoria,
+      esercente/note/metodo facoltativi, correzione/delete/Undo e totali senza `float`.
+- [ ] **B6 Liste, note e recurrence minima.** Liste/note private e item idempotenti; routine o
       ricorrenze solo se lo scope beta le conferma e con ora locale/timezone preservate.
 - [ ] **B7 Report base.** Query deterministiche per agenda, task, lavoro e spese;
-      periodi/timezone espliciti, provenance dei totali e zero dipendenza AI.
+      periodi/timezone espliciti, provenance dei totali, CSV export base e zero dipendenza AI.
 
 ### UX e criteri di uscita B
 
@@ -488,7 +509,9 @@ write, audit e Undo rimangono software deterministico.
 - [ ] definire adapter provider-agnostic e capability T0/T1/T2/T3/T-STT;
 - [ ] implementare modalità `NO_AI` come percorso di prima classe;
 - [ ] implementare OAuth OpenRouter PKCE S256 con sessione opaca, one-time,
-      user-bound e a scadenza breve; nessuna API key nella chat;
+      user-bound e a scadenza breve; la key risultante è una credenziale
+      OpenRouter user-controlled, non una chiave provider BYOK; nessuna API key
+      nella chat;
 - [ ] cifrare credenziali con envelope encryption, nonce unico e versionamento;
 - [ ] implementare uso/budget, hard limit provider e max cost per operation separati;
 - [ ] configurare model policy/fallback per capability, privacy, costo e disponibilità;
@@ -504,6 +527,11 @@ write, audit e Undo rimangono software deterministico.
       dei ciphertext/version metadata;
 - [ ] eseguire canary controllato prima di promuovere modello/prompt/schema;
 - [ ] chiudere C dimostrando che nessuna risposta AI può bypassare policy o dominio.
+- [ ] introdurre C3 Tessavio Inbox testuale per messaggi, forward e link con
+      provenance minima, routing multi-intent e idempotency key per proposta;
+- [ ] verificare che l'Inbox non duplichi entità o regole dei domini;
+- [ ] porre una domanda breve su campi essenziali ambigui ed eseguire con Undo
+      solo azioni non ambigue, reversibili e low-risk.
 
 UX obbligatoria: `/ai` mostra stato e modalità; il collegamento apre un flusso web;
 ogni proposta mostra ciò che verrà modificato; output invalido produce recovery
@@ -529,6 +557,9 @@ adapter/OAuth/benchmark; `domain_worker` possiede validator/executor determinist
 - [ ] aggiornare benchmark con voce italiana, screenshot e immagini sintetiche;
 - [ ] verificare automaticamente che media e riferimenti transitori siano eliminati.
 - [ ] validare migration D eventuali e lifecycle/purge dei soli metadata consentiti.
+- [ ] aggiungere D3 per PDF/documenti supportati, ricevute, scontrini, bollette e
+      prenotazioni con allowlist, limiti, parser bounded e routing ai domini;
+- [ ] separare extraction transitoria dall'eventuale archivio cifrato J.
 
 UX: l'utente vede “sto elaborando” solo quando utile, può correggere trascrizione o
 righe estratte e conferma sempre le importazioni multiple prima della write.
@@ -537,13 +568,18 @@ righe estratte e conferma sempre le importazioni multiple prima della write.
 
 - [ ] definire input normalizzati: finestra, durata, precedenze, blocchi,
       disponibilità, preferenze e hard/soft constraints;
+- [ ] chiedere la durata mancante o proporla come assunzione revisionabile e
+      dividere task grandi in passi senza applicarli automaticamente;
 - [ ] costruire la vista deterministica degli impegni da D1 con timezone corretta;
 - [ ] implementare conflict detector e allocatore senza dipendenza AI;
 - [ ] distinguere piano impossibile, parziale e completo con motivazioni verificabili;
+- [ ] applicare un limite di carico e rispettare turni, sonno, impegni e preferenze;
 - [ ] permettere all'AI solo normalizzazione vincoli e spiegazione, mai allocazione finale;
 - [ ] mostrare preview con spostamenti, conflitti, assunzioni e scope;
 - [ ] applicare il piano in transazione/idempotency boundary e produrre Undo coerente;
 - [ ] gestire modifica concorrente tra preview e apply con stale-version rejection;
+- [ ] riprogrammare incomplete conservando il motivo e richiedendo conferma per
+      modifiche significative;
 - [ ] aggiungere property test per overlap, finestre, precedenze, durata e DST;
 - [ ] aggiungere dataset planner e metriche constraint-compliance/usefulness;
 - [ ] dimostrare identico risultato deterministico a parità di input/clock/config.
@@ -560,6 +596,9 @@ stanno nel tempo disponibile il sistema spiega cosa resta fuori e non forza slot
 - [ ] richiedere `SpaceScope { userId, spaceId }` per ogni repository condiviso;
 - [ ] verificare membership, ruolo e resource scope a ogni read/write;
 - [ ] introdurre prima una singola vertical slice condivisa (lista o evento);
+- [ ] aggiungere in F2 calendario familiare e attività/faccende assegnate;
+- [ ] aggiungere in F3 spese condivise, split, debiti e crediti registrati in
+      minor unit, senza disporre pagamenti;
 - [ ] rendere sempre visibile nel messaggio se l'azione è privata o condivisa;
 - [ ] richiedere preview per azioni bulk/condivise e auditare l'attore reale;
 - [ ] gestire leave, revoke, ultimo owner, delete space e risorse orfane;
@@ -569,47 +608,89 @@ stanno nel tempo disponibile il sistema spiega cosa resta fuori e non forza slot
 - [ ] validare migration F con worker N-1/schema N e test su owner/space non null;
 - [ ] chiudere con review security senza leakage P0/P1.
 
-## Phase G — Mini App
+## Phase G — Briefing e assistenza proattiva
 
-- [ ] definire superficie minima: impostazioni, AI, privacy, calendario, export,
-      cancellazione; evitare duplicazione non necessaria del bot;
+- [ ] introdurre prima G1 con preferenze contenuto/orario/frequenza, quiet hours e
+      briefing mattutino su soli domini B completati;
+- [ ] rendere il riepilogo serale opt-in e separato dal briefing mattutino;
+- [ ] comporre eventi, task, scadenze, turni e reminder tramite porte applicative
+      autorizzate, senza query cross-domain libere;
+- [ ] aggiungere G2 settimanale/mensile usando soltanto i domini B effettivamente
+      completati; non richiedere spese programmate, forecast o capability K1-K3;
+- [ ] usare schedule/claim/delivery dedupe per una sola notifica logica e gestire
+      late delivery, retry e cambio preferenze concorrente;
+- [ ] definire tono conciso e non ansiogeno; nessun dettaglio sensibile superfluo;
+- [ ] far degradare un contributor senza bloccare o duplicare l'intero briefing;
+- [ ] in G3 definire soltanto il contratto bounded e tipizzato dei contributor,
+      con isolamento, timeout e graceful degradation; non attivare né anticipare
+      documenti, persone, casa, viaggi o benessere;
+- [ ] testare quiet hours, DST, duplicate Cron/Queue, contributor failure,
+      opt-out e non-visibilità cross-tenant;
+- [ ] validare schema/migration/recovery e retention dei delivery snapshot G.
+
+## Phase H — Google Calendar a livelli
+
+### H1 — Collegamento ed export controllato
+
+- [ ] applicare ADR-0011: D1 autorevole, mapping stabile e niente last-write-wins;
+- [ ] richiedere scope OAuth minimi e sessioni state/PKCE opache, one-time e sicure;
+- [ ] cifrare/versionare token e supportare revoca/disconnessione;
+- [ ] modellare account, calendario scelto e mapping local/external ID sempre
+      tenant/account/calendar scoped;
+- [ ] registrare outbox nello stesso boundary della mutation locale e applicare
+      create/update/delete idempotenti fuori dalla transazione;
+- [ ] classificare retry/permanent failure e mostrare `pending/exported/failed`;
+- [ ] gestire delete, token revocato, 429, partial batch e send ambiguo;
+- [ ] testare tutto con adapter fake, senza credenziali reali;
+- [ ] chiudere H1 dimostrando che outage Google non blocca o corrompe il core.
+
+### H2 — Riconciliazione e import
+
+- [ ] implementare cursor/channel lifecycle, rinnovo e recovery senza fidarsi di
+      payload o ID esterni non scoped;
+- [ ] rilevare create/update/delete Google e registrare divergenze/tombstone;
+- [ ] mappare timezone, all-day e ricorrenze senza perdita semantica;
+- [ ] trasformare un cambiamento esterno in staging/proposta validata, non in
+      sovrascrittura automatica ambigua;
+- [ ] aggiungere riconciliazione full bounded per cursor perso o mapping divergente;
+- [ ] testare reorder, duplicate, cursor expiry, delete concorrente e cross-tenant.
+
+### H3 — Sincronizzazione bidirezionale
+
+- [ ] definire policy conflitto per versione/campo e casi auto-merge vs preview;
+- [ ] applicare le modifiche importate attraverso authorization, idempotenza,
+      domain service, audit e Undo applicabile;
+- [ ] impedire loop echo con origin/version/effect key stabili;
+- [ ] mostrare conflitti risolvibili senza esporre dettagli nei log;
+- [ ] testare race locale/Google, replay, ricorrenze, all-day, loop prevention,
+      revoca durante sync e recovery dopo partial failure;
+- [ ] validare ogni migration H fresh/upgrade/N-1 e il runbook di riconciliazione.
+
+## Phase I — Mini App, diritti e core beta
+
+### I1 — Mini App minima
+
+- [ ] definire superficie minima: impostazioni, AI, privacy e calendario, senza
+      duplicare inutilmente il bot;
 - [ ] verificare `initData` Telegram lato server e usare sessioni firmate, brevi e ruotate;
 - [ ] applicare CSRF/replay protection, CSP, secure headers e rate limiting;
 - [ ] ricostruire sempre user/space scope lato server, mai fidarsi di ID client;
-- [ ] implementare impostazioni lingua/timezone/valuta/privacy con validazione;
-- [ ] implementare gestione connessioni AI senza mostrare credenziali;
-- [ ] implementare calendario e viste core con accessibilità e mobile-first;
-- [ ] implementare export JSON minimo e CSV per domini pertinenti;
-- [ ] implementare cancellazione account con re-auth/conferma, revoca integrazioni,
+- [ ] implementare impostazioni e connessioni senza esporre credenziali;
+- [ ] testare sessione scaduta/riusata, IDOR, XSS, clickjacking, cross-tenant,
+      responsive e accessibilità.
+
+### I2 — Export e cancellazione
+
+- [ ] implementare export JSON e CSV per domini pertinenti con provenance/scope;
+- [ ] implementare delete account con re-auth/conferma, revoca integrazioni,
       purge dati e ricevuta sul trattamento residuo;
-- [ ] introdurre uno stato/tombstone anti-resurrection: job Queue/Cron/provider già
-      pendenti non possono ricreare identità, credenziali o dati dopo la delete;
-- [ ] testare sessione scaduta/riusata, IDOR, XSS, clickjacking, cross-tenant e race;
-- [ ] testare delete concorrente con job pendente, retry idempotente e policy sui
-      dati condivisi/audit/backup residui;
-- [ ] testare responsive/accessibilità e fallback Telegram per operazioni essenziali;
-- [ ] documentare retention/export/delete nel linguaggio mostrato all'utente.
-- [ ] validare migration G e recovery dello stato cancellazione/export.
+- [ ] introdurre tombstone anti-resurrection per job Queue/Cron/provider pendenti;
+- [ ] testare delete concorrente, retry idempotente e policy su dati
+      condivisi/audit/backup;
+- [ ] documentare retention/export/delete nel linguaggio mostrato all'utente;
+- [ ] validare migration I e recovery dello stato cancellazione/export.
 
-## Phase H — Google Calendar `EXPORT_ONLY`
-
-- [ ] definire mapping D1 -> Google e lifecycle del collegamento in un ADR;
-- [ ] richiedere scope OAuth minimi e sessioni state/PKCE sicure;
-- [ ] cifrare/versionare token e supportare revoca/disconnessione;
-- [ ] mantenere D1 autorevole anche durante outage o conflitti;
-- [ ] implementare export esplicito e mapping idempotente local/external ID;
-- [ ] accodare operazioni, classificare retry e impedire duplicati;
-- [ ] registrare conflict/error metadata senza dettagli personali nei log;
-- [ ] mostrare stato `pending/exported/failed` e retry manuale sicuro;
-- [ ] gestire evento cancellato, token revocato, rate limit e partial batch;
-- [ ] testare OAuth replay, least privilege, duplicate export, retry e disconnessione;
-- [ ] confermare con test e UX che modifiche Google non sovrascrivono D1;
-- [ ] lasciare two-way sync esplicitamente fuori scope.
-- [ ] validare migration H con mapping tenant/account/calendar scoped e recovery.
-
-## Phase I — Beta Hardening
-
-### Sicurezza, privacy e compliance
+### I3.1 — Sicurezza, privacy e compliance
 
 - [ ] aggiornare threat model e data-flow map end-to-end;
 - [ ] eseguire review avversariale cross-tenant su HTTP, Queue, Cron, Mini App e OAuth;
@@ -617,11 +698,13 @@ stanno nel tempo disponibile il sistema spiega cosa resta fuori e non forza slot
 - [ ] validare rate limit per utente, chat, IP/endpoint e provider;
 - [ ] verificare key rotation, credential deletion, OAuth revoke e callback replay;
 - [ ] approvare retention table, processor map e testi trasparenza AI;
+- [ ] approvare matrice residenza/subprocessori e DPIA per dati altamente
+      personali/sensibili e uso AI prima del pilot;
 - [ ] eseguire purge con fake clock su record scaduti/non scaduti di tenant diversi,
       ripetizione idempotente, fault/recovery e legal hold;
 - [ ] completare revisione legale prima di qualunque commercializzazione.
 
-### Affidabilità e prestazioni
+### I3.2 — Affidabilità e prestazioni
 
 - [ ] definire SLO e budget di latenza/errori da misure staging, non da ipotesi;
 - [ ] eseguire load test su webhook, Queue, D1 hot query e reminder burst;
@@ -630,26 +713,104 @@ stanno nel tempo disponibile il sistema spiega cosa resta fuori e non forza slot
 - [ ] provare backup/export e restore D1 in ambiente isolato;
 - [ ] documentare rollback applicazione e migration recovery;
 - [ ] configurare alert su error rate, queue lag, reminder stuck, auth failure e budget anomaly;
+- [ ] misurare e applicare i trigger pre-pilot per dimensione D1, p95 query,
+      `overloaded`, write throughput, Queue lag e DLQ;
 - [ ] verificare graceful degradation `NO_AI` e integrazioni disconnesse.
 
-### Release candidate e pilot
+### I3.3 — Release candidate e pilot
 
 - [ ] creare staging isolato con bot, D1, Queue e segreti distinti;
+- [ ] verificare retention/monitor/alert DLQ e replay bounded con envelope e
+      idempotency key invariati prima di accettare dati pilot;
 - [ ] eseguire smoke test end-to-end senza dati o token personali;
-- [ ] eseguire il percorso completo onboarding -> core -> AI -> media -> planner ->
-      sharing -> Mini App -> export/delete account, aggiungendo Google export
-      soltanto se Phase H è nello scope beta approvato;
+- [ ] eseguire il percorso completo onboarding -> core -> Inbox/AI -> media ->
+      planner -> sharing -> briefing -> Google -> Mini App -> export/delete;
 - [ ] eseguire pilot bounded con utenti consenzienti e canale feedback definito;
 - [ ] triagiare ogni feedback come blocker beta, backlog futuro o non-obiettivo;
 - [ ] correggere blocker con regression test e ripetere i gate pertinenti;
 - [ ] produrre go/no-go report con evidenze, rischi residui e accettazioni esplicite;
 - [ ] autorizzare separatamente deploy production e piano di rollback.
 
+## Phase J — Documenti, amministrazione e persone
+
+- [ ] J1 introduce registro documenti, categorie/scadenze/reminder e ricerca
+      metadata per una sola categoria iniziale, poi estende senza enum rigidi;
+- [ ] J2 separa raw Inbox transitorio, estratto con provenance e originale
+      archiviato/cifrato solo per use case esplicito;
+- [ ] collegare documenti a entità esistenti con riferimenti tipizzati e scope su
+      entrambe le risorse, senza tabella polimorfa universale anticipata;
+- [ ] J3 introduce persone interne, compleanni/anniversari, ultime interazioni e note;
+- [ ] J4 aggiunge cose da chiedere, promesse, follow-up, regali e oggetti/denaro
+      prestati, senza pagamenti o comportamento CRM;
+- [ ] testare extraction provenance/correction, ricerca e delete, reminder dedupe,
+      encryption/retention, cross-tenant e link orfani/revocati.
+
+## Phase K — Finanze avanzate
+
+- [ ] K1 aggiunge regole personali, ricorrenze, stipendio, affitto, utenze,
+      abbonamenti e rate con categorie sempre modificabili;
+- [ ] rilevare aumenti di abbonamento soltanto dalla cronologia registrata e
+      mostrare confronto/provenance;
+- [ ] K2 aggiunge budget totale/per categoria, risparmio e fondi futuri in minor unit;
+- [ ] K3 costruisce scadenziario e forecast deterministico con formula/versione,
+      dati mancanti visibili e disclaimer “stima, non consulenza”;
+- [ ] K4 aggiunge report giorno/settimana/mese/anno, confronto periodi e import CSV
+      manuale con preview, dedupe e rollback;
+- [ ] provare minor unit/split/recurrence con property test e isolamento economico;
+- [ ] eseguire scan che confermi assenza di Open Banking in schema/dipendenze/config.
+
+## Phase L — Casa, famiglia e pasti
+
+- [ ] L1 aggiunge manutenzione, scadenze, animali, figli e liste vacanza sopra gli
+      spazi F, mantenendo private-by-default e assegnazioni esplicite;
+- [ ] L2 aggiunge inventario, quantità/unità, prodotti da ricomprare e alimenti in
+      scadenza con concorrenza condivisa e Undo;
+- [ ] L3 aggiunge preferenze, allergie/esclusioni, pasti, ricette da disponibilità
+      e lista spesa derivata con preview bulk;
+- [ ] trattare allergie/esclusioni come hard constraint e non inventare
+      compatibilità alimentare;
+- [ ] testare role denial, membership revocata, update concorrenti, reminder
+      dedupe e derivazione lista senza duplicare item.
+
+## Phase M — Viaggi
+
+- [ ] M1 crea viaggio manuale con date, tappe/timezone, indirizzi, partecipanti,
+      attività e scope privato/shared;
+- [ ] M2 acquisisce prenotazioni inoltrate, check-in e documenti tramite D3/J,
+      conservando provenance e reminder;
+- [ ] M3 collega budget/spese, itinerario, valigia/spesa e task pre-partenza ai
+      domini esistenti senza copiarne i record;
+- [ ] testare cambio timezone per tappa, update concorrente shared, document
+      authorization, minor unit e link cancellati;
+- [ ] dimostrare il flusso completo senza mappe, meteo o API di prenotazione.
+
+## Phase N — Routine e benessere personale
+
+- [ ] N1 aggiunge routine mattina/sera, abitudini, allenamenti, acqua, sonno e
+      pause con recurrence locale e completamenti idempotenti;
+- [ ] N2 usa visite, controlli, farmaci e integratori soltanto come reminder
+      configurati dall'utente, senza dose o terapia inferita;
+- [ ] N3 registra energia percepita e propone adattamenti orari opt-in con
+      provenance, spiegazione, preview e controllo utente;
+- [ ] applicare data classification sensibile, quiet hours e minimizzazione nei briefing;
+- [ ] testare DST/recurrence, notification dedupe, opt-out, wording non clinico,
+      assenza di diagnosi/prescrizioni e isolamento cross-tenant.
+
+## Phase O — Convergenza del prodotto esteso
+
+- [ ] aggiungere ricerca e link cross-domain soltanto tramite porte autorizzate;
+- [ ] attivare con graceful degradation i contributor J-N il cui dominio ha
+      completato i propri gate, usando il contratto definito in G3;
+- [ ] completare export/delete, retention/purge e recovery per J-N;
+- [ ] eseguire benchmark multimodale, load/restore e review security/privacy estesa;
+- [ ] pubblicare matrice requisito -> acceptance test -> evidenza aggiornata;
+- [ ] eseguire pilot del prodotto esteso e chiudere con zero finding P0/P1.
+
 ## Checklist finale di chiusura repository
 
-- [ ] tutte le fasi obbligatorie dello scope beta approvato hanno exit criteria
-      verificati; le fasi opzionali escluse sono motivate nel backlog;
-- [ ] tutte le feature beta hanno scenario felice, limite, failure e recovery documentati;
+- [ ] tutte le fasi del gate dichiarato (core beta I3 o prodotto esteso O) hanno
+      exit criteria verificati; nessuna capability approvata è degradata a idea generica;
+- [ ] tutte le feature del gate hanno scenario felice, limite, failure e recovery documentati;
 - [ ] zero finding P0/P1 aperti; P2/P3 residui hanno owner e decisione esplicita;
 - [ ] format, lint, typecheck, unit, integration, security, property e benchmark smoke verdi;
 - [ ] migration riproducibili, forward validate e con recovery provata;
@@ -661,7 +822,10 @@ stanno nel tempo disponibile il sistema spiega cosa resta fuori e non forza slot
 - [ ] nessun secret, dato personale, raw media o artefatto locale è tracciato;
 - [ ] export, revoca integrazioni e cancellazione account sono verificati end-to-end;
 - [ ] backup/restore, incident response, rollback e ownership operativa sono consegnati;
-- [ ] future ideas sono nel backlog e non restano TODO impliciti nello scope beta;
+- [ ] sole integrazioni esterne differite restano nel backlog futuro; i domini
+      J-N conservano milestone concrete e non diventano TODO impliciti;
+- [ ] scan di documenti, schema, config e dipendenze conferma assenza Open Banking;
+- [ ] Google H1-H3 ha mapping, adapter fake, conflict/recovery evidence coerenti con ADR-0011;
 - [ ] `CURRENT_MILESTONE.md` registra la chiusura e rimanda al prossimo ciclo prodotto;
 - [ ] release notes e matrice requisiti -> test -> evidenze sono pubblicate nel repo;
 - [ ] tag/release candidate è creato soltanto dal proprietario o con sua autorizzazione;

@@ -62,7 +62,7 @@ export class D1DeliveryRepository implements DeliveryRepository {
     remoteMessageId: string,
     now: Date,
   ): Promise<void> {
-    await this.update(scope, deliveryKey, "sent", now, remoteMessageId);
+    await this.update(scope, deliveryKey, "sent", now, remoteMessageId, null);
   }
 
   async markAmbiguous(
@@ -70,7 +70,29 @@ export class D1DeliveryRepository implements DeliveryRepository {
     deliveryKey: string,
     now: Date,
   ): Promise<void> {
-    await this.update(scope, deliveryKey, "ambiguous", now);
+    await this.update(
+      scope,
+      deliveryKey,
+      "ambiguous",
+      now,
+      null,
+      "AMBIGUOUS_EXTERNAL",
+    );
+  }
+
+  async markRetryableFailure(
+    scope: UserScope,
+    deliveryKey: string,
+    now: Date,
+  ): Promise<void> {
+    await this.update(
+      scope,
+      deliveryKey,
+      "pending",
+      now,
+      null,
+      "RETRYABLE_EXTERNAL",
+    );
   }
 
   async markPermanentFailure(
@@ -78,7 +100,14 @@ export class D1DeliveryRepository implements DeliveryRepository {
     deliveryKey: string,
     now: Date,
   ): Promise<void> {
-    await this.update(scope, deliveryKey, "permanent_failure", now);
+    await this.update(
+      scope,
+      deliveryKey,
+      "permanent_failure",
+      now,
+      null,
+      "PERMANENT_EXTERNAL",
+    );
   }
 
   private async update(
@@ -87,13 +116,22 @@ export class D1DeliveryRepository implements DeliveryRepository {
     status: DeliveryStatus,
     now: Date,
     remoteMessageId: string | null = null,
+    lastErrorCode: string | null = null,
   ): Promise<void> {
     await this.database
       .prepare(
-        `UPDATE deliveries SET status = ?, remote_message_id = ?, updated_at = ?
+        `UPDATE deliveries
+         SET status = ?, remote_message_id = ?, last_error_code = ?, updated_at = ?
          WHERE delivery_key = ? AND scope_user_id = ?`,
       )
-      .bind(status, remoteMessageId, now.getTime(), deliveryKey, scope.userId)
+      .bind(
+        status,
+        remoteMessageId,
+        lastErrorCode,
+        now.getTime(),
+        deliveryKey,
+        scope.userId,
+      )
       .run();
   }
 }

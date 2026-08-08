@@ -7,6 +7,8 @@
 - [Repository structure](architecture/REPOSITORY_STRUCTURE.md)
 - [Security policy](../SECURITY.md)
 - [Data and privacy baseline](privacy/DATA_POLICY.md)
+- [Processor and residency matrix](privacy/PROCESSOR_AND_RESIDENCY_MATRIX.md)
+- [Testing strategy](TESTING.md)
 
 ## Delivery
 
@@ -15,7 +17,10 @@
 - [Current milestone](planning/CURRENT_MILESTONE.md)
 - [Backlog](planning/BACKLOG.md)
 - [Definition of Done](planning/DEFINITION_OF_DONE.md)
+- [Requirements coverage matrix](planning/REQUIREMENTS_COVERAGE.md)
 - [Development runbook](runbooks/DEVELOPMENT.md)
+- [A1 recovery and DLQ runbook](runbooks/A1_RECOVERY.md)
+- [Pre-pilot operational gates](runbooks/PRE_PILOT_OPERATIONS.md)
 
 ## Agents and decisions
 

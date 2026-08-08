@@ -61,13 +61,21 @@ class CapturingQueue implements Queue {
 
 class FakeReply implements TelegramReplyPort {
   calls = 0;
-  ambiguous = false;
+  successfulCalls = 0;
+  failure: "ambiguous" | "permanent" | "retryable" | null = null;
 
   send(): Promise<{ readonly messageId: string }> {
     this.calls += 1;
-    if (this.ambiguous) {
+    if (this.failure === "ambiguous") {
+      return Promise.reject(new AppError("AMBIGUOUS_EXTERNAL", false));
+    }
+    if (this.failure === "permanent") {
+      return Promise.reject(new AppError("PERMANENT_EXTERNAL", false));
+    }
+    if (this.failure === "retryable") {
       return Promise.reject(new AppError("RETRYABLE_EXTERNAL", true));
     }
+    this.successfulCalls += 1;
     return Promise.resolve({ messageId: "9001" });
   }
 }
@@ -243,7 +251,7 @@ describe("webhook -> inbox -> queue envelope -> deterministic /start", () => {
     );
     const envelope = queue.messages[0] as InboundMessageEnvelope;
     const reply = new FakeReply();
-    reply.ambiguous = true;
+    reply.failure = "ambiguous";
     const dependencies = processDependencies(clock, ids, reply);
 
     await expect(
@@ -265,7 +273,142 @@ describe("webhook -> inbox -> queue envelope -> deterministic /start", () => {
     expect(row?.status).toBe("ambiguous");
   });
 
+  it("records a permanent Telegram rejection without retry or duplicate writes", async () => {
+    const queue = new CapturingQueue();
+    await handleTelegramWebhook(
+      webhookRequest(
+        telegramStartUpdate(206, 3006),
+        "test-webhook-secret",
+        "192.0.2.33",
+      ),
+      makeEnv(queue),
+      testConfig,
+      { clock, ids },
+    );
+    const envelope = queue.messages[0] as InboundMessageEnvelope;
+    const reply = new FakeReply();
+    reply.failure = "permanent";
+    const dependencies = processDependencies(clock, ids, reply);
+
+    await expect(
+      processInboundMessage(envelope, dependencies),
+    ).resolves.toEqual({
+      outcome: "completed",
+    });
+    await expect(
+      processInboundMessage(envelope, dependencies),
+    ).resolves.toEqual({
+      outcome: "duplicate",
+    });
+
+    expect(reply.calls).toBe(1);
+    await expect(count("users")).resolves.toBe(1);
+    await expect(count("telegram_identities")).resolves.toBe(1);
+    await expect(count("effects")).resolves.toBe(1);
+    await expect(count("audit_log")).resolves.toBe(1);
+    const row = await env.DB.prepare(
+      "SELECT status, last_error_code FROM deliveries WHERE job_id = ?",
+    )
+      .bind(envelope.jobId)
+      .first<{ status: string; last_error_code: string | null }>();
+    expect(row).toEqual({
+      status: "permanent_failure",
+      last_error_code: "PERMANENT_EXTERNAL",
+    });
+  });
+
+  it("retries a definite temporary Telegram rejection with the injected clock", async () => {
+    const queue = new CapturingQueue();
+    const workerEnv = makeEnv(queue);
+    await handleTelegramWebhook(
+      webhookRequest(
+        telegramStartUpdate(207, 3007),
+        "test-webhook-secret",
+        "192.0.2.34",
+      ),
+      workerEnv,
+      testConfig,
+      { clock, ids },
+    );
+    const envelope = queue.messages[0] as InboundMessageEnvelope;
+    const reply = new FakeReply();
+    reply.failure = "retryable";
+    const firstBatch = createMessageBatch("tessavio-inbound-dev", [
+      {
+        id: "definite-temporary-failure",
+        timestamp: clock.now(),
+        attempts: 1,
+        body: envelope,
+      },
+    ]);
+
+    await handleInboundQueue(firstBatch, workerEnv, { clock, ids, reply });
+
+    const failedInbox = await env.DB.prepare(
+      `SELECT status, last_error_code, updated_at
+       FROM inbound_updates WHERE job_id = ?`,
+    )
+      .bind(envelope.jobId)
+      .first<{
+        status: string;
+        last_error_code: string | null;
+        updated_at: number;
+      }>();
+    expect(failedInbox).toEqual({
+      status: "enqueued",
+      last_error_code: "RETRYABLE_EXTERNAL",
+      updated_at: clock.now().getTime(),
+    });
+    const retryableDelivery = await env.DB.prepare(
+      "SELECT status, last_error_code FROM deliveries WHERE job_id = ?",
+    )
+      .bind(envelope.jobId)
+      .first<{ status: string; last_error_code: string | null }>();
+    expect(retryableDelivery).toEqual({
+      status: "pending",
+      last_error_code: "RETRYABLE_EXTERNAL",
+    });
+
+    reply.failure = null;
+    clock.advance(60_000);
+    const retryBatch = createMessageBatch("tessavio-inbound-dev", [
+      {
+        id: "bounded-retry",
+        timestamp: clock.now(),
+        attempts: 2,
+        body: envelope,
+      },
+    ]);
+    await handleInboundQueue(retryBatch, workerEnv, { clock, ids, reply });
+
+    expect(reply.calls).toBe(2);
+    expect(reply.successfulCalls).toBe(1);
+    await expect(count("users")).resolves.toBe(1);
+    await expect(count("telegram_identities")).resolves.toBe(1);
+    await expect(count("effects")).resolves.toBe(1);
+    await expect(count("audit_log")).resolves.toBe(1);
+    const completed = await env.DB.prepare(
+      `SELECT i.status AS inbox_status, d.status AS delivery_status,
+              d.last_error_code
+       FROM inbound_updates i
+       JOIN deliveries d ON d.job_id = i.job_id
+       WHERE i.job_id = ?`,
+    )
+      .bind(envelope.jobId)
+      .first<{
+        inbox_status: string;
+        delivery_status: string;
+        last_error_code: string | null;
+      }>();
+    expect(completed).toEqual({
+      inbox_status: "completed",
+      delivery_status: "sent",
+      last_error_code: null,
+    });
+  });
+
   it("keeps the active inbox lease when a physical duplicate arrives", async () => {
+    clock = new FakeClock(new Date("2000-01-01T00:00:00.000Z"));
     const queue = new CapturingQueue();
     const workerEnv = makeEnv(queue);
     await handleTelegramWebhook(
@@ -292,14 +435,17 @@ describe("webhook -> inbox -> queue envelope -> deterministic /start", () => {
         body: envelope,
       },
     ]);
-    await handleInboundQueue(batch, workerEnv);
+    const reply = new FakeReply();
+    await handleInboundQueue(batch, workerEnv, { clock, ids, reply });
 
     const row = await env.DB.prepare(
-      "SELECT status FROM inbound_updates WHERE job_id = ?",
+      "SELECT status, lease_expires_at FROM inbound_updates WHERE job_id = ?",
     )
       .bind(envelope.jobId)
-      .first<{ status: string }>();
+      .first<{ status: string; lease_expires_at: number }>();
     expect(row?.status).toBe("processing");
+    expect(row?.lease_expires_at).toBe(clock.now().getTime() + 60_000);
+    expect(reply.calls).toBe(0);
   });
 
   it("completes unsupported updates without creating a tenant or reply", async () => {

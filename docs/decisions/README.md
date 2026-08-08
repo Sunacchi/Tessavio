@@ -10,6 +10,9 @@ Gli ADR registrano decisioni difficili da ricostruire dal codice. Stato ammesso:
 - [ADR-0006 — Development orchestration and code graph](0006-development-tooling.md)
 - [ADR-0007 — At-least-once transport and logical idempotency](0007-at-least-once-logical-idempotency.md)
 - [ADR-0008 — A1 foundation toolchain, recovery and delivery policy](0008-a1-foundation-decisions.md)
+- [ADR-0009 — Open Banking escluso dal prodotto](0009-no-open-banking.md)
+- [ADR-0010 — Tessavio Inbox e confini dei domini personali](0010-inbox-and-domain-boundaries.md)
+- [ADR-0011 — Google Calendar a livelli di affidabilità](0011-google-calendar-sync-levels.md)
 
 ## Template
 

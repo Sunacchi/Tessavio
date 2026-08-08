@@ -26,7 +26,10 @@ Prima di modificare codice o architettura, leggere:
 - Il webhook Telegram fa solo POST check, verifica secret, validazione JSON, dedupe, enqueue e risposta rapida. Nessuna chiamata AI nel webhook.
 - Cron effettua claim atomico dei reminder e pubblica job; la Queue invia e gestisce retry/deduplica.
 - Il planner applica vincoli e assegna slot in modo deterministico. L'AI può normalizzare vincoli e spiegare il risultato.
-- Google Calendar è opzionale e inizialmente `EXPORT_ONLY`; D1 resta autorevole.
+- Google Calendar procede `EXPORT_ONLY` -> reconcile/import -> bidirezionale;
+  D1 resta autorevole e i conflitti non usano last-write-wins cieco.
+- Open Banking è escluso: niente credenziali, provider, adapter, dipendenze o
+  tabelle bancarie; l'import CSV resta manuale.
 
 ## Regole di implementazione
 

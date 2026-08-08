@@ -25,6 +25,7 @@ dopo autorizzazione:
 npx wrangler d1 create tessavio-staging --jurisdiction eu
 npx wrangler queues create tessavio-inbound-staging
 npx wrangler queues create tessavio-inbound-dlq-staging
+npx wrangler queues update tessavio-inbound-dlq-staging --message-retention-period-secs 86400
 ```
 
 Sostituire il sentinel `database_id` nell'ambiente corretto di `wrangler.jsonc`,
@@ -40,6 +41,12 @@ npx wrangler secret put TELEGRAM_BOT_TOKEN --env staging
 Verificare dal risultato di `wrangler d1 create` che la giurisdizione sia `eu`.
 Non riutilizzare ID, Queue o segreti tra ambienti. Il deploy production è fuori
 scope A1.
+
+La giurisdizione conferma solo D1: non regionalizza Worker, Queue, Cron,
+Telegram, subrequest o provider AI. Prima di creare staging applicare i gate di
+[residenza/subprocessori](../privacy/PROCESSOR_AND_RESIDENCY_MATRIX.md) e
+[operatività](PRE_PILOT_OPERATIONS.md), inclusi retention/alert DLQ. I comandi
+documentati non vanno eseguiti senza autorizzazione separata.
 
 ## Forward validation e recovery migration
 
