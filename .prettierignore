@@ -1,0 +1,6 @@
+coverage/
+dist/
+node_modules/
+.obsidian/
+worker-configuration.d.ts
+package-lock.json

@@ -1,0 +1,3 @@
+# Copy to .dev.vars and replace both values. Never commit the real file.
+TELEGRAM_WEBHOOK_SECRET="replace-with-a-random-webhook-secret"
+TELEGRAM_BOT_TOKEN="replace-with-a-development-bot-token"

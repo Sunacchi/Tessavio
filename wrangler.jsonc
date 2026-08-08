@@ -1,0 +1,140 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "tessavio-dev",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-08",
+  "compatibility_flags": ["nodejs_compat"],
+  "secrets": {
+    "required": ["TELEGRAM_WEBHOOK_SECRET", "TELEGRAM_BOT_TOKEN"],
+  },
+  "vars": {
+    "APP_ENV": "development",
+    "TELEGRAM_API_BASE_URL": "https://api.telegram.org",
+    "WEBHOOK_PATH": "/telegram/webhook",
+    "WEBHOOK_MAX_BODY_BYTES": "65536",
+    "WEBHOOK_RATE_LIMIT_MAX": "120",
+    "WEBHOOK_RATE_WINDOW_SECONDS": "60",
+    "WEBHOOK_MAX_CONCURRENCY": "16",
+    "WEBHOOK_LEASE_SECONDS": "30",
+    "INBOX_LEASE_SECONDS": "60",
+    "INBOX_RECOVERY_AFTER_SECONDS": "30",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tessavio-dev",
+      "database_id": "local-tessavio-dev",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "queues": {
+    "producers": [
+      { "binding": "INBOUND_QUEUE", "queue": "tessavio-inbound-dev" },
+    ],
+    "consumers": [
+      {
+        "queue": "tessavio-inbound-dev",
+        "max_batch_size": 10,
+        "max_batch_timeout": 1,
+        "max_retries": 5,
+        "dead_letter_queue": "tessavio-inbound-dlq-dev",
+        "max_concurrency": 4,
+      },
+    ],
+  },
+  "triggers": { "crons": ["*/1 * * * *"] },
+  "observability": {
+    "enabled": true,
+    "logs": { "head_sampling_rate": 1 },
+    "traces": { "enabled": true, "head_sampling_rate": 0.05 },
+  },
+  "env": {
+    "staging": {
+      "name": "tessavio-staging",
+      "secrets": {
+        "required": ["TELEGRAM_WEBHOOK_SECRET", "TELEGRAM_BOT_TOKEN"],
+      },
+      "vars": {
+        "APP_ENV": "staging",
+        "TELEGRAM_API_BASE_URL": "https://api.telegram.org",
+        "WEBHOOK_PATH": "/telegram/webhook",
+        "WEBHOOK_MAX_BODY_BYTES": "65536",
+        "WEBHOOK_RATE_LIMIT_MAX": "120",
+        "WEBHOOK_RATE_WINDOW_SECONDS": "60",
+        "WEBHOOK_MAX_CONCURRENCY": "16",
+        "WEBHOOK_LEASE_SECONDS": "30",
+        "INBOX_LEASE_SECONDS": "60",
+        "INBOX_RECOVERY_AFTER_SECONDS": "30",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "tessavio-staging",
+          "database_id": "00000000-0000-0000-0000-000000000001",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "triggers": { "crons": ["*/1 * * * *"] },
+      "queues": {
+        "producers": [
+          { "binding": "INBOUND_QUEUE", "queue": "tessavio-inbound-staging" },
+        ],
+        "consumers": [
+          {
+            "queue": "tessavio-inbound-staging",
+            "max_batch_size": 10,
+            "max_batch_timeout": 1,
+            "max_retries": 5,
+            "dead_letter_queue": "tessavio-inbound-dlq-staging",
+            "max_concurrency": 4,
+          },
+        ],
+      },
+    },
+    "production": {
+      "name": "tessavio-production",
+      "secrets": {
+        "required": ["TELEGRAM_WEBHOOK_SECRET", "TELEGRAM_BOT_TOKEN"],
+      },
+      "vars": {
+        "APP_ENV": "production",
+        "TELEGRAM_API_BASE_URL": "https://api.telegram.org",
+        "WEBHOOK_PATH": "/telegram/webhook",
+        "WEBHOOK_MAX_BODY_BYTES": "65536",
+        "WEBHOOK_RATE_LIMIT_MAX": "120",
+        "WEBHOOK_RATE_WINDOW_SECONDS": "60",
+        "WEBHOOK_MAX_CONCURRENCY": "16",
+        "WEBHOOK_LEASE_SECONDS": "30",
+        "INBOX_LEASE_SECONDS": "60",
+        "INBOX_RECOVERY_AFTER_SECONDS": "30",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "tessavio-production",
+          "database_id": "00000000-0000-0000-0000-000000000002",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "triggers": { "crons": ["*/1 * * * *"] },
+      "queues": {
+        "producers": [
+          {
+            "binding": "INBOUND_QUEUE",
+            "queue": "tessavio-inbound-production",
+          },
+        ],
+        "consumers": [
+          {
+            "queue": "tessavio-inbound-production",
+            "max_batch_size": 10,
+            "max_batch_timeout": 1,
+            "max_retries": 5,
+            "dead_letter_queue": "tessavio-inbound-dlq-production",
+            "max_concurrency": 4,
+          },
+        ],
+      },
+    },
+  },
+}

@@ -1,0 +1,9 @@
+name = "ai_integrations_worker"
+description = "Implementation agent for ActionProposal schemas, AI adapters/router, BYOK OAuth, privacy policies, and model benchmarks."
+model_reasoning_effort = "high"
+sandbox_mode = "workspace-write"
+developer_instructions = """
+Work only when the current milestone includes AI or an integration seam is explicitly assigned.
+AI returns strict structured ActionProposal data and never executes SQL or domain writes. Validate outputs server-side. Keep model IDs, costs, fallbacks, and privacy requirements in versioned configuration.
+Minimize context, default to strict privacy/ZDR where supported, enforce user budget and max operation cost, and never log prompts or credentials. Fallbacks must preserve capability and privacy and remain under the cost ceiling. Add schema tests, provider mocks, and benchmark fixtures for behavioral changes.
+"""

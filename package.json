@@ -1,0 +1,46 @@
+{
+  "name": "tessavio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@11.8.0",
+  "engines": {
+    "node": "24.13.1",
+    "npm": "11.8.0"
+  },
+  "scripts": {
+    "build": "wrangler deploy --dry-run --env \"\" --outdir dist",
+    "cf-typegen": "wrangler types worker-configuration.d.ts",
+    "cf-typegen:check": "wrangler types worker-configuration.d.ts --check",
+    "db:check": "drizzle-kit check",
+    "db:generate": "drizzle-kit generate",
+    "dev": "wrangler dev --persist-to .wrangler/state",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:integration": "vitest run tests/integration",
+    "test:security": "vitest run tests/security",
+    "test:unit": "vitest run tests/unit",
+    "typecheck": "tsc --noEmit",
+    "validate": "npm run format:check && npm run lint && npm run cf-typegen:check && npm run typecheck && npm run db:check && npm test && npm run build"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.45.2",
+    "grammy": "1.45.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.20.3",
+    "@cloudflare/workers-types": "5.20260808.1",
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.13.3",
+    "drizzle-kit": "0.31.10",
+    "eslint": "10.8.1",
+    "prettier": "3.9.6",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.66.0",
+    "vitest": "4.1.10",
+    "wrangler": "4.120.0"
+  }
+}
