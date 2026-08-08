@@ -10,10 +10,10 @@ La Phase A — Foundation è completata e revalidata localmente: la review A1 è
 chiusa con `npm run validate` verde e `npm audit --omit=dev` senza
 vulnerabilità. Nessuna risorsa Cloudflare remota è stata creata e nessun deploy è
 stato eseguito. **B1 — Preferenze + agenda one-off**, **B2 — Reminder
-end-to-end**, **B3 — Task** e **B4 — Lavoro** sono completate localmente:
+end-to-end**, **B3 — Task**, **B4 — Lavoro** e **B5 — Finanze base** sono completate localmente:
 preferenze temporali/quiet hours, eventi one-off, reminder con
-Cron/Queue/delivery, task privati e turni/consuntivi/pause con report verificabili
-sono implementati senza AI. B5 è prevista ma non attivata. Lo stato e lo scope
+Cron/Queue/delivery, task privati, turni/consuntivi/pause e movimenti economici
+manuali con totali esatti sono implementati senza AI. B6 è prevista ma non attivata. Lo stato e lo scope
 sono nella
 [milestone corrente](docs/planning/CURRENT_MILESTONE.md).
 
@@ -75,6 +75,12 @@ Comandi task B3: `/task crea <nessuna|YYYY-MM-DD|YYYY-MM-DDTHH:mm> |
 <bassa|media|alta> | Titolo`, `/task leggi <id>`, `/task lista`,
 `/task completa <id>` e `/task riapri <id>`. Le viste `/oggi` e `/domani`
 includono le task aperte in scadenza.
+
+Comandi finanze B5: `/finanze crea <spesa|entrata> <importo-minore> <valuta>
+<YYYY-MM-DD> | Categoria | Esercente-o-- | Metodo-o-- | Note-o--`,
+`/finanze leggi <id>`, `/finanze lista <inizio> <fine>`, `/finanze correggi …`,
+`/finanze elimina <id> <versione>` e `/finanze totali <inizio> <fine>`.
+`/spese` è alias di `/finanze`; importi e totali restano sempre in unità minori.
 
 Le versioni A1 sono esatte in `package.json` e `package-lock.json`; le decisioni
 sono registrate in ADR-0008.

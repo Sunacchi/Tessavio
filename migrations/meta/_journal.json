@@ -43,6 +43,13 @@
       "when": 1786207901766,
       "tag": "0005_milky_gargoyle",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1786210188057,
+      "tag": "0006_puzzling_vanisher",
+      "breakpoints": true
     }
   ]
 }

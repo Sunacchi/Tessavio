@@ -5,6 +5,7 @@ import { queueEnvelopeSchema } from "../application/queue-envelope";
 import { D1DeliveryRepository } from "../infrastructure/db/delivery-repository";
 import { D1EffectRepository } from "../infrastructure/db/effect-repository";
 import { D1EventRepository } from "../infrastructure/db/event-repository";
+import { D1FinanceRepository } from "../infrastructure/db/finance-repository";
 import { D1IdentityRepository } from "../infrastructure/db/identity-repository";
 import { D1InboundRepository } from "../infrastructure/db/inbound-repository";
 import { D1NotificationDeliveryRepository } from "../infrastructure/db/notification-delivery-repository";
@@ -44,6 +45,7 @@ export async function handleInboundQueue(
     deliveries: new D1DeliveryRepository(env.DB),
     effects: new D1EffectRepository(env.DB),
     events: new D1EventRepository(env.DB),
+    finance: new D1FinanceRepository(env.DB),
     identities: new D1IdentityRepository(env.DB),
     ids: overrides.ids ?? cryptoIdGenerator,
     inbox,

@@ -3,6 +3,48 @@ import { applyD1Migrations } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 
 describe("foundation migration", () => {
+  it("upgrades a populated B4 database to B5 without changing work records", async () => {
+    const b5MigrationIndex = env.TEST_MIGRATIONS.findIndex((migration) =>
+      migration.name.startsWith("0006_"),
+    );
+    expect(b5MigrationIndex).toBeGreaterThan(0);
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(0, b5MigrationIndex),
+    );
+    const timestamp = Date.parse("2026-08-08T10:00:00Z");
+    await env.UPGRADE_DB.batch([
+      env.UPGRADE_DB.prepare(
+        "INSERT INTO users (id, status, created_at) VALUES ('b5-upgrade', 'active', ?)",
+      ).bind(timestamp),
+      env.UPGRADE_DB.prepare(
+        `INSERT INTO work_rules (
+          id,user_id,name,break_treatment,version,last_mutation_key,created_at,updated_at
+        ) VALUES ('rule-b4','b5-upgrade','Fixture B4','paid',1,'fixture',?,?)`,
+      ).bind(timestamp, timestamp),
+    ]);
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(b5MigrationIndex),
+    );
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT name, version FROM work_rules WHERE user_id = ? AND id = ?",
+      )
+        .bind("b5-upgrade", "rule-b4")
+        .first(),
+    ).resolves.toEqual({ name: "Fixture B4", version: 1 });
+    const financeTables = await env.UPGRADE_DB.prepare(
+      `SELECT name FROM sqlite_master
+       WHERE type = 'table' AND name IN ('finance_entries','finance_undo_actions')
+       ORDER BY name`,
+    ).all<{ name: string }>();
+    expect(financeTables.results.map((row) => row.name)).toEqual([
+      "finance_entries",
+      "finance_undo_actions",
+    ]);
+  });
+
   it("upgrades a populated B3 database to B4 without changing B3 records", async () => {
     const b4MigrationIndex = env.TEST_MIGRATIONS.findIndex((migration) =>
       migration.name.startsWith("0005_"),
@@ -80,6 +122,8 @@ describe("foundation migration", () => {
         "work_logs",
         "work_breaks",
         "work_undo_actions",
+        "finance_entries",
+        "finance_undo_actions",
       ]),
     );
 
@@ -321,6 +365,33 @@ describe("foundation migration", () => {
     expect(
       workUndoPlan.results.some((row) =>
         row.detail.includes("work_undo_scope_expiry_idx"),
+      ),
+    ).toBe(true);
+
+    const financeRangePlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT id FROM finance_entries
+       WHERE user_id = ? AND status = 'active'
+         AND local_date >= ? AND local_date <= ?
+       ORDER BY local_date DESC, created_at DESC, id LIMIT 50`,
+    )
+      .bind("user-a", "2026-08-01", "2026-08-31")
+      .all<{ detail: string }>();
+    expect(
+      financeRangePlan.results.some((row) =>
+        row.detail.includes("finance_entries_scope_date_idx"),
+      ),
+    ).toBe(true);
+
+    const financeUndoPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT token FROM finance_undo_actions
+       WHERE scope_user_id = ? AND expires_at <= ?
+       ORDER BY expires_at LIMIT 100`,
+    )
+      .bind("user-a", Date.now())
+      .all<{ detail: string }>();
+    expect(
+      financeUndoPlan.results.some((row) =>
+        row.detail.includes("finance_undo_scope_expiry_idx"),
       ),
     ).toBe(true);
   });

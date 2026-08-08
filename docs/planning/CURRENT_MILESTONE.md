@@ -1,84 +1,82 @@
-# Milestone corrente — B4 Lavoro (completata)
+# Milestone corrente — B5 Finanze base (completata)
 
-**Stato: completata localmente il 2026-08-08.** B1-B4 sono completate. B5 è la
+**Stato: completata localmente il 2026-08-08.** B1-B5 sono completate. B6 è la
 prossima milestone prevista ma non è attivata: nessun suo schema o adapter è
 autorizzato. Nessuna risorsa Cloudflare remota è stata creata e nessun deploy è
 stato eseguito.
 
 ## Obiettivo
 
-Permettere a un utente Telegram di registrare separatamente turni pianificati,
-consuntivi e pause, applicando una regola esplicita sul trattamento delle pause
-e producendo report temporali riproducibili senza AI.
+Permettere a un utente Telegram di registrare, leggere, correggere ed eliminare
+spese ed entrate manuali e ottenere totali esatti per valuta, senza AI,
+integrazioni esterne o aritmetica floating point.
 
 ## Contratto autorizzato
 
-- una regola lavoro privata dichiara se le pause sono `paid` oppure `unpaid`;
-- un consuntivo conserva uno snapshot versionato della regola usata, così un
-  report storico non cambia se la regola evolve in una milestone successiva;
-- turni pianificati, consuntivi e pause sono entità e tabelle distinte;
-- ogni intervallo è semiaperto `[start, end)`, conserva istanti UTC e timezone
-  IANA originale e può attraversare mezzanotte o un cambio DST;
-- input locali in un gap o fold DST vengono rifiutati; la durata massima di un
-  singolo intervallo è 48 ore;
-- una pausa deve appartenere a un consuntivo dello stesso utente, essere
-  contenuta nel suo intervallo e non sovrapporsi a un'altra pausa;
-- il report usa un periodo civile inclusivo di massimo 366 giorni, converte i
-  confini in modo DST-safe e clampa ogni intervallo ai confini richiesti;
-- i totali interi sono minuti pianificati, consuntivi lordi, pause e minuti
-  conteggiati. Le pause `paid` restano conteggiate; le `unpaid` vengono sottratte.
+- ogni movimento è privato e usa `UserScope`; `expense|income` è una direzione
+  esplicita e l'importo è sempre positivo;
+- `amount_minor` è un intero tra 1 e 2.147.483.647 e il comando lo acquisisce già
+  in unità minori; valuta è un codice maiuscolo di tre lettere e non esiste
+  conversione valutaria;
+- la data economica è un giorno civile `YYYY-MM-DD`; categoria è obbligatoria,
+  esercente, metodo di pagamento e note sono facoltativi e bounded;
+- provenance è `manual_command`; B5 non accetta write da AI, voce, immagini,
+  documenti o import;
+- la correzione sostituisce i campi modificabili soltanto se la versione attesa
+  coincide; la cancellazione è soft e richiede la stessa stale-version policy;
+- lista e totali usano periodi civili inclusivi di massimo 366 giorni. Le valute
+  restano separate; entrate, spese e netto usano somme testuali D1 e `bigint`;
+- ogni create/correzione/delete è autorizzata, idempotente e atomica con audit e
+  Undo `fin_…` single-use di 15 minuti. Undo della create rimuove il movimento;
+  Undo di correzione/delete ripristina la snapshot precedente con nuova versione;
+- movimenti attivi/eliminati e audit restano fino alla cancellazione account;
+  gli Undo scaduti hanno purge bounded user-scoped e nessun contenuto economico
+  entra nei log.
 
-Comandi espliciti:
+Comandi espliciti (`/spese` è alias di `/finanze`):
 
 ```text
-/lavoro regola crea <retribuita|non_retribuita> | Nome
-/lavoro regola leggi <id>
-/lavoro regole
-/lavoro turno crea <YYYY-MM-DDTHH:mm> <YYYY-MM-DDTHH:mm> | Titolo
-/lavoro turno leggi <id>
-/lavoro consuntivo crea <inizio> <fine> <regola-id> | Titolo
-/lavoro consuntivo leggi <id>
-/lavoro pausa crea <consuntivo-id> <inizio> <fine>
-/lavoro pausa leggi <id>
-/lavoro giorno <YYYY-MM-DD>
-/lavoro report <YYYY-MM-DD> <YYYY-MM-DD>
-/annulla wrk_<token>
+/finanze crea <spesa|entrata> <importo-minore> <valuta> <YYYY-MM-DD> | Categoria | Esercente-o-- | Metodo-o-- | Note-o--
+/finanze leggi <id>
+/finanze lista <YYYY-MM-DD> <YYYY-MM-DD>
+/finanze correggi <id> <versione> <spesa|entrata> <importo-minore> <valuta> <YYYY-MM-DD> | Categoria | Esercente-o-- | Metodo-o-- | Note-o--
+/finanze elimina <id> <versione>
+/finanze totali <YYYY-MM-DD> <YYYY-MM-DD>
+/annulla fin_<token>
 ```
-
-Ogni create è autorizzata, idempotente e atomica con audit e Undo single-use di
-15 minuti. L'Undo elimina solo l'entità appena creata e fallisce `stale` se una
-regola è già referenziata o un consuntivo ha già pause. Ogni accesso repository
-richiede `UserScope`; i dati restano fino alla cancellazione account e gli Undo
-scaduti vengono eliminati in batch bounded user-scoped.
 
 ## Exit criteria
 
-- create/read/list/report funzionano senza AI o integrazioni esterne;
-- piano, consuntivo e pause non si sovrascrivono e hanno scope esplicito;
-- retry non duplica entità, audit o Undo;
-- Undo copre replay, scadenza, stale version e isolamento cross-user;
-- mezzanotte, giorni civili da 23/25 ore, gap/fold e intervalli clamped sono
-  coperti da test unitari/property e integrazione;
-- i report espongono timezone, policy/versione e record contributori;
-- totali e formula restano visibili entro il limite Telegram; solo il dettaglio
-  dei contributori può essere troncato esplicitamente;
-- migration fresh/upgrade, indici hot, query plan e recovery sono documentati;
-- format, lint, typecheck, unit, integration, security, migration, build e audit
-  dipendenze sono verdi.
+- create/read/list/correct/delete/totals funzionano senza AI, preferenze o
+  integrazioni esterne;
+- retry non duplica movimento, audit o Undo, incluso il crash window dopo write
+  D1 e prima della risposta Telegram;
+- correzione/delete/Undo coprono stale version, replay, expiry e isolamento
+  cross-user;
+- importi non usano `float`; property test verificano entrate, spese e netto su
+  più valute e quantità generate;
+- record eliminati non compaiono in read/list/totals; Undo li ripristina senza
+  riusare una versione precedente;
+- migration fresh e upgrade da B4 popolata, vincoli monetari, indici/query plan
+  e recovery sono documentati e testati;
+- test unitari/property, integrazione, security, migration e gate completi sono
+  verdi.
 
 ## Out of scope
 
-- modifica o cancellazione persistente dopo la finestra Undo;
-- retribuzione, valuta, tariffe, maggiorazioni, straordinari o buste paga;
-- ricorrenze/rotazioni, import/export CSV, planner e collegamenti a task/eventi;
-- condivisione, team, timbratura automatica, geolocalizzazione o integrazioni;
-- parsing naturale, AI, reminder e notifiche dedicate.
+- importi in unità maggiori/decimali, catalogo esponenti valuta e conversione FX;
+- categorie automatiche o regole personali, ricorrenze, stipendio/affitto/utenze
+  come entità programmate, rate e abbonamenti;
+- budget, obiettivi, scadenziario, forecast, confronti e consulenza finanziaria;
+- split, spese condivise, debiti, crediti, prestiti o pagamenti;
+- import/export CSV, voce, ricevute, scontrini, bollette e documenti;
+- Open Banking, conti, saldi bancari, credenziali, provider o polling.
 
 ## Evidenza di chiusura
 
-La vertical slice comprende parser e routing deterministici, porte applicative,
-repository D1 tenant-scoped, authorization `work:read|write|undo`, audit/Undo,
-migration additiva `0005_milky_gargoyle.sql`, report bounded e integrazione dei
-turni in `/oggi` e `/domani`. I test coprono fresh migration e upgrade da una
-fixture B3 popolata, indici/query plan, cross-tenant, DST, clamp, retry Queue dopo
-una write già committata, replay/expiry/stale e limiti di risposta.
+La vertical slice comprende parser e routing deterministici, dominio monetario
+puro, `finance:read|write|undo`, repository D1 tenant-scoped, audit/Undo,
+migration additiva `0006_puzzling_vanisher.sql`, soft delete e totali per valuta.
+I test coprono aritmetica property-based, fresh migration e upgrade B4 popolato,
+indici/query plan, retry Queue dopo write committata, cross-tenant, vincoli D1,
+stale/replay/expiry/Undo e assenza di tabelle Open Banking.

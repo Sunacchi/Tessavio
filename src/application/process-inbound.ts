@@ -2,6 +2,7 @@ import type {
   DeliveryRepository,
   EffectRepository,
   EventRepository,
+  FinanceRepository,
   IdentityRepository,
   InboundRepository,
   PreferenceRepository,
@@ -18,6 +19,7 @@ import { manageUndo } from "./manage-undo";
 import { manageReminders } from "./manage-reminders";
 import { manageTasks } from "./manage-tasks";
 import { manageWork } from "./manage-work";
+import { manageFinance } from "./manage-finance";
 import { startOnboarding } from "../domains/onboarding/start";
 import type { Authorizer } from "../security/authorization";
 import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
@@ -29,6 +31,7 @@ export interface ProcessInboundDependencies {
   readonly deliveries: DeliveryRepository;
   readonly effects: EffectRepository;
   readonly events: EventRepository;
+  readonly finance?: FinanceRepository;
   readonly identities: IdentityRepository;
   readonly ids: IdGenerator;
   readonly inbox: InboundRepository;
@@ -207,6 +210,27 @@ export async function processInboundMessage(
         command,
       },
       { ...dependencies, work },
+    );
+  } else if (
+    command.kind === "finance.create" ||
+    command.kind === "finance.update" ||
+    command.kind === "finance.read" ||
+    command.kind === "finance.list" ||
+    command.kind === "finance.totals" ||
+    command.kind === "finance.delete" ||
+    command.kind === "finance.invalid"
+  ) {
+    const finance = dependencies.finance;
+    if (finance === undefined) throw new AppError("INTERNAL_REDACTED", false);
+    replyText = await manageFinance(
+      {
+        actorUserId: identity.userId,
+        scope,
+        correlationId: envelope.correlationId,
+        idempotencyKey: envelope.idempotencyKey,
+        command,
+      },
+      { ...dependencies, finance },
     );
   } else {
     replyText = await manageEvents(

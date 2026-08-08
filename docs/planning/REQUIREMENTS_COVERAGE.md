@@ -21,7 +21,8 @@ reminder one-off, quiet hours, Cron/Queue e delivery deduplicata. B3 ha aggiunto
 task private, priorità, scadenze tipizzate, complete/reopen, Undo e viste
 giornaliere. B4 ha aggiunto regole lavoro private, turni pianificati, consuntivi,
 pause e report temporali riproducibili, tutti deterministici e user-scoped.
-Finanze, documenti, persone e spazi restano nello stato indicato nelle tabelle.
+B5 ha aggiunto spese/entrate manuali, minor unit, correzione, soft delete, Undo e
+totali per valuta. Documenti, persone e spazi restano nello stato indicato nelle tabelle.
 
 ## 1. Tessavio Inbox
 
@@ -35,7 +36,7 @@ Finanze, documenti, persone e spazi restano nello stato indicato nelle tabelle.
 | Ricevute, scontrini e bollette              | Parziale       | vision generica prevista; routing economico/documentale assente             | D3, J1 e K1                              |
 | Link                                        | Mancante       | nessun normalizer o policy fetch                                            | C3; fetch remoto resta adapter esplicito |
 | Riconoscere appuntamenti, reminder e task   | Parziale       | domini deterministici B1-B3 presenti; Inbox AI non implementata             | C3                                       |
-| Riconoscere spese, entrate e bollette       | Parziale       | spese base B5 pianificate; entrate/bollette non dettagliate                 | B5, C3, D3, K1                           |
+| Riconoscere spese, entrate e bollette       | Parziale       | dominio B5 presente; riconoscimento Inbox/bollette resta futuro             | B5, C3, D3, K1                           |
 | Riconoscere documenti e scadenze            | Mancante       | dominio documenti assente                                                   | D3 e J1-J2                               |
 | Riconoscere elementi lista e note           | Parziale       | liste B6 pianificate, note non esplicite                                    | B6 e C3                                  |
 | Riconoscere informazioni relative a persone | Mancante       | dominio persone assente                                                     | J3-J4                                    |
@@ -49,13 +50,13 @@ Finanze, documenti, persone e spazi restano nello stato indicato nelle tabelle.
 
 | Funzione                                          | Stato iniziale | Evidenza / gap                                    | Collocazione                   |
 | ------------------------------------------------- | -------------- | ------------------------------------------------- | ------------------------------ |
-| Inserimento spese via testo/comando               | Pianificata    | B5 senza schema/codice                            | B5                             |
-| Inserimento entrate via testo/comando             | Mancante       | B5 parlava solo di spese                          | B5                             |
-| Inserimento via vocale                            | Parziale       | STT generico previsto                             | D1 + B5                        |
-| Foto di scontrini, ricevute e bollette            | Parziale       | vision generica prevista                          | D2-D3 + B5/J1                  |
-| Importo, valuta e data                            | Pianificata    | minor unit e tempo sono invarianti                | B5                             |
-| Categoria modificabile                            | Pianificata    | categoria base prevista                           | B5                             |
-| Esercente, note e metodo di pagamento facoltativo | Mancante       | campi non specificati                             | B5                             |
+| Inserimento spese via testo/comando               | Implementata   | comando deterministico e repository B5            | B5                             |
+| Inserimento entrate via testo/comando             | Implementata   | stesso registro tipizzato `income`                | B5                             |
+| Inserimento via vocale                            | Parziale       | dominio pronto; STT/Inbox assenti                 | D1 + B5                        |
+| Foto di scontrini, ricevute e bollette            | Parziale       | dominio pronto; vision/documenti assenti          | D2-D3 + B5/J1                  |
+| Importo, valuta e data                            | Implementata   | minor unit intere e data civile validate          | B5                             |
+| Categoria modificabile                            | Implementata   | correzione versionata del movimento               | B5                             |
+| Esercente, note e metodo di pagamento facoltativo | Implementata   | campi bounded e minimizzati                       | B5                             |
 | Categorie automatiche modificabili                | Mancante       | nessuna regola/proposta dedicata                  | C3 e K1                        |
 | Regole personali di categorizzazione              | Mancante       | assenti                                           | K1                             |
 | Entrate/spese ricorrenti                          | Parziale       | recurrence generica prevista                      | K1                             |
@@ -76,8 +77,8 @@ Finanze, documenti, persone e spazi restano nello stato indicato nelle tabelle.
 | Confronto tra periodi                             | Mancante       | assente                                           | K4                             |
 | Export CSV                                        | Parziale       | Mini App/export generico previsto                 | B7, K4 e I2                    |
 | Import manuale CSV                                | Mancante       | assente                                           | K4                             |
-| Modifica, eliminazione e Undo                     | Pianificata    | invariante globale, non implementata per finanze  | B5                             |
-| Isolamento dati economici                         | Pianificata    | `UserScope` e test negativi obbligatori           | B5/F3/K*                       |
+| Modifica, eliminazione e Undo                     | Implementata   | versioning, soft delete e token single-use B5     | B5                             |
+| Isolamento dati economici                         | Implementata   | `UserScope` in repository e test negativi         | B5/F3/K*                       |
 | Forecast come stima, non consulenza               | Mancante       | disclaimer non presente                           | K3 e DoD                       |
 
 ## 3. Esclusione Open Banking
@@ -242,13 +243,13 @@ Finanze, documenti, persone e spazi restano nello stato indicato nelle tabelle.
 
 ## Sintesi operativa
 
-- **Implementato:** foundation A1, preferenze temporali B1.1, eventi one-off
-  B1.2, reminder end-to-end B2 e task private B3 con viste giornaliere; le
-  entità successive restano non implementate.
+- **Implementato:** foundation A1, preferenze/eventi B1, reminder B2, task B3,
+  lavoro B4 e finanze manuali B5 con isolamento, audit e Undo; le entità
+  successive restano non implementate.
 - **Già pianificato in modo significativo:** core B, AI C, voice/vision D,
   planner E, sharing F, Mini App, Google export e hardening.
-- **Parziale o assente prima dell'audit:** Inbox universale completa, entrate e
-  finanza avanzata, briefing, documenti, persone, casa/famiglia, viaggi,
+- **Parziale o assente prima dell'audit:** Inbox universale completa, finanza
+  avanzata, briefing, documenti, persone, casa/famiglia, viaggi,
   benessere e Google inbound/two-way.
 - **Dopo l'aggiornamento:** ogni requisito sopra ha una milestone concreta, ma
   resta non implementato finché i relativi acceptance test e gate DoD non sono

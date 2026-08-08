@@ -466,7 +466,7 @@ Cron/Queue/delivery; review sicurezza e qualità dopo integrazione.
       espliciti, completamento idempotente, riapertura e Undo.
 - [x] **B4 Lavoro.** Turni pianificati separati dai consuntivi, pause e regole
       data-driven; attraversamento mezzanotte e report verificabili.
-- [ ] **B5 Finanze base.** Spese/entrate, minor unit, valuta, data, categoria,
+- [x] **B5 Finanze base.** Spese/entrate, minor unit, valuta, data, categoria,
       esercente/note/metodo facoltativi, correzione/delete/Undo e totali senza `float`.
 - [ ] **B6 Liste, note e recurrence minima.** Liste/note private e item idempotenti; routine o
       ricorrenze solo se lo scope beta le conferma e con ora locale/timezone preservate.

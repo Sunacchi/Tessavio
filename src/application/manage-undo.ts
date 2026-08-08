@@ -2,6 +2,7 @@ import type { UndoCommand } from "./deterministic-command";
 import { managePreferences } from "./manage-preferences";
 import type {
   EventRepository,
+  FinanceRepository,
   PreferenceRepository,
   ReminderRepository,
   TaskRepository,
@@ -14,6 +15,7 @@ export interface ManageUndoDependencies {
   readonly authorizer: Authorizer;
   readonly clock: Clock;
   readonly events: EventRepository;
+  readonly finance?: FinanceRepository;
   readonly ids: IdGenerator;
   readonly preferences: PreferenceRepository;
   readonly reminders: ReminderRepository;
@@ -43,6 +45,40 @@ export async function manageUndo(
   }
 
   if (!request.command.token.startsWith("evt_")) {
+    if (request.command.token.startsWith("fin_")) {
+      await dependencies.authorizer.authorize({
+        actorUserId: request.actorUserId,
+        scope: request.scope,
+        action: "finance:undo",
+      });
+      const finance = dependencies.finance;
+      if (finance === undefined) return "Undo finanze non disponibile.";
+      const result = await finance.undo(request.scope, request.command.token, {
+        actorUserId: request.actorUserId,
+        correlationId: request.correlationId,
+        idempotencyKey: request.idempotencyKey,
+        auditId: dependencies.ids.newId(),
+        now: dependencies.clock.now(),
+      });
+      switch (result.outcome) {
+        case "reverted":
+          return result.entry === null
+            ? "Creazione movimento annullata."
+            : `Modifica movimento annullata. ID: ${result.entry.id}`;
+        case "duplicate":
+          return result.entry === null
+            ? "Undo finanze già applicato: il movimento non esiste."
+            : `Undo finanze già applicato. ID: ${result.entry.id}`;
+        case "expired":
+          return "Undo finanze scaduto: nessuna modifica applicata.";
+        case "used":
+          return "Undo finanze già usato: nessuna modifica applicata.";
+        case "stale":
+          return "Undo finanze non applicabile: il movimento è cambiato nel frattempo.";
+        case "not_found":
+          return "Undo finanze non disponibile per questo utente.";
+      }
+    }
     if (request.command.token.startsWith("wrk_")) {
       await dependencies.authorizer.authorize({
         actorUserId: request.actorUserId,

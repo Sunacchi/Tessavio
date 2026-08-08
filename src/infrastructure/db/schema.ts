@@ -756,3 +756,114 @@ export const workUndoActions = sqliteTable(
     check("work_undo_version_ck", sql`${table.expectedVersion} > 0`),
   ],
 );
+
+export const financeEntries = sqliteTable(
+  "finance_entries",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    entryKind: text("entry_kind", { enum: ["expense", "income"] }).notNull(),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    localDate: text("local_date").notNull(),
+    category: text("category").notNull(),
+    merchant: text("merchant"),
+    paymentMethod: text("payment_method"),
+    note: text("note"),
+    source: text("source", { enum: ["manual_command"] }).notNull(),
+    status: text("status", { enum: ["active", "deleted"] }).notNull(),
+    version: integer("version").notNull(),
+    lastMutationKey: text("last_mutation_key").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    uniqueIndex("finance_entries_scope_id_uq").on(table.userId, table.id),
+    index("finance_entries_scope_date_idx").on(
+      table.userId,
+      table.status,
+      table.localDate,
+      table.currency,
+      table.entryKind,
+      table.id,
+    ),
+    check(
+      "finance_entries_kind_ck",
+      sql`${table.entryKind} IN ('expense', 'income')`,
+    ),
+    check(
+      "finance_entries_amount_ck",
+      sql`${table.amountMinor} BETWEEN 1 AND 2147483647`,
+    ),
+    check(
+      "finance_entries_currency_ck",
+      sql`${table.currency} GLOB '[A-Z][A-Z][A-Z]'`,
+    ),
+    check(
+      "finance_entries_date_ck",
+      sql`length(${table.localDate}) = 10 AND ${table.localDate} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      "finance_entries_category_ck",
+      sql`length(${table.category}) BETWEEN 1 AND 100`,
+    ),
+    check(
+      "finance_entries_merchant_ck",
+      sql`${table.merchant} IS NULL OR length(${table.merchant}) BETWEEN 1 AND 200`,
+    ),
+    check(
+      "finance_entries_payment_method_ck",
+      sql`${table.paymentMethod} IS NULL OR length(${table.paymentMethod}) BETWEEN 1 AND 100`,
+    ),
+    check(
+      "finance_entries_note_ck",
+      sql`${table.note} IS NULL OR length(${table.note}) BETWEEN 1 AND 500`,
+    ),
+    check(
+      "finance_entries_source_ck",
+      sql`${table.source} IN ('manual_command')`,
+    ),
+    check(
+      "finance_entries_status_ck",
+      sql`${table.status} IN ('active', 'deleted')`,
+    ),
+    check("finance_entries_version_ck", sql`${table.version} > 0`),
+    check(
+      "finance_entries_deleted_at_ck",
+      sql`(${table.status} = 'active' AND ${table.deletedAt} IS NULL)
+          OR (${table.status} = 'deleted' AND ${table.deletedAt} IS NOT NULL)`,
+    ),
+  ],
+);
+
+export const financeUndoActions = sqliteTable(
+  "finance_undo_actions",
+  {
+    token: text("token").primaryKey(),
+    scopeUserId: text("scope_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    entryId: text("entry_id").notNull(),
+    sourceIdempotencyKey: text("source_idempotency_key").notNull(),
+    beforeJson: text("before_json"),
+    expectedVersion: integer("expected_version").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    consumedAt: integer("consumed_at", { mode: "timestamp_ms" }),
+    consumedByIdempotencyKey: text("consumed_by_idempotency_key"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("finance_undo_source_uq").on(
+      table.scopeUserId,
+      table.sourceIdempotencyKey,
+    ),
+    index("finance_undo_scope_expiry_idx").on(
+      table.scopeUserId,
+      table.expiresAt,
+    ),
+    check("finance_undo_version_ck", sql`${table.expectedVersion} > 0`),
+  ],
+);

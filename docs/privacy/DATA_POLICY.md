@@ -21,6 +21,8 @@
 | delivery notification B2 | 30 giorni; purge da attivare pre-pilot    |
 | lavoro B4                | fino a cancellazione utente               |
 | token Undo lavoro        | TTL 15 minuti; purge bounded user-scoped  |
+| movimenti finanza B5     | fino a cancellazione utente               |
+| token Undo finanze       | TTL 15 minuti; purge bounded user-scoped  |
 | dati core                | fino a cancellazione utente               |
 | metadata AI usage        | quanto necessario a budget e report       |
 | OAuth Google             | fino a revoca/disconnessione              |
@@ -65,6 +67,14 @@ snapshot minimo della regola necessario a riprodurre i report. I report sono
 calcolati e non persistono una copia dei contenuti. I token `wrk_…` scadono dopo
 15 minuti e non entrano nei log; i dati lavoro e l'audit restano fino alla
 cancellazione account.
+
+In B5 i movimenti economici sono privati e conservano direzione, importo in
+unità minori, valuta, data civile, categoria, campi facoltativi scelti
+dall'utente, provenance manuale, stato e versione. Le cancellazioni ordinarie
+sono soft per consentire Undo; record attivi/eliminati e audit restano fino alla
+cancellazione account. I token `fin_…` scadono dopo 15 minuti, non entrano nei
+log e hanno purge bounded user-scoped. Diagnostica e metriche non includono
+categoria, esercente, metodo, note o snapshot audit.
 
 ## Diritti e operazioni
 

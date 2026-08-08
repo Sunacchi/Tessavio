@@ -18,6 +18,7 @@ Gli ADR registrano decisioni difficili da ricostruire dal codice. Stato ammesso:
 - [ADR-0014 — B2 reminder one-off, quiet hours e delivery leased](0014-b2-reminder-delivery.md)
 - [ADR-0015 — B3 task private, scadenze tipizzate e state machine](0015-b3-task-contract.md)
 - [ADR-0016 — B4 lavoro: piano, consuntivo, pause e report riproducibili](0016-b4-work-time-contract.md)
+- [ADR-0017 — B5 finanze: registro privato, minor unit e Undo versionato](0017-b5-finance-contract.md)
 
 ## Template
 

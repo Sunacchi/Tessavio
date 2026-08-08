@@ -180,7 +180,11 @@ B3 aggiunge task private `none|date_only|instant`, priorità, state machine
 open/completed e Undo user-scoped. B4 aggiunge regole lavoro private versionate,
 turni pianificati, consuntivi con snapshot della regola, pause figlie e Undo
 user-scoped; piano, consuntivo e pause restano in tabelle distinte e i report
-usano intervalli UTC clamped a finestre civili IANA. Le categorie future sono
+usano intervalli UTC clamped a finestre civili IANA. B5 aggiunge un registro
+privato di movimenti `expense|income`, importi positivi in minor unit intere,
+valuta e data civile esplicite, provenance manuale, soft delete e Undo
+user-scoped. Correzioni/delete sono versionate e i totali restano separati per
+valuta usando somme testuali D1 e `bigint`, senza conversioni o `float`. Le categorie future sono
 introdotte quando attive e devono definire owner/space, indici, lifecycle,
 export/delete, audit/Undo e test cross-tenant.
 
