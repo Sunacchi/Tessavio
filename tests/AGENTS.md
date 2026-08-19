@@ -1,13 +1,21 @@
-# Test instructions
+# tests — regole
 
-- Tests must prove behavior, not implementation trivia.
-- Unit: date/time helpers, recurrence, work calculations, money, permissions, budget and validators.
-- Integration: webhook/Queue/D1, reminder/briefing Cron and delivery, outbox,
-  provider mocks, OAuth and Google export/reconciliation/two-way conflict flows.
-- Security: cross-user read/write denial, role denial, forged/reused callback,
-  duplicate update, hostile document/prompt injection, and secret-log scanning.
-- Property tests: temporal intervals/DST, recurrence, money and planner overlap invariants.
-- Use fake clocks, deterministic IDs and sanitized fixtures. Never use production tokens or personal data.
-- Every bug fix includes a failing regression test first when practical.
-- Open Banking is excluded; test scans should reject banking adapters, secrets,
-  schema or dependencies rather than scaffold a fake provider.
+I test provano comportamento e invarianti, non dettagli di implementazione.
+
+| Livello        | Cosa deve coprire                                                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unit/`        | date/ora, ricorrenze, calcoli lavoro, denaro, permessi, budget, validator                                                                         |
+| `integration/` | migration reali D1, repository scoped, webhook/Queue/Cron, outbox, adapter fake, recovery delle crash window                                      |
+| `security/`    | negazione cross-user e cross-space, ruolo negato, callback forgiata o riusata, update duplicato, documento ostile, prompt injection, scan dei log |
+| property       | intervalli temporali e DST, ricorrenze, denaro, overlap del planner                                                                               |
+
+- Fake clock, ID deterministici e fixture sanificate. **Mai** token di
+  produzione o dati personali reali.
+- Ogni bug fix parte da un regression test che fallisce, quando praticabile.
+- Un test di idempotenza esegue il flusso **due volte** e verifica che lo stato
+  finale e gli effetti esterni non cambino.
+- Un test cross-tenant verifica anche che il tenant concorrente resti immutato,
+  non solo che la lettura fallisca.
+- Open Banking: nessun adapter finto. Uno scan deve impedirne l'introduzione.
+
+Helper condivisi in `helpers.ts`; non duplicare la costruzione del runtime.

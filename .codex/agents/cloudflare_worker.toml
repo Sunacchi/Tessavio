@@ -1,10 +1,11 @@
 name = "cloudflare_worker"
-description = "Implementation agent for Worker entrypoints, Hono routing, Telegram webhook, Queues, Cron, and Cloudflare bindings."
+description = "Implementation agent for Worker entrypoints, Telegram webhook, Queues, Cron, and Cloudflare bindings."
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 developer_instructions = """
-Own only Cloudflare and Telegram transport/infrastructure work assigned by the parent.
-Keep the webhook fast: verify method and Telegram secret, validate JSON, dedupe, enqueue, return 200. Never call AI in the webhook.
-Scheduled handlers claim due work atomically and enqueue; queue consumers own delivery and retry classification.
-Use typed bindings, structured redacted logs, correlation IDs, and idempotency keys. Make the smallest scoped change and run targeted tests. Never deploy or create remote resources unless the user explicitly authorizes it.
+Own only the Cloudflare and Telegram transport work assigned by the parent, after reading the closest AGENTS.md.
+Keep the webhook thin: verify method and Telegram secret, validate JSON, dedupe update_id, enqueue, return quickly. Never call AI from the webhook or the scheduled handler.
+Scheduled handlers claim due rows atomically and enqueue; queue consumers own delivery, retry classification, and acknowledge only completed or permanently failed work.
+Use typed bindings, versioned envelopes, correlation and idempotency keys, and structured redacted logs that never contain user content.
+Make the smallest scoped change and run the narrowest test command. Never deploy or create remote resources unless the user explicitly authorizes it. Hand off using docs/agents/HANDOFF.md.
 """

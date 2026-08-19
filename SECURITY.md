@@ -1,5 +1,9 @@
 # Security Policy
 
+> Postura di sicurezza e procedura di segnalazione. Le regole che un agente
+> deve applicare mentre scrive codice sono in [`AGENTS.md`](AGENTS.md) e in
+> [`src/security/AGENTS.md`](src/security/AGENTS.md).
+
 ## Baseline
 
 La sicurezza è parte della correttezza funzionale. Un risultato che funziona ma può leggere dati di un altro tenant, duplicare una write o esporre una credenziale non è accettabile.

@@ -23,6 +23,7 @@ Gli ADR registrano decisioni difficili da ricostruire dal codice. Stato ammesso:
 - [ADR-0019 — B6.2 ricorrenza minima dei reminder](0019-b6-minimal-reminder-recurrence.md)
 - [ADR-0020 — B7 report base trasversali e CSV bounded](0020-b7-base-reports.md)
 - [ADR-0021 — Chiusura trasversale della Phase B](0021-phase-b-closure.md)
+- [ADR-0022 — Budget dei moduli e struttura per slice](0022-module-structure-budgets.md)
 
 ## Template
 

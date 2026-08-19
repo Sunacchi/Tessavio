@@ -1,5 +1,8 @@
 # Data and privacy policy baseline
 
+> Retention, classificazione e diritti per categoria di dato. Aprire **prima**
+> di persistere una categoria nuova: senza una riga qui, la migration non parte.
+
 ## Retention proposta
 
 | Dato                     | Default                                   |

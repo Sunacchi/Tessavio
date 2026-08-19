@@ -1,5 +1,9 @@
 # Strategia di test
 
+> Strategia e matrice minima di evidenze. Le regole operative per scrivere un
+> test sono in [`tests/AGENTS.md`](../tests/AGENTS.md); qui c'è il _cosa_ deve
+> essere dimostrato, non il _come_ si scrive.
+
 La suite prova comportamento e invarianti, non solo funzioni isolate. Una
 feature è “presente” nella matrice requisiti soltanto quando i gate pertinenti
 della Definition of Done hanno evidenza eseguibile.

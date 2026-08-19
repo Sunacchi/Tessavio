@@ -1,5 +1,8 @@
 # Template task per subagente
 
+> Copiare e compilare per assegnare lavoro. Un campo lasciato vuoto è una
+> decisione non presa: risolverla prima di delegare, non durante.
+
 ```md
 ## Obiettivo
 
@@ -8,7 +11,7 @@ Un risultato verificabile, espresso in una frase.
 ## Identità e ownership
 
 - task ID e milestone attiva;
-- profilo owner;
+- profilo owner (`.claude/agents/` o `.codex/agents/`);
 - dipendenze già completate;
 - file/directory posseduti in esclusiva;
 - aree condivise che richiedono coordinamento.
@@ -19,7 +22,7 @@ revert di file non posseduti e segnala ogni sovrapposizione prima di editare.
 ## Contesto obbligatorio
 
 - milestone corrente;
-- invarianti rilevanti;
+- invarianti rilevanti (numero della voce in `AGENTS.md`, non il testo copiato);
 - file o moduli in scope;
 - contratto già deciso.
 
@@ -68,51 +71,33 @@ revert di file non posseduti e segnala ogni sovrapposizione prima di editare.
 - metodo per diagnosticare lo scenario senza dati personali;
 - trigger, rollback/roll-forward e invarianti post-recovery.
 
-## Output richiesto
-
-- file/evidenze;
-- test o verifiche;
-- rischi e assunzioni;
-- decisioni concrete richieste al main agent, oppure “nessuna”;
-- formato della sintesi.
-
 ## Test ed evidenze
 
 - comandi esatti per unit/integration/security/property/regression/fault injection;
 - fixture, fake clock/ID o provider mock richiesti;
 - evidenza attesa per ogni acceptance scenario.
 
-## DoD applicability
+## Gate DoD applicabili
 
-| ID  | Gate                                              | Pending / Pass / N/A | Evidenza o motivazione N/A |
-| --- | ------------------------------------------------- | -------------------- | -------------------------- |
-| F-1 | comportamento normale e casi limite               |                      |                            |
-| F-2 | input ambiguo e messaggio utente sicuro           |                      |                            |
-| F-3 | fallback deterministico e scope privato/condiviso |                      |                            |
-| T-1 | timezone/date relative/DST/date-only              |                      |                            |
-| T-2 | denaro in unità minori intere                     |                      |                            |
-| S-1 | owner/space scope e authorization                 |                      |                            |
-| S-2 | idempotenza e duplicate handling                  |                      |                            |
-| S-3 | audit before/after e correlation ID               |                      |                            |
-| S-4 | Undo applicabile, user-bound e replay-safe        |                      |                            |
-| S-5 | redaction, retention e cancellazione              |                      |                            |
-| A-1 | schema strict, validation e nessun DB access AI   |                      |                            |
-| A-2 | context minimization, privacy, budget e fallback  |                      |                            |
-| A-3 | benchmark aggiornato                              |                      |                            |
-| Q-1 | unit e integration test                           |                      |                            |
-| Q-2 | security negative test                            |                      |                            |
-| Q-3 | property/regression/fault-injection test          |                      |                            |
-| Q-4 | format, lint, typecheck e suite pertinenti        |                      |                            |
-| Q-5 | migration e backward compatibility                |                      |                            |
-| Q-6 | documentazione e ADR                              |                      |                            |
-| O-1 | log/metriche diagnostiche e retry classification  |                      |                            |
-| O-2 | rollback/recovery                                 |                      |                            |
-| O-3 | limiti e dipendenze versionati                    |                      |                            |
+Compilare la matrice della Definition of Done sul diff reale: una riga per
+gate applicabile, con `Pass`/`Pending`/`N/A` ed evidenza. `N/A` senza
+motivazione conta come `Pending`.
+
+Fonte dei gate: `docs/planning/DEFINITION_OF_DONE.md` — non ricopiarli qui.
+Con Claude Code la compilazione è automatizzata dalla skill `/dod`.
+
+## Output richiesto
+
+- file/evidenze;
+- test o verifiche eseguite, con comando ed esito;
+- rischi e assunzioni;
+- decisioni concrete richieste al main agent, oppure "nessuna";
+- sintesi secondo `docs/agents/HANDOFF.md`.
 
 ## Done when
 
 - criteri osservabili e bounded;
-- nessuna task indefinita come “migliora tutto”;
+- nessuna task indefinita come "migliora tutto";
 - acceptance, test, osservabilità e recovery applicabili completati;
 - matrice DoD senza righe `Pending` e ogni `N/A` motivato;
 - zero finding P0/P1 aperti nello scope della task.

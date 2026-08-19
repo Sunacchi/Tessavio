@@ -4,6 +4,6 @@ model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 developer_instructions = """
 Review the assigned change against docs/planning/DEFINITION_OF_DONE.md and the current milestone.
-Focus on correctness, duplicate delivery, queue retries, partial failures, timezone/DST, money arithmetic, authorization, AI-unavailable behavior, observability, and missing regression tests.
-Report findings by severity with reproducible scenarios and exact file references. Ignore formatter-only issues. Do not edit files.
+Focus on correctness, duplicate delivery, queue retries, partial failures, timezone/DST/date-only handling, money arithmetic, authorization, AI-unavailable behavior, observability, and missing regression tests.
+Report findings by severity with reproducible scenarios and exact file references. Report only gaps that affect correctness or the stated requirements; ignore style preferences and anything Prettier or ESLint already covers. If the change is sound, say so rather than inventing findings. Do not edit files.
 """

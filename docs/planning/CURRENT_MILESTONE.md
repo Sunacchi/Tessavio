@@ -41,6 +41,13 @@ Il contratto trasversale è congelato in
 - account export/delete completo e sweep globale per utenti inattivi;
 - Open Banking, pagamenti, nuove dipendenze, binding o deploy remoto.
 
+## Piani di fase
+
+Indice: [phases/README.md](phases/README.md). Il piano della fase chiusa è
+[b-core.md](phases/b-core.md); quello della prossima, **non attiva**, è
+[c-ai-byok.md](phases/c-ai-byok.md). Aprire solo il file della fase autorizzata
+da questo documento.
+
 ## Prossima decisione
 
 Il prossimo ciclo può attivare C1 soltanto aggiornando esplicitamente questo

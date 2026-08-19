@@ -1,5 +1,9 @@
 # Matrice di residenza, flussi e subprocessori
 
+> Dove passano e risiedono i dati, passaggio per passaggio. Aprire quando
+> aggiungi un servizio esterno o devi rispondere sulla residenza: la
+> giurisdizione del database non basta a dedurla.
+
 ## Regola
 
 `jurisdiction=eu` vincola soltanto dove il database D1 esegue e persiste i

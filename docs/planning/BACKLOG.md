@@ -1,5 +1,9 @@
 # Technical backlog
 
+> Lavoro rimandato con una collocazione, non un elenco di idee. Aprire quando
+> rimandi qualcosa o cerchi se è già stato rimandato. Un elemento senza fase
+> assegnata non appartiene a questo file.
+
 ## A0 — Agent-ready repository
 
 - [x] root and scoped instructions;
