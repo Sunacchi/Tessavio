@@ -1,4 +1,4 @@
-import type { UndoCommand } from "./deterministic-command";
+import type { UndoCommand } from "./commands/undo";
 import { managePreferences } from "./manage-preferences";
 import type {
   EventRepository,

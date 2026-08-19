@@ -1,4 +1,4 @@
-import type { PreferenceCommand } from "./deterministic-command";
+import type { PreferenceCommand } from "./commands/preferences";
 import type { PreferenceRepository } from "./ports";
 import {
   preferenceUndoTtlMs,

@@ -1,4 +1,4 @@
-import type { ReportCommand } from "./deterministic-command";
+import type { ReportCommand } from "./commands/reports";
 import type {
   EventRepository,
   FinanceRepository,

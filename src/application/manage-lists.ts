@@ -1,4 +1,5 @@
-import type { ListsCommand, NotesCommand } from "./deterministic-command";
+import type { ListsCommand } from "./commands/lists";
+import type { NotesCommand } from "./commands/notes";
 import type {
   ListMutationContext,
   ListRepository,

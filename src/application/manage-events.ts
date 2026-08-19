@@ -1,4 +1,4 @@
-import type { EventCommand, EventDraftCommand } from "./deterministic-command";
+import type { EventCommand, EventDraftCommand } from "./commands/events";
 import type {
   EventMutationContext,
   EventRepository,

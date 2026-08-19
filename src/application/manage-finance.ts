@@ -1,4 +1,4 @@
-import type { FinanceCommand } from "./deterministic-command";
+import type { FinanceCommand } from "./commands/finance";
 import type {
   FinanceMutationContext,
   FinanceRepository,

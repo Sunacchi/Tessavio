@@ -1,4 +1,4 @@
-import type { TaskCommand } from "./deterministic-command";
+import type { TaskCommand } from "./commands/tasks";
 import type {
   MutateTaskResult,
   PreferenceRepository,

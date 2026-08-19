@@ -1,4 +1,4 @@
-import type { WorkCommand } from "./deterministic-command";
+import type { WorkCommand } from "./commands/work";
 import type {
   MutateWorkResult,
   PreferenceRepository,

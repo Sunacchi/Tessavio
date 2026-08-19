@@ -1,4 +1,4 @@
-import type { ReminderCommand } from "./deterministic-command";
+import type { ReminderCommand } from "./commands/reminders";
 import type {
   MutateReminderRecurrenceResult,
   PreferenceRepository,
