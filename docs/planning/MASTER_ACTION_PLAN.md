@@ -14,8 +14,9 @@ Stato verificato il 2026-08-19:
 - [x] B1-B7 Core deterministico chiuso, gate trasversali inclusi
       ([ADR-0021](../decisions/0021-phase-b-closure.md));
 - [x] requisiti di prodotto estesi assegnati a milestone concrete A-O;
-- [ ] C1 `ActionProposal` attivata (richiede aggiornamento esplicito di
-      [CURRENT_MILESTONE.md](CURRENT_MILESTONE.md));
+- [x] Phase C attivata il 2026-08-19 con il gate G0 firmato: la slice in
+      lavorazione è sempre quella dichiarata in
+      [CURRENT_MILESTONE.md](CURRENT_MILESTONE.md);
 - [ ] release beta chiusa secondo [RELEASE_CLOSURE.md](RELEASE_CLOSURE.md).
 
 Nessuna risorsa Cloudflare remota è stata creata; non esiste deploy pubblico.
@@ -68,10 +69,19 @@ registra in ADR le conseguenze durevoli.
       sempre con D1 autorevole (ADR-0011).
 - [x] **Retention A1:** fissate durate e recovery per inbox/dedupe,
       job/effect/delivery ledger, audit e identità in ADR-0008.
-- [ ] **Retention futura:** fissare durate e purge per ActionProposal, media,
-      Undo/soft-delete, OAuth state, log, export e backup.
-- [ ] **OAuth/crypto:** prima di C approvare TTL, redirect allowlist, binding,
-      consumo atomico, ciphertext format/AAD, KEK rotation e revoca.
+- [x] **Retention Phase C:** `ai_proposals` 30 giorni, sessioni OAuth TTL 10
+      minuti con purge a 24 ore, ledger di budget 90 giorni, log AI senza prompt
+      né credenziali ([ADR-0025](../decisions/0025-ai-budget-privacy-model-policy.md)).
+- [ ] **Retention futura:** restano aperte media, Undo/soft-delete oltre la
+      Phase C, export e backup.
+- [x] **OAuth/crypto:** sessione opaca user-bound con TTL 10 minuti, single-use
+      consumata in CAS, allowlist di un solo host di callback, PKCE server-side,
+      envelope AES-GCM/AES-KW con AAD per tenant e rotazione KEK
+      ([ADR-0024](../decisions/0024-oauth-and-credential-crypto.md)).
+- [x] **Host del callback OAuth:** nessuna risorsa remota. C2 si chiude su
+      `wrangler dev` con server OpenRouter fake; lo smoke live resta un passo
+      esplicito del proprietario.
+- [x] **Modalità AI free/best-effort:** esclusa dalla Phase C, non implicita.
 - [ ] **Sharing/delete:** prima di F/I approvare role matrix, ultimo owner,
       private-to-shared e trattamento di dati condivisi, audit e backup alla delete.
 - [ ] **Go/no-go:** prima di I3 approvare SLO, carico, RPO/RTO, autorità di firma e

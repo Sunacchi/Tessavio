@@ -1,9 +1,9 @@
 # Phase C — Inbox testuale e AI opzionale
 
-> Stato: **non attiva**. Questo è il piano esecutivo, non un'autorizzazione:
-> nessuna riga di codice C si scrive finché [CURRENT_MILESTONE](../CURRENT_MILESTONE.md)
-> non attiva esplicitamente una slice. Il testo di attivazione pronto è
-> nell'[appendice B](#appendice-b--testo-di-attivazione).
+> Stato: **attiva dal 2026-08-19**, gate G0 firmato. Questo resta il piano
+> esecutivo, non un'autorizzazione permanente: la slice in lavorazione è sempre
+> e solo quella dichiarata in [CURRENT_MILESTONE](../CURRENT_MILESTONE.md).
+> Il testo di attivazione è nell'[appendice B](#appendice-b--testo-di-attivazione).
 
 ## Sintesi (leggere solo questa se non stai implementando C)
 
@@ -38,44 +38,49 @@ Le tre idee che reggono il piano:
 
 ## G0 — Gate d'ingresso: decisioni del proprietario
 
-Nessuna è delegabile a un writer. Il main agent raccoglie evidenze e propone;
-il proprietario firma. Il [decision register](../MASTER_ACTION_PLAN.md) ne
-elenca già due come aperte: qui sono spacchettate in decisioni verificabili.
+**Firmato dal proprietario il 2026-08-19.** Le conseguenze durevoli sono negli
+ADR [0023](../../decisions/0023-action-proposal-contract.md),
+[0024](../../decisions/0024-oauth-and-credential-crypto.md) e
+[0025](../../decisions/0025-ai-budget-privacy-model-policy.md); il
+[decision register](../MASTER_ACTION_PLAN.md) è aggiornato di conseguenza.
 
 ### G0.1 — Prima di C0 (bloccante minimo)
 
-- [ ] **Perimetro C1.** Confermare le azioni dell'enum iniziale. Raccomandazione:
-      `events.create`, `events.cancel`, `reminders.create`, `reminders.cancel`,
-      `tasks.create`, `tasks.complete`, più `query.today` in sola lettura.
-      Sette azioni su tre domini: abbastanza per provare il percorso completo
-      proposta → policy → write, abbastanza poco da restare sotto i limiti
-      dello schema strict e da rendere il benchmark leggibile.
-- [ ] **Costo di C0.** Accettare una slice senza comportamento nuovo prima di
-      vedere valore AI.
+- [x] **Perimetro C1:** sette azioni su tre domini — `events.create`,
+      `events.cancel`, `reminders.create`, `reminders.cancel`, `tasks.create`,
+      `tasks.complete` e `query.today` in sola lettura. Lavoro, finanze e liste
+      restano fuori fino a C1.2, dopo la baseline di benchmark.
+- [x] **Costo di C0 accettato:** una slice senza comportamento nuovo prima di
+      vedere valore AI, perché l'alternativa è un secondo aggregatore contro
+      ADR-0022.
 
 ### G0.2 — Prima di C2 (nessuna eccezione)
 
-- [ ] **Host pubblico del callback OAuth.** Oggi non esiste alcuna risorsa
-      Cloudflare remota e nessun deploy. Il callback OpenRouter richiede un URL
-      raggiungibile. Scegliere: (a) autorizzare un Worker staging dedicato,
-      (b) restare su `wrangler dev` con server OAuth fake e rinviare la prova
-      live, (c) un tunnel locale temporaneo per un solo smoke manuale.
-      **Senza questa decisione C2 non è chiudibile end-to-end.**
-- [ ] **OAuth/crypto** (già aperto nel decision register): TTL della sessione,
-      allowlist dei redirect, binding all'utente, consumo atomico single-use,
-      formato del ciphertext e AAD, rotazione della KEK, semantica della revoca.
-      Raccomandazioni tecniche in [C2.1](#c21--router-http-e-sessione-oauth) e
-      [C2.2](#c22--envelope-encryption-delle-credenziali).
-- [ ] **Retention** (già aperto nel decision register): durata e purge di
-      `ai_proposals`, sessioni OAuth, ledger di budget e log AI.
-- [ ] **Allowlist modelli e provider.** Quali endpoint sono ammessi per
-      privacy e costo, e quale è il fallback. Vive in configurazione versionata,
-      mai nel dominio.
-- [ ] **Budget di default.** Tetto per utente e per operazione, e cosa succede
-      al superamento (rifiuto esplicito, mai degrado silenzioso).
-- [ ] **Modalità free/best-effort.** Dentro o fuori dalla Phase C. [ADR-0005](../../decisions/0005-byok-and-ai-privacy.md)
-      la vuole opt-in ed esplicita quando riduce la privacy: se resta fuori da C,
-      dirlo nel piano invece di lasciarla implicita.
+- [x] **Host pubblico del callback OAuth: opzione (b).** C2 si chiude su
+      `wrangler dev` con un server OpenRouter **fake** nei test; nessuna risorsa
+      Cloudflare remota, nessun deploy, nessuna credenziale reale. Lo smoke live
+      resta un passo esplicito del proprietario, descritto nel
+      [runbook C2](../../runbooks/C2_OAUTH_RECOVERY.md). Conseguenza accettata:
+      la Phase C chiude come **verde in locale con smoke live pendente**.
+- [x] **OAuth/crypto:** sessione opaca user-bound, TTL 10 minuti, single-use con
+      consumo atomico CAS, allowlist di un solo host di callback, `code_verifier`
+      PKCE solo server-side; envelope AES-GCM 256 con DEK per credenziale
+      avvolta in AES-KW, AAD `versione | userId | scopo | versioneKEK`, record
+      versionato e rotazione KEK con decrypt su N-1. Dettagli in ADR-0024.
+- [x] **Retention:** `ai_proposals` 30 giorni, sessioni OAuth TTL 10 minuti con
+      purge dopo 24 ore, ledger di budget 90 giorni, log AI privi di prompt e
+      credenziali. Purge idempotente e bounded come nelle categorie di ADR-0008.
+- [x] **Allowlist modelli e provider:** vive in `src/ai/model-policy.ts`
+      (configurazione versionata), con `data_collection: "deny"`, `zdr: true`,
+      `require_parameters: true` e fallback consentito solo verso endpoint di
+      privacy uguale o migliore e sotto il tetto di costo dell'operazione.
+- [x] **Budget di default:** tetto per operazione e tetto giornaliero per
+      utente, entrambi in configurazione; al superamento **rifiuto esplicito**
+      con messaggio utile, mai degrado silenzioso o modello più economico.
+- [x] **Modalità free/best-effort: fuori dalla Phase C.** Non è implicita: è
+      esclusa e dichiarata qui. Rientra solo con una decisione successiva che
+      renda esplicito all'utente il peggioramento di privacy richiesto da
+      [ADR-0005](../../decisions/0005-byok-and-ai-privacy.md).
 
 ---
 
