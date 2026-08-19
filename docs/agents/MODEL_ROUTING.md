@@ -43,22 +43,5 @@ Regola pratica:
 | **J-N Domini**      | confini/link, lifecycle, scope e integrazione finale           | una vertical slice dominio alla volta                               | reviewer security/quality secondo sensibilità                           |
 | **O Convergenza**   | ricerca cross-domain, release gate e risk acceptance           | fix bounded e prove end-to-end                                      | strumenti load/security; modello rapido solo per report                 |
 
-## Routing consigliato per fase
-
-| Fase                | Sol                                                            | Sonnet                                                              | Altri                                                                   |
-| ------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| **A1 Foundation**   | preflight, ADR, contratti inbox/effect, integrazione e gate    | toolchain, webhook, consumer, adapter D1/Telegram e test bounded    | modello rapido per inventario/link; reviewer security/quality read-only |
-| **A2/B2 Reminder**  | state machine, lease/recovery, semantica delivery              | repository, Cron/Queue adapter, Telegram delivery e fault test      | modello rapido solo per fixture/documenti                               |
-| **B Core**          | contract packet di ogni slice, tempo/Undo e integrazione       | writer principale per eventi, task, lavoro, spese, liste e report   | modello rapido per fixture e documentazione derivata                    |
-| **C AI**            | `ActionProposal`, policy, OAuth/crypto, budget e gate privacy  | adapter OpenRouter, config, provider mock, benchmark harness e test | modello rapido per dataset sintetico, sempre revisionato                |
-| **D Media**         | threat model, lifecycle/retention e integrazione pipeline      | download/STT/vision adapter, cleanup e test failure                 | strumenti media solo su fixture sintetiche                              |
-| **E Planner**       | invarianti, algoritmo/contratti, preview/apply e property gate | implementazione pura dopo specifica, ottimizzazioni e test          | modello rapido per generare casi, non per giudicare correttezza         |
-| **F Sharing**       | role matrix, tenancy, invite lifecycle e security gate         | repository/use case/UI Telegram bounded                             | modello rapido per matrice fixture, con review Sol                      |
-| **G Proattività**   | contratti contributor, quiet hours, dedupe e policy UX         | query/report e delivery bounded                                     | reviewer privacy/quality su contenuto e ripetizioni                     |
-| **H Google**        | OAuth, mapping/idempotenza, conflict policy e gate             | adapter Calendar, Queue/retry e provider test                       | modello rapido per fixture API sanificate                               |
-| **I Mini App/beta** | trust boundary, export/delete, risk acceptance e go/no-go      | frontend, API contrattualizzate, fix bounded e regression test      | browser visuale + strumenti load/security                               |
-| **J-N Domini**      | confini/link, lifecycle, scope e integrazione finale           | una vertical slice dominio alla volta                               | reviewer security/quality secondo sensibilità                           |
-| **O Convergenza**   | ricerca cross-domain, release gate e risk acceptance           | fix bounded e prove end-to-end                                      | strumenti load/security; modello rapido solo per report                 |
-
 Gli identificativi e i costi dei modelli vanno riverificati all'inizio della
 task: qui è fissata la responsabilità, non il nome commerciale.

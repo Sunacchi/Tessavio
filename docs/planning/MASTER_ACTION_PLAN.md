@@ -160,7 +160,12 @@ Aprire soltanto quello della milestone attiva.
 | G Proattività         | [g-proactive.md](phases/g-proactive.md)             | non attiva |
 | H Google Calendar     | [h-google-calendar.md](phases/h-google-calendar.md) | non attiva |
 | I Mini App e beta     | [i-beta.md](phases/i-beta.md)                       | non attiva |
-| J-O Prodotto esteso   | [j-o-extended.md](phases/j-o-extended.md)           | non attive |
+| J Documenti e persone | [j-documenti.md](phases/j-documenti.md)             | non attiva |
+| K Finanze avanzate    | [k-finanze.md](phases/k-finanze.md)                 | non attiva |
+| L Casa e pasti        | [l-casa.md](phases/l-casa.md)                       | non attiva |
+| M Viaggi              | [m-viaggi.md](phases/m-viaggi.md)                   | non attiva |
+| N Routine e benessere | [n-benessere.md](phases/n-benessere.md)             | non attiva |
+| O Convergenza         | [o-convergenza.md](phases/o-convergenza.md)         | non attiva |
 
 ## Chiusura del repository
 

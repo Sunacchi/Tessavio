@@ -15,7 +15,12 @@
 | G    | Briefing e proattività        | non attiva                | [g-proactive](phases/g-proactive.md)             |
 | H    | Google Calendar               | non attiva                | [h-google-calendar](phases/h-google-calendar.md) |
 | I    | Mini App, diritti, core beta  | non attiva                | [i-beta](phases/i-beta.md)                       |
-| J-O  | Prodotto esteso               | non attive                | [j-o-extended](phases/j-o-extended.md)           |
+| J    | Documenti e persone           | non attiva                | [j-documenti](phases/j-documenti.md)             |
+| K    | Finanze avanzate              | non attiva                | [k-finanze](phases/k-finanze.md)                 |
+| L    | Casa, famiglia e pasti        | non attiva                | [l-casa](phases/l-casa.md)                       |
+| M    | Viaggi                        | non attiva                | [m-viaggi](phases/m-viaggi.md)                   |
+| N    | Routine e benessere           | non attiva                | [n-benessere](phases/n-benessere.md)             |
+| O    | Convergenza                   | non attiva                | [o-convergenza](phases/o-convergenza.md)         |
 
 La [matrice di copertura](REQUIREMENTS_COVERAGE.md) collega ogni requisito a una
 milestone; il [master action plan](MASTER_ACTION_PLAN.md) tiene stato, decision
@@ -62,13 +67,15 @@ e il Cron esistente; non introduce un motore di ricorrenza generico.
 ## Phase C — Tessavio Inbox testuale + AI opzionale
 
 Stato: **non attiva**. Il gate Phase B è chiuso; C1 ActionProposal resta la
-prossima milestone prevista e richiede un'attivazione esplicita di
-`CURRENT_MILESTONE.md`.
+prossima milestone di prodotto e ha C0 come prerequisito strutturale.
+Ogni slice richiede un'attivazione esplicita di `CURRENT_MILESTONE.md`.
 
 | Milestone             | Outcome                                                                         | Criteri di uscita essenziali                                                                                  |
 | --------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| **C0 Registry**       | registry di dominio per il dispatch dei comandi, senza comportamento nuovo      | zero dipendenze opzionali nei contenitori; porte e parser per slice; test invariati                           |
 | **C1 ActionProposal** | union strict/versionata per le azioni B, validator e policy                     | schema -> Zod -> scope/permission/policy -> domain; output invalido non scrive; benchmark smoke               |
 | **C2 OAuth e router** | key OpenRouter user-controlled via OAuth PKCE, cifratura, capability/budget     | distinto dal provider-BYOK interno a OpenRouter; replay/ciphertext swap negati; `NO_AI` sempre operativo      |
+| **C1.2 Estensione**   | l'enum azioni copre anche lavoro, finanze e liste                               | nessuna regressione del tasso di azioni false rispetto alla baseline C1                                       |
 | **C3 Inbox testuale** | testo, messaggi inoltrati e link producono proposte multi-intent verso i domini | nessun modello dati duplicato; domanda mirata se ambiguo; execute+Undo solo per low-risk; provenance e dedupe |
 
 ## Phase D — Voce, vision e allegati transitori
