@@ -184,7 +184,15 @@ usano intervalli UTC clamped a finestre civili IANA. B5 aggiunge un registro
 privato di movimenti `expense|income`, importi positivi in minor unit intere,
 valuta e data civile esplicite, provenance manuale, soft delete e Undo
 user-scoped. Correzioni/delete sono versionate e i totali restano separati per
-valuta usando somme testuali D1 e `bigint`, senza conversioni o `float`. Le categorie future sono
+valuta usando somme testuali D1 e `bigint`, senza conversioni o `float`. B6.1
+aggiunge liste, item e note private in tabelle distinte, FK item/lista composta
+con `user_id`, soft delete e Undo user-scoped; non introduce ricorrenze o
+condivisione. B6.2 aggiunge regole reminder `daily|weekly`, Undo e mapping delle
+occorrenze in tabelle additive: il Cron scopre solo owner/ID dovuti, la mutation
+scoped genera un reminder one-off con provenance `calculated_recurrence` e avanza
+il cursore civile tramite Temporal. Retry e Cron concorrenti convergono con CAS e
+unicità dello slot; Queue, quiet hours e delivery ledger restano quelli B2. Le
+categorie future sono
 introdotte quando attive e devono definire owner/space, indici, lifecycle,
 export/delete, audit/Undo e test cross-tenant.
 

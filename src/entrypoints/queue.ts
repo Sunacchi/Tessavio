@@ -8,9 +8,11 @@ import { D1EventRepository } from "../infrastructure/db/event-repository";
 import { D1FinanceRepository } from "../infrastructure/db/finance-repository";
 import { D1IdentityRepository } from "../infrastructure/db/identity-repository";
 import { D1InboundRepository } from "../infrastructure/db/inbound-repository";
+import { D1ListRepository } from "../infrastructure/db/list-repository";
 import { D1NotificationDeliveryRepository } from "../infrastructure/db/notification-delivery-repository";
 import { D1PreferenceRepository } from "../infrastructure/db/preference-repository";
 import { D1ReminderRepository } from "../infrastructure/db/reminder-repository";
+import { D1ReminderRecurrenceRepository } from "../infrastructure/db/reminder-recurrence-repository";
 import { D1TaskRepository } from "../infrastructure/db/task-repository";
 import { D1WorkRepository } from "../infrastructure/db/work-repository";
 import { SelfScopeAuthorizer } from "../security/authorization";
@@ -49,7 +51,9 @@ export async function handleInboundQueue(
     identities: new D1IdentityRepository(env.DB),
     ids: overrides.ids ?? cryptoIdGenerator,
     inbox,
+    lists: new D1ListRepository(env.DB),
     preferences: new D1PreferenceRepository(env.DB),
+    recurrences: new D1ReminderRecurrenceRepository(env.DB),
     reminders: new D1ReminderRepository(env.DB),
     tasks: new D1TaskRepository(env.DB),
     work: new D1WorkRepository(env.DB),

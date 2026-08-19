@@ -11,6 +11,7 @@ export interface LogContext {
   readonly errorCode?: ErrorCode;
   readonly latencyMs?: number;
   readonly attempt?: number;
+  readonly count?: number;
 }
 
 export function logEvent(

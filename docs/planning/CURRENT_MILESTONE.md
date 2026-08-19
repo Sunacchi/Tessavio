@@ -1,82 +1,84 @@
-# Milestone corrente — B5 Finanze base (completata)
+# Milestone corrente — B6.2 Ricorrenza minima dei reminder (completata)
 
-**Stato: completata localmente il 2026-08-08.** B1-B5 sono completate. B6 è la
-prossima milestone prevista ma non è attivata: nessun suo schema o adapter è
-autorizzato. Nessuna risorsa Cloudflare remota è stata creata e nessun deploy è
-stato eseguito.
+**Stato: completata localmente il 2026-08-19.** B1-B6.2 sono completate. B7
+report base è la prossima milestone prevista ma non è attivata; richiede un
+aggiornamento esplicito di questo file. Nessuna risorsa Cloudflare remota è stata
+creata e nessun deploy è stato eseguito.
 
 ## Obiettivo
 
-Permettere a un utente Telegram di registrare, leggere, correggere ed eliminare
-spese ed entrate manuali e ottenere totali esatti per valuta, senza AI,
-integrazioni esterne o aritmetica floating point.
+Permettere a un utente Telegram di creare, consultare e fermare reminder privati
+giornalieri o settimanali. Il core resta deterministico e genera normali reminder
+one-off tramite D1 e il Cron già esistente.
 
 ## Contratto autorizzato
 
-- ogni movimento è privato e usa `UserScope`; `expense|income` è una direzione
-  esplicita e l'importo è sempre positivo;
-- `amount_minor` è un intero tra 1 e 2.147.483.647 e il comando lo acquisisce già
-  in unità minori; valuta è un codice maiuscolo di tre lettere e non esiste
-  conversione valutaria;
-- la data economica è un giorno civile `YYYY-MM-DD`; categoria è obbligatoria,
-  esercente, metodo di pagamento e note sono facoltativi e bounded;
-- provenance è `manual_command`; B5 non accetta write da AI, voce, immagini,
-  documenti o import;
-- la correzione sostituisce i campi modificabili soltanto se la versione attesa
-  coincide; la cancellazione è soft e richiede la stessa stale-version policy;
-- lista e totali usano periodi civili inclusivi di massimo 366 giorni. Le valute
-  restano separate; entrate, spese e netto usano somme testuali D1 e `bigint`;
-- ogni create/correzione/delete è autorizzata, idempotente e atomica con audit e
-  Undo `fin_…` single-use di 15 minuti. Undo della create rimuove il movimento;
-  Undo di correzione/delete ripristina la snapshot precedente con nuova versione;
-- movimenti attivi/eliminati e audit restano fino alla cancellazione account;
-  gli Undo scaduti hanno purge bounded user-scoped e nessun contenuto economico
-  entra nei log.
+- frequenze esclusivamente `daily|weekly`;
+- start locale futuro, ora civile e timezone IANA conservate nella regola;
+- risoluzione DST con Temporal `later`, mai offset fisso o calcolo manuale;
+- create/read/list/cancel con `UserScope`, expected version, audit e Undo;
+- discovery Cron limitata a ID e owner, poi accesso scoped e CAS atomico;
+- una sola occorrenza generata per regola dovuta; slot arretrati intermedi
+  coalesced fino al primo slot futuro;
+- occorrenza one-off e provenance `calculated_recurrence` in tabella separata;
+- riuso integrale di claim, Queue, quiet hours e delivery dedupe B2;
+- nessun nuovo Cron, Queue, binding o modello AI.
 
-Comandi espliciti (`/spese` è alias di `/finanze`):
+Comandi:
 
 ```text
-/finanze crea <spesa|entrata> <importo-minore> <valuta> <YYYY-MM-DD> | Categoria | Esercente-o-- | Metodo-o-- | Note-o--
-/finanze leggi <id>
-/finanze lista <YYYY-MM-DD> <YYYY-MM-DD>
-/finanze correggi <id> <versione> <spesa|entrata> <importo-minore> <valuta> <YYYY-MM-DD> | Categoria | Esercente-o-- | Metodo-o-- | Note-o--
-/finanze elimina <id> <versione>
-/finanze totali <YYYY-MM-DD> <YYYY-MM-DD>
-/annulla fin_<token>
+/promemoria ricorrente <giornaliero|settimanale> YYYY-MM-DDTHH:mm | Testo
+/promemoria ricorrenza <id>
+/promemoria ricorrenze
+/promemoria ferma <id> <versione>
+/annulla rec_<token>
 ```
+
+Il contratto completo è in
+[ADR-0019](../decisions/0019-b6-minimal-reminder-recurrence.md).
+
+## Ordine di implementazione
+
+1. dominio temporale e property test;
+2. parser, use case, porte e authorization;
+3. schema additivo, migration e repository tenant-scoped;
+4. generazione bounded nel scheduled handler esistente;
+5. test integrazione, retry/concorrenza, DST, security, migration e query-plan;
+6. runbook, documentazione e tutti i gate della Definition of Done.
 
 ## Exit criteria
 
-- create/read/list/correct/delete/totals funzionano senza AI, preferenze o
-  integrazioni esterne;
-- retry non duplica movimento, audit o Undo, incluso il crash window dopo write
-  D1 e prima della risposta Telegram;
-- correzione/delete/Undo coprono stale version, replay, expiry e isolamento
-  cross-user;
-- importi non usano `float`; property test verificano entrate, spese e netto su
-  più valute e quantità generate;
-- record eliminati non compaiono in read/list/totals; Undo li ripristina senza
-  riusare una versione precedente;
-- migration fresh e upgrade da B4 popolata, vincoli monetari, indici/query plan
-  e recovery sono documentati e testati;
-- test unitari/property, integrazione, security, migration e gate completi sono
-  verdi.
+- daily e weekly preservano regola civile e producono il prossimo instant
+  corretto attraverso DST, mezzanotte e anni bisestili;
+- retry o Cron concorrenti non duplicano regole, occorrenze, audit o delivery;
+- downtime genera al massimo un reminder arretrato per regola e avanza al primo
+  slot futuro;
+- ogni read/write/Undo utente è tenant-scoped e testato cross-user;
+- create/cancel sono idempotenti, versionati, auditati e annullabili;
+- una regola cancellata non genera nuove occorrenze; una già materializzata resta
+  cancellabile come reminder one-off;
+- migration fresh e upgrade da B6.1 popolata preservano tutti i dati;
+- query hot usano gli indici previsti e recovery/rollback sono documentati;
+- `npm run validate` è verde e nessun deploy remoto viene eseguito.
 
 ## Out of scope
 
-- importi in unità maggiori/decimali, catalogo esponenti valuta e conversione FX;
-- categorie automatiche o regole personali, ricorrenze, stipendio/affitto/utenze
-  come entità programmate, rate e abbonamenti;
-- budget, obiettivi, scadenziario, forecast, confronti e consulenza finanziaria;
-- split, spese condivise, debiti, crediti, prestiti o pagamenti;
-- import/export CSV, voce, ricevute, scontrini, bollette e documenti;
-- Open Banking, conti, saldi bancari, credenziali, provider o polling.
+- frequenze diverse da giornaliera/settimanale, intervalli custom e fine serie;
+- eccezioni, pause, modifica, backfill e cancellazione bulk delle occorrenze;
+- ricorrenze per task, eventi, liste, lavoro o finanze;
+- AI, linguaggio naturale, condivisione, Google Calendar e nuovi servizi;
+- Open Banking, pagamenti e deploy remoto.
 
 ## Evidenza di chiusura
 
-La vertical slice comprende parser e routing deterministici, dominio monetario
-puro, `finance:read|write|undo`, repository D1 tenant-scoped, audit/Undo,
-migration additiva `0006_puzzling_vanisher.sql`, soft delete e totali per valuta.
-I test coprono aritmetica property-based, fresh migration e upgrade B4 popolato,
-indici/query plan, retry Queue dopo write committata, cross-tenant, vincoli D1,
-stale/replay/expiry/Undo e assenza di tabelle Open Banking.
+- ADR-0019 congela target reminder, frequenze, DST `later`, coalescing e confini;
+- dominio Temporal, parser e use case implementano create/read/list/cancel e
+  calcolo del primo slot futuro senza AI o `rrule`;
+- migration additiva `0008_redundant_morlun.sql` introduce regole, Undo e mapping
+  con indici e FK composite tenant-scoped;
+- il Cron esistente materializza reminder one-off con CAS, dedupe dello slot,
+  provenance e audit, poi riusa claim/Queue/quiet hours/delivery B2;
+- test unitari, property, integrazione, security e migration coprono DST,
+  coalescing, retry/concorrenza, expected version, Undo e cross-tenant;
+- `npm run validate` è verde: 28 file di test, 133 test e build Worker dry-run;
+  nessun nuovo binding, risorsa remota o deploy.

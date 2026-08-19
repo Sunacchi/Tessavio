@@ -28,8 +28,9 @@ deterministico con test. L'infrastruttura reminder è stata assorbita in B2.
 
 ## Phase B — Core deterministico
 
-Stato: **B1-B5 completate localmente il 2026-08-08; B6 è la prossima milestone
-prevista ma non è attivata**.
+Stato: **B1-B6.2 completate localmente; B7 report base è la prossima milestone
+prevista ma non è attivata**. B6.2 usa soltanto reminder daily/weekly e il Cron
+esistente; non introduce un motore di ricorrenza generico.
 
 | Milestone                          | Outcome                                                                                             | Criteri di uscita essenziali                                                                                             |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -38,7 +39,8 @@ prevista ma non è attivata**.
 | **B3 Task**                        | task, priorità, scadenze, completamento/riapertura                                                  | date-only distinte dagli instant; mutation e Undo idempotenti; viste deterministiche                                     |
 | **B4 Lavoro**                      | turni pianificati, consuntivi e pause separati                                                      | attraversamento mezzanotte/DST e report verificabili; regole data-driven                                                 |
 | **B5 Finanze base**                | spese/entrate da comando, valuta, data, categoria, esercente/note/metodo facoltativi                | minor unit intere; correzione/delete/Undo; totali deterministici; isolamento economico cross-tenant                      |
-| **B6 Liste e ricorrenze minime**   | liste/note private, item e ricorrenze necessarie                                                    | idempotenza; ora locale/timezone preservate; property test recurrence                                                    |
+| **B6.1 Liste e note private**      | liste private, item e note standalone da comandi espliciti                                          | CRUD/state change idempotenti, audit/Undo, delete non bulk e isolamento cross-tenant                                     |
+| **B6.2 Ricorrenza minima**         | reminder privati giornalieri/settimanali materializzati come occorrenze one-off                     | ora locale/timezone preservate, CAS/dedupe, coalescing e property test recurrence                                        |
 | **B7 Report base**                 | riepiloghi agenda/task/lavoro/finanze per periodo                                                   | provenance dei totali, timezone esplicita, CSV export base e zero dipendenza AI                                          |
 
 ## Phase C — Tessavio Inbox testuale + AI opzionale

@@ -5,7 +5,9 @@ import type {
   FinanceRepository,
   IdentityRepository,
   InboundRepository,
+  ListRepository,
   PreferenceRepository,
+  ReminderRecurrenceRepository,
   ReminderRepository,
   TaskRepository,
   WorkRepository,
@@ -17,9 +19,11 @@ import { managePreferences } from "./manage-preferences";
 import { manageEvents } from "./manage-events";
 import { manageUndo } from "./manage-undo";
 import { manageReminders } from "./manage-reminders";
+import { manageReminderRecurrences } from "./manage-reminder-recurrences";
 import { manageTasks } from "./manage-tasks";
 import { manageWork } from "./manage-work";
 import { manageFinance } from "./manage-finance";
+import { manageLists } from "./manage-lists";
 import { startOnboarding } from "../domains/onboarding/start";
 import type { Authorizer } from "../security/authorization";
 import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
@@ -35,7 +39,9 @@ export interface ProcessInboundDependencies {
   readonly identities: IdentityRepository;
   readonly ids: IdGenerator;
   readonly inbox: InboundRepository;
+  readonly lists?: ListRepository;
   readonly preferences: PreferenceRepository;
+  readonly recurrences?: ReminderRecurrenceRepository;
   readonly reminders: ReminderRepository;
   readonly tasks: TaskRepository;
   readonly work?: WorkRepository;
@@ -150,6 +156,27 @@ export async function processInboundMessage(
       dependencies,
     );
   } else if (
+    command.kind === "reminders.recurrence.create" ||
+    command.kind === "reminders.recurrence.read" ||
+    command.kind === "reminders.recurrence.list" ||
+    command.kind === "reminders.recurrence.cancel"
+  ) {
+    const recurrences = dependencies.recurrences;
+    if (recurrences === undefined) {
+      throw new AppError("INTERNAL_REDACTED", false);
+    }
+    replyText = await manageReminderRecurrences(
+      {
+        actorUserId: identity.userId,
+        scope,
+        correlationId: envelope.correlationId,
+        idempotencyKey: envelope.idempotencyKey,
+        sentAtUnix: message.sentAtUnix,
+        command,
+      },
+      { ...dependencies, recurrences },
+    );
+  } else if (
     command.kind === "reminders.create" ||
     command.kind === "reminders.read" ||
     command.kind === "reminders.list" ||
@@ -231,6 +258,36 @@ export async function processInboundMessage(
         command,
       },
       { ...dependencies, finance },
+    );
+  } else if (
+    command.kind === "lists.create" ||
+    command.kind === "lists.read" ||
+    command.kind === "lists.list" ||
+    command.kind === "lists.rename" ||
+    command.kind === "lists.delete" ||
+    command.kind === "lists.item.create" ||
+    command.kind === "lists.item.complete" ||
+    command.kind === "lists.item.reopen" ||
+    command.kind === "lists.item.delete" ||
+    command.kind === "lists.invalid" ||
+    command.kind === "notes.create" ||
+    command.kind === "notes.read" ||
+    command.kind === "notes.list" ||
+    command.kind === "notes.update" ||
+    command.kind === "notes.delete" ||
+    command.kind === "notes.invalid"
+  ) {
+    const lists = dependencies.lists;
+    if (lists === undefined) throw new AppError("INTERNAL_REDACTED", false);
+    replyText = await manageLists(
+      {
+        actorUserId: identity.userId,
+        scope,
+        correlationId: envelope.correlationId,
+        idempotencyKey: envelope.idempotencyKey,
+        command,
+      },
+      { ...dependencies, lists },
     );
   } else {
     replyText = await manageEvents(

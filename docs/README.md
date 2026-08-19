@@ -26,6 +26,8 @@
 - [B3 task recovery runbook](runbooks/B3_TASKS_RECOVERY.md)
 - [B4 work recovery runbook](runbooks/B4_WORK_RECOVERY.md)
 - [B5 finance recovery runbook](runbooks/B5_FINANCE_RECOVERY.md)
+- [B6.1 lists and notes recovery runbook](runbooks/B6_LISTS_NOTES_RECOVERY.md)
+- [B6.2 reminder recurrence recovery runbook](runbooks/B6_REMINDER_RECURRENCE_RECOVERY.md)
 - [Pre-pilot operational gates](runbooks/PRE_PILOT_OPERATIONS.md)
 
 ## Agents and decisions

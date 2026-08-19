@@ -448,11 +448,12 @@ Cron/Queue/delivery; review sicurezza e qualità dopo integrazione.
 ### Gate di ingresso e preparazione just-in-time
 
 - [x] A1 completata senza finding critici e posizione A2/B2 decisa;
-- [x] attivare una sola vertical slice B alla volta: B1, poi B2 il 2026-08-08;
-- [ ] scrivere scenari utente normali, ambigui, duplicate, unauthorized e Undo;
-- [ ] definire modello dati minimo, porte e policy prima degli adapter;
+- [x] attivare una sola vertical slice B alla volta: B1-B5 il 2026-08-08,
+      B6.1 e B6.2 il 2026-08-19;
+- [x] scrivere scenari utente normali, ambigui, duplicate, unauthorized e Undo;
+- [x] definire modello dati minimo, porte e policy prima degli adapter;
 - [ ] decidere per ogni entità private-by-default e futura condivisione esplicita;
-- [ ] introdurre Temporal/recurrence solo quando la slice lo richiede davvero;
+- [x] introdurre Temporal/recurrence solo quando la slice lo richiede davvero;
 - [x] aggiornare milestone e backlog senza generare scaffold delle slice successive.
 
 ### Sequenza di valore
@@ -468,8 +469,10 @@ Cron/Queue/delivery; review sicurezza e qualità dopo integrazione.
       data-driven; attraversamento mezzanotte e report verificabili.
 - [x] **B5 Finanze base.** Spese/entrate, minor unit, valuta, data, categoria,
       esercente/note/metodo facoltativi, correzione/delete/Undo e totali senza `float`.
-- [ ] **B6 Liste, note e recurrence minima.** Liste/note private e item idempotenti; routine o
-      ricorrenze solo se lo scope beta le conferma e con ora locale/timezone preservate.
+- [x] **B6.1 Liste e note private.** Liste private, item e note standalone con
+      version check, audit/Undo e nessuna eliminazione bulk implicita.
+- [x] **B6.2 Ricorrenza minima.** Reminder daily/weekly con ora locale/timezone,
+      generazione one-off idempotente, coalescing, CAS e property test DST.
 - [ ] **B7 Report base.** Query deterministiche per agenda, task, lavoro e spese;
       periodi/timezone espliciti, provenance dei totali, CSV export base e zero dipendenza AI.
 

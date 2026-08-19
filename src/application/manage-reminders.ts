@@ -14,6 +14,11 @@ import type { PreferenceProfile } from "../domains/preferences/preferences";
 import type { Authorizer } from "../security/authorization";
 import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
 
+type OneOffReminderCommand = Exclude<
+  ReminderCommand,
+  { readonly kind: `reminders.recurrence.${string}` }
+>;
+
 export interface ManageRemindersDependencies {
   readonly authorizer: Authorizer;
   readonly clock: Clock;
@@ -28,7 +33,7 @@ export interface ManageRemindersRequest {
   readonly correlationId: string;
   readonly idempotencyKey: string;
   readonly sentAtUnix: number;
-  readonly command: ReminderCommand;
+  readonly command: OneOffReminderCommand;
 }
 
 const usage = [

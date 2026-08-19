@@ -3,6 +3,99 @@ import { applyD1Migrations } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 
 describe("foundation migration", () => {
+  it("upgrades a populated B6.1 database to B6.2 without changing reminders", async () => {
+    const b62MigrationIndex = env.TEST_MIGRATIONS.findIndex((migration) =>
+      migration.name.startsWith("0008_"),
+    );
+    expect(b62MigrationIndex).toBeGreaterThan(0);
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(0, b62MigrationIndex),
+    );
+    const timestamp = Date.parse("2026-08-19T10:00:00Z");
+    await env.UPGRADE_DB.batch([
+      env.UPGRADE_DB.prepare(
+        "INSERT INTO users (id, status, created_at) VALUES ('b62-upgrade', 'active', ?)",
+      ).bind(timestamp),
+      env.UPGRADE_DB.prepare(
+        `INSERT INTO reminders (
+          id,user_id,text,requested_at_utc,due_at_utc,original_time_zone,status,
+          version,last_mutation_key,created_at,updated_at
+        ) VALUES ('reminder-b2','b62-upgrade','Fixture B2',?,?,
+          'Europe/Rome','pending',1,'fixture',?,?)`,
+      ).bind(timestamp, timestamp, timestamp, timestamp),
+    ]);
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(b62MigrationIndex),
+    );
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT text, version FROM reminders WHERE user_id = ? AND id = ?",
+      )
+        .bind("b62-upgrade", "reminder-b2")
+        .first(),
+    ).resolves.toEqual({ text: "Fixture B2", version: 1 });
+    const recurrenceTables = await env.UPGRADE_DB.prepare(
+      `SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (
+        'reminder_recurrences', 'reminder_recurrence_occurrences',
+        'reminder_recurrence_undo_actions'
+      ) ORDER BY name`,
+    ).all<{ name: string }>();
+    expect(recurrenceTables.results.map((row) => row.name)).toEqual([
+      "reminder_recurrence_occurrences",
+      "reminder_recurrence_undo_actions",
+      "reminder_recurrences",
+    ]);
+  });
+
+  it("upgrades a populated B5 database through B6.2 without changing finance records", async () => {
+    const b6MigrationIndex = env.TEST_MIGRATIONS.findIndex((migration) =>
+      migration.name.startsWith("0007_"),
+    );
+    expect(b6MigrationIndex).toBeGreaterThan(0);
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(0, b6MigrationIndex),
+    );
+    const timestamp = Date.parse("2026-08-19T10:00:00Z");
+    await env.UPGRADE_DB.batch([
+      env.UPGRADE_DB.prepare(
+        "INSERT INTO users (id, status, created_at) VALUES ('b6-upgrade', 'active', ?)",
+      ).bind(timestamp),
+      env.UPGRADE_DB.prepare(
+        `INSERT INTO finance_entries (
+          id,user_id,entry_kind,amount_minor,currency,local_date,category,
+          merchant,payment_method,note,source,status,version,last_mutation_key,
+          created_at,updated_at,deleted_at
+        ) VALUES ('finance-b5','b6-upgrade','expense',100,'EUR','2026-08-19',
+          'Fixture',NULL,NULL,NULL,'manual_command','active',1,'fixture',?,?,NULL)`,
+      ).bind(timestamp, timestamp),
+    ]);
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(b6MigrationIndex),
+    );
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT amount_minor, version FROM finance_entries WHERE user_id = ? AND id = ?",
+      )
+        .bind("b6-upgrade", "finance-b5")
+        .first(),
+    ).resolves.toEqual({ amount_minor: 100, version: 1 });
+    const b6Tables = await env.UPGRADE_DB.prepare(
+      `SELECT name FROM sqlite_master
+       WHERE type = 'table' AND name IN ('lists','list_items','notes','list_undo_actions')
+       ORDER BY name`,
+    ).all<{ name: string }>();
+    expect(b6Tables.results.map((row) => row.name)).toEqual([
+      "list_items",
+      "list_undo_actions",
+      "lists",
+      "notes",
+    ]);
+  });
+
   it("upgrades a populated B4 database to B5 without changing work records", async () => {
     const b5MigrationIndex = env.TEST_MIGRATIONS.findIndex((migration) =>
       migration.name.startsWith("0006_"),
@@ -124,6 +217,13 @@ describe("foundation migration", () => {
         "work_undo_actions",
         "finance_entries",
         "finance_undo_actions",
+        "lists",
+        "list_items",
+        "notes",
+        "list_undo_actions",
+        "reminder_recurrences",
+        "reminder_recurrence_occurrences",
+        "reminder_recurrence_undo_actions",
       ]),
     );
 
@@ -246,6 +346,45 @@ describe("foundation migration", () => {
     expect(
       reminderRecoveryPlan.results.some((row) =>
         row.detail.includes("reminders_recovery_idx"),
+      ),
+    ).toBe(true);
+
+    const recurrenceDuePlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT id, user_id FROM reminder_recurrences
+       WHERE status = 'active' AND next_due_at_utc <= ?
+       ORDER BY next_due_at_utc, id LIMIT 100`,
+    )
+      .bind(Date.now())
+      .all<{ detail: string }>();
+    expect(
+      recurrenceDuePlan.results.some((row) =>
+        row.detail.includes("reminder_recurrences_due_idx"),
+      ),
+    ).toBe(true);
+
+    const recurrenceScopePlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT id FROM reminder_recurrences
+       WHERE user_id = ? AND status = 'active'
+       ORDER BY next_due_at_utc, id LIMIT 50`,
+    )
+      .bind("user-a")
+      .all<{ detail: string }>();
+    expect(
+      recurrenceScopePlan.results.some((row) =>
+        row.detail.includes("reminder_recurrences_scope_list_idx"),
+      ),
+    ).toBe(true);
+
+    const recurrenceUndoPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT token FROM reminder_recurrence_undo_actions
+       WHERE scope_user_id = ? AND expires_at <= ?
+       ORDER BY expires_at LIMIT 100`,
+    )
+      .bind("user-a", Date.now())
+      .all<{ detail: string }>();
+    expect(
+      recurrenceUndoPlan.results.some((row) =>
+        row.detail.includes("reminder_recurrence_undo_scope_expiry_idx"),
       ),
     ).toBe(true);
 
@@ -392,6 +531,58 @@ describe("foundation migration", () => {
     expect(
       financeUndoPlan.results.some((row) =>
         row.detail.includes("finance_undo_scope_expiry_idx"),
+      ),
+    ).toBe(true);
+
+    const listsPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT id FROM lists
+       WHERE user_id = ? AND status = 'active'
+       ORDER BY created_at, id LIMIT 50`,
+    )
+      .bind("user-a")
+      .all<{ detail: string }>();
+    expect(
+      listsPlan.results.some((row) =>
+        row.detail.includes("lists_scope_status_created_idx"),
+      ),
+    ).toBe(true);
+
+    const itemsPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT id FROM list_items
+       WHERE user_id = ? AND list_id = ? AND status != 'deleted'
+       ORDER BY created_at, id LIMIT 100`,
+    )
+      .bind("user-a", "list-a")
+      .all<{ detail: string }>();
+    expect(
+      itemsPlan.results.some((row) =>
+        row.detail.includes("list_items_scope_list_status_idx"),
+      ),
+    ).toBe(true);
+
+    const notesPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT id FROM notes
+       WHERE user_id = ? AND status = 'active'
+       ORDER BY created_at, id LIMIT 50`,
+    )
+      .bind("user-a")
+      .all<{ detail: string }>();
+    expect(
+      notesPlan.results.some((row) =>
+        row.detail.includes("notes_scope_status_created_idx"),
+      ),
+    ).toBe(true);
+
+    const listUndoPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT token FROM list_undo_actions
+       WHERE scope_user_id = ? AND expires_at <= ?
+       ORDER BY expires_at LIMIT 100`,
+    )
+      .bind("user-a", Date.now())
+      .all<{ detail: string }>();
+    expect(
+      listUndoPlan.results.some((row) =>
+        row.detail.includes("list_undo_scope_expiry_idx"),
       ),
     ).toBe(true);
   });

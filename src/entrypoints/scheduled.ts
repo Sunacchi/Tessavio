@@ -1,5 +1,7 @@
 import { D1InboundRepository } from "../infrastructure/db/inbound-repository";
 import { D1ReminderRepository } from "../infrastructure/db/reminder-repository";
+import { D1ReminderRecurrenceRepository } from "../infrastructure/db/reminder-recurrence-repository";
+import { generateRecurringReminders } from "../application/generate-recurring-reminders";
 import type { AppConfig } from "../shared/config";
 import type { Clock } from "../shared/contracts";
 import { systemClock } from "../shared/contracts";
@@ -96,6 +98,28 @@ export async function dispatchDueReminders(
   }
 }
 
+export async function generateDueReminderRecurrences(
+  env: Env,
+  config: AppConfig,
+  clock: Clock = systemClock,
+  ids: IdGenerator = cryptoIdGenerator,
+): Promise<void> {
+  const generated = await generateRecurringReminders(
+    {
+      clock,
+      ids,
+      recurrences: new D1ReminderRecurrenceRepository(env.DB),
+    },
+    config.REMINDER_CLAIM_LIMIT,
+  );
+  if (generated > 0) {
+    logEvent("info", "reminder.recurrence_generated", {
+      state: "generated",
+      count: generated,
+    });
+  }
+}
+
 export async function runScheduledMaintenance(
   env: Env,
   config: AppConfig,
@@ -103,5 +127,6 @@ export async function runScheduledMaintenance(
   ids: IdGenerator = cryptoIdGenerator,
 ): Promise<void> {
   await recoverPendingInboxes(env, config, clock);
+  await generateDueReminderRecurrences(env, config, clock, ids);
   await dispatchDueReminders(env, config, clock, ids);
 }

@@ -8,8 +8,8 @@ deterministiche, autorizzate e verificabili su agenda, reminder, task, lavoro e
 finanze personali.
 
 > [!IMPORTANT]
-> Tessavio è in sviluppo iniziale. Foundation e milestone B1-B5 sono completate
-> e validate localmente; B6 è la prossima milestone prevista ma non è attiva.
+> Tessavio è in sviluppo iniziale. Foundation e milestone B1-B6.2 sono
+> completate e validate localmente; B7 è prevista ma non ancora attiva.
 > Non esiste ancora un deploy Cloudflare pubblico e il progetto non è pronto per
 > dati o utenti di produzione.
 
@@ -37,14 +37,15 @@ autorizzato per l'implementazione.
 | Fondazione | Webhook Telegram, Queue, identità interna, rate limit, idempotenza, audit e logging redatto |
 | Preferenze | Lingua, timezone IANA, formato ora, valuta, privacy e quiet hours                           |
 | Agenda     | Eventi privati one-off, date-only o temporali, con viste `/oggi` e `/domani`                |
-| Reminder   | Creazione, claim atomico via Cron, Queue, retry, deduplica e delivery Telegram              |
+| Reminder   | One-off e ricorrenti daily/weekly, Cron, Queue, retry, deduplica e delivery Telegram        |
 | Task       | Priorità, scadenze, completamento, riapertura e Undo                                        |
 | Lavoro     | Regole, turni pianificati, consuntivi, pause e report per periodo                           |
 | Finanze    | Spese ed entrate manuali, correzione, soft delete, Undo e totali esatti per valuta          |
+| Liste/note | Liste private, item, note standalone, versioning, soft delete e Undo                        |
 
-Non sono ancora implementati AI/BYOK, input multimediali, liste e ricorrenze,
-Google Calendar, Mini App o deploy di produzione. Open Banking e pagamenti sono
-esclusi dal prodotto.
+Non sono ancora implementati AI/BYOK, input multimediali, ricorrenze diverse dai
+reminder daily/weekly, Google Calendar, Mini App o deploy di produzione. Open
+Banking e pagamenti sono esclusi dal prodotto.
 
 ## Architettura
 
@@ -121,6 +122,8 @@ La superficie deterministica attuale comprende:
 | `/task`              | Gestione delle task                         |
 | `/lavoro`            | Turni, consuntivi, pause e report           |
 | `/finanze`, `/spese` | Movimenti e totali per valuta               |
+| `/liste`             | Liste private e relativi item               |
+| `/note`              | Note testuali private                       |
 | `/annulla`           | Undo single-use delle operazioni supportate |
 
 I contratti esatti sono versionati negli

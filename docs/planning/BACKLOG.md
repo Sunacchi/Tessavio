@@ -91,6 +91,43 @@ B1 è chiusa; la milestone esecutiva corrente è definita in
 - [x] test property temporali, duplicate, stale/expired/replay e cross-tenant;
 - [x] migration, query plan, ADR e runbook recovery/rollback.
 
+## B4 — Lavoro (completed)
+
+- [x] regole data-driven, turni pianificati, consuntivi e pause separate;
+- [x] intervalli UTC con timezone IANA, mezzanotte/DST e report bounded;
+- [x] mutation/audit/Undo atomici, idempotenti e tenant-scoped;
+- [x] migration, query plan, ADR e runbook recovery/rollback.
+
+## B5 — Finanze base (completed)
+
+- [x] spese/entrate manuali in minor unit, valuta e giorno civile espliciti;
+- [x] correzione, soft delete, totali per valuta e Undo versionato;
+- [x] property test monetari, retry, cross-tenant e assenza Open Banking;
+- [x] migration, query plan, ADR e runbook recovery/rollback.
+
+## B6.1 — Liste e note private (completed)
+
+La milestone è chiusa localmente; B6.2 è stata attivata e chiusa separatamente.
+
+- [x] congelare ADR con entità/stati, limiti, comandi, retention e delete non bulk;
+- [x] implementare liste private, item e note standalone con `UserScope` esplicito;
+- [x] applicare version check, authorization, idempotenza, audit e Undo a ogni write;
+- [x] aggiungere migration additiva, indici e query plan tenant-scoped;
+- [x] coprire input invalidi, duplicate, stale/expired/replay e cross-tenant;
+- [x] provare migration fresh e upgrade da B5 popolata e documentare recovery;
+- [x] chiudere tutti i gate applicabili prima di attivare B6.2.
+
+## B6.2 — Ricorrenza minima dei reminder (completed)
+
+- [x] fissare in ADR target reminder, frequenze daily/weekly, DST e coalescing;
+- [x] implementare dominio Temporal e comandi deterministici senza `rrule` o AI;
+- [x] aggiungere regole, Undo e mapping occorrenze con schema solo additivo;
+- [x] generare reminder one-off via Cron esistente con CAS e dedupe dello slot;
+- [x] riusare Queue, quiet hours e delivery ledger B2 senza nuovi binding;
+- [x] coprire property test, DST, retry/concorrenza, Undo e cross-tenant;
+- [x] validare migration fresh/upgrade, query plan e recovery;
+- [x] chiudere tutti i gate applicabili prima di attivare B7.
+
 ## Later phases
 
 Break down Phase B onward only when the preceding exit criteria are met. The

@@ -19,6 +19,8 @@ Gli ADR registrano decisioni difficili da ricostruire dal codice. Stato ammesso:
 - [ADR-0015 — B3 task private, scadenze tipizzate e state machine](0015-b3-task-contract.md)
 - [ADR-0016 — B4 lavoro: piano, consuntivo, pause e report riproducibili](0016-b4-work-time-contract.md)
 - [ADR-0017 — B5 finanze: registro privato, minor unit e Undo versionato](0017-b5-finance-contract.md)
+- [ADR-0018 — B6.1 liste, item e note private](0018-b6-private-lists-notes-contract.md)
+- [ADR-0019 — B6.2 ricorrenza minima dei reminder](0019-b6-minimal-reminder-recurrence.md)
 
 ## Template
 

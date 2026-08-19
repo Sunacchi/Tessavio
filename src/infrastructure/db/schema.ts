@@ -300,6 +300,63 @@ export const taskUndoActions = sqliteTable(
   ],
 );
 
+export const reminderRecurrences = sqliteTable(
+  "reminder_recurrences",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    text: text("text").notNull(),
+    frequency: text("frequency", { enum: ["daily", "weekly"] }).notNull(),
+    localTime: text("local_time").notNull(),
+    timeZone: text("time_zone").notNull(),
+    nextLocalDate: text("next_local_date").notNull(),
+    nextDueAtUtc: integer("next_due_at_utc", {
+      mode: "timestamp_ms",
+    }).notNull(),
+    status: text("status", { enum: ["active", "cancelled"] }).notNull(),
+    version: integer("version").notNull(),
+    lastMutationKey: text("last_mutation_key").notNull(),
+    lastGenerationKey: text("last_generation_key"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    cancelledAt: integer("cancelled_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    uniqueIndex("reminder_recurrences_scope_id_uq").on(table.userId, table.id),
+    index("reminder_recurrences_due_idx").on(
+      table.status,
+      table.nextDueAtUtc,
+      table.id,
+    ),
+    index("reminder_recurrences_scope_list_idx").on(
+      table.userId,
+      table.status,
+      table.nextDueAtUtc,
+      table.id,
+    ),
+    check(
+      "reminder_recurrences_text_ck",
+      sql`length(${table.text}) BETWEEN 1 AND 200`,
+    ),
+    check(
+      "reminder_recurrences_frequency_ck",
+      sql`${table.frequency} IN ('daily', 'weekly')`,
+    ),
+    check(
+      "reminder_recurrences_status_ck",
+      sql`${table.status} IN ('active', 'cancelled')`,
+    ),
+    check("reminder_recurrences_version_ck", sql`${table.version} > 0`),
+    check(
+      "reminder_recurrences_lifecycle_ck",
+      sql`(${table.status} = 'active' AND ${table.cancelledAt} IS NULL)
+          OR (${table.status} = 'cancelled' AND ${table.cancelledAt} IS NOT NULL)`,
+    ),
+  ],
+);
+
 export const reminders = sqliteTable(
   "reminders",
   {
@@ -391,6 +448,79 @@ export const reminderUndoActions = sqliteTable(
       table.expiresAt,
     ),
     check("reminder_undo_version_ck", sql`${table.expectedVersion} > 0`),
+  ],
+);
+
+export const reminderRecurrenceUndoActions = sqliteTable(
+  "reminder_recurrence_undo_actions",
+  {
+    token: text("token").primaryKey(),
+    scopeUserId: text("scope_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    recurrenceId: text("recurrence_id").notNull(),
+    sourceIdempotencyKey: text("source_idempotency_key").notNull(),
+    beforeJson: text("before_json"),
+    expectedVersion: integer("expected_version").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    consumedAt: integer("consumed_at", { mode: "timestamp_ms" }),
+    consumedByIdempotencyKey: text("consumed_by_idempotency_key"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("reminder_recurrence_undo_source_uq").on(
+      table.scopeUserId,
+      table.sourceIdempotencyKey,
+    ),
+    index("reminder_recurrence_undo_scope_expiry_idx").on(
+      table.scopeUserId,
+      table.expiresAt,
+    ),
+    check(
+      "reminder_recurrence_undo_version_ck",
+      sql`${table.expectedVersion} > 0`,
+    ),
+  ],
+);
+
+export const reminderRecurrenceOccurrences = sqliteTable(
+  "reminder_recurrence_occurrences",
+  {
+    reminderId: text("reminder_id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    recurrenceId: text("recurrence_id").notNull(),
+    scheduledLocal: text("scheduled_local").notNull(),
+    dueAtUtc: integer("due_at_utc", { mode: "timestamp_ms" }).notNull(),
+    source: text("source", { enum: ["calculated_recurrence"] }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.userId, table.recurrenceId],
+      foreignColumns: [reminderRecurrences.userId, reminderRecurrences.id],
+      name: "reminder_occurrences_scope_recurrence_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.userId, table.reminderId],
+      foreignColumns: [reminders.userId, reminders.id],
+      name: "reminder_occurrences_scope_reminder_fk",
+    }).onDelete("restrict"),
+    uniqueIndex("reminder_occurrences_scope_slot_uq").on(
+      table.userId,
+      table.recurrenceId,
+      table.scheduledLocal,
+    ),
+    index("reminder_occurrences_scope_recurrence_idx").on(
+      table.userId,
+      table.recurrenceId,
+      table.dueAtUtc,
+    ),
+    check(
+      "reminder_occurrences_source_ck",
+      sql`${table.source} IN ('calculated_recurrence')`,
+    ),
   ],
 );
 
@@ -865,5 +995,162 @@ export const financeUndoActions = sqliteTable(
       table.expiresAt,
     ),
     check("finance_undo_version_ck", sql`${table.expectedVersion} > 0`),
+  ],
+);
+
+export const lists = sqliteTable(
+  "lists",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    source: text("source", { enum: ["manual_command"] }).notNull(),
+    status: text("status", { enum: ["active", "deleted"] }).notNull(),
+    version: integer("version").notNull(),
+    lastMutationKey: text("last_mutation_key").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    uniqueIndex("lists_scope_id_uq").on(table.userId, table.id),
+    index("lists_scope_status_created_idx").on(
+      table.userId,
+      table.status,
+      table.createdAt,
+      table.id,
+    ),
+    check("lists_title_ck", sql`length(${table.title}) BETWEEN 1 AND 100`),
+    check("lists_source_ck", sql`${table.source} IN ('manual_command')`),
+    check("lists_status_ck", sql`${table.status} IN ('active', 'deleted')`),
+    check("lists_version_ck", sql`${table.version} > 0`),
+    check(
+      "lists_deleted_at_ck",
+      sql`(${table.status} = 'active' AND ${table.deletedAt} IS NULL)
+          OR (${table.status} = 'deleted' AND ${table.deletedAt} IS NOT NULL)`,
+    ),
+  ],
+);
+
+export const listItems = sqliteTable(
+  "list_items",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    listId: text("list_id").notNull(),
+    text: text("text").notNull(),
+    source: text("source", { enum: ["manual_command"] }).notNull(),
+    status: text("status", {
+      enum: ["open", "completed", "deleted"],
+    }).notNull(),
+    version: integer("version").notNull(),
+    lastMutationKey: text("last_mutation_key").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    completedAt: integer("completed_at", { mode: "timestamp_ms" }),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.userId, table.listId],
+      foreignColumns: [lists.userId, lists.id],
+      name: "list_items_scope_list_fk",
+    }).onDelete("restrict"),
+    uniqueIndex("list_items_scope_id_uq").on(table.userId, table.id),
+    index("list_items_scope_list_status_idx").on(
+      table.userId,
+      table.listId,
+      table.status,
+      table.createdAt,
+      table.id,
+    ),
+    check("list_items_text_ck", sql`length(${table.text}) BETWEEN 1 AND 300`),
+    check("list_items_source_ck", sql`${table.source} IN ('manual_command')`),
+    check(
+      "list_items_status_ck",
+      sql`${table.status} IN ('open', 'completed', 'deleted')`,
+    ),
+    check("list_items_version_ck", sql`${table.version} > 0`),
+    check(
+      "list_items_lifecycle_ck",
+      sql`(${table.status} = 'open' AND ${table.completedAt} IS NULL AND ${table.deletedAt} IS NULL)
+          OR (${table.status} = 'completed' AND ${table.completedAt} IS NOT NULL AND ${table.deletedAt} IS NULL)
+          OR (${table.status} = 'deleted' AND ${table.deletedAt} IS NOT NULL)`,
+    ),
+  ],
+);
+
+export const notes = sqliteTable(
+  "notes",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    source: text("source", { enum: ["manual_command"] }).notNull(),
+    status: text("status", { enum: ["active", "deleted"] }).notNull(),
+    version: integer("version").notNull(),
+    lastMutationKey: text("last_mutation_key").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    uniqueIndex("notes_scope_id_uq").on(table.userId, table.id),
+    index("notes_scope_status_created_idx").on(
+      table.userId,
+      table.status,
+      table.createdAt,
+      table.id,
+    ),
+    check("notes_title_ck", sql`length(${table.title}) BETWEEN 1 AND 100`),
+    check("notes_body_ck", sql`length(${table.body}) BETWEEN 1 AND 4000`),
+    check("notes_source_ck", sql`${table.source} IN ('manual_command')`),
+    check("notes_status_ck", sql`${table.status} IN ('active', 'deleted')`),
+    check("notes_version_ck", sql`${table.version} > 0`),
+    check(
+      "notes_deleted_at_ck",
+      sql`(${table.status} = 'active' AND ${table.deletedAt} IS NULL)
+          OR (${table.status} = 'deleted' AND ${table.deletedAt} IS NOT NULL)`,
+    ),
+  ],
+);
+
+export const listUndoActions = sqliteTable(
+  "list_undo_actions",
+  {
+    token: text("token").primaryKey(),
+    scopeUserId: text("scope_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    entityKind: text("entity_kind", {
+      enum: ["list", "item", "note"],
+    }).notNull(),
+    entityId: text("entity_id").notNull(),
+    sourceIdempotencyKey: text("source_idempotency_key").notNull(),
+    beforeJson: text("before_json"),
+    expectedVersion: integer("expected_version").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    consumedAt: integer("consumed_at", { mode: "timestamp_ms" }),
+    consumedByIdempotencyKey: text("consumed_by_idempotency_key"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("list_undo_source_uq").on(
+      table.scopeUserId,
+      table.sourceIdempotencyKey,
+    ),
+    index("list_undo_scope_expiry_idx").on(table.scopeUserId, table.expiresAt),
+    check(
+      "list_undo_entity_kind_ck",
+      sql`${table.entityKind} IN ('list', 'item', 'note')`,
+    ),
+    check("list_undo_version_ck", sql`${table.expectedVersion} > 0`),
   ],
 );

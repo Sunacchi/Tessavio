@@ -20,7 +20,10 @@ export type Action =
   | "work:undo"
   | "finance:read"
   | "finance:write"
-  | "finance:undo";
+  | "finance:undo"
+  | "lists:read"
+  | "lists:write"
+  | "lists:undo";
 
 export interface AuthorizationRequest {
   readonly actorUserId: string;

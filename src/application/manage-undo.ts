@@ -3,7 +3,9 @@ import { managePreferences } from "./manage-preferences";
 import type {
   EventRepository,
   FinanceRepository,
+  ListRepository,
   PreferenceRepository,
+  ReminderRecurrenceRepository,
   ReminderRepository,
   TaskRepository,
   WorkRepository,
@@ -17,7 +19,9 @@ export interface ManageUndoDependencies {
   readonly events: EventRepository;
   readonly finance?: FinanceRepository;
   readonly ids: IdGenerator;
+  readonly lists?: ListRepository;
   readonly preferences: PreferenceRepository;
+  readonly recurrences?: ReminderRecurrenceRepository;
   readonly reminders: ReminderRepository;
   readonly tasks: TaskRepository;
   readonly work?: WorkRepository;
@@ -45,6 +49,36 @@ export async function manageUndo(
   }
 
   if (!request.command.token.startsWith("evt_")) {
+    if (request.command.token.startsWith("lst_")) {
+      await dependencies.authorizer.authorize({
+        actorUserId: request.actorUserId,
+        scope: request.scope,
+        action: "lists:undo",
+      });
+      const lists = dependencies.lists;
+      if (lists === undefined) return "Undo liste/note non disponibile.";
+      const result = await lists.undo(request.scope, request.command.token, {
+        actorUserId: request.actorUserId,
+        correlationId: request.correlationId,
+        idempotencyKey: request.idempotencyKey,
+        auditId: dependencies.ids.newId(),
+        now: dependencies.clock.now(),
+      });
+      switch (result.outcome) {
+        case "reverted":
+          return `Modifica ${result.entityKind} annullata. ID: ${result.entityId}`;
+        case "duplicate":
+          return `Undo liste/note già applicato (${result.entityKind}). ID: ${result.entityId}`;
+        case "expired":
+          return "Undo liste/note scaduto: nessuna modifica applicata.";
+        case "used":
+          return "Undo liste/note già usato: nessuna modifica applicata.";
+        case "stale":
+          return "Undo liste/note non applicabile: l'elemento è cambiato o ha dati collegati.";
+        case "not_found":
+          return "Undo liste/note non disponibile per questo utente.";
+      }
+    }
     if (request.command.token.startsWith("fin_")) {
       await dependencies.authorizer.authorize({
         actorUserId: request.actorUserId,
@@ -143,6 +177,44 @@ export async function manageUndo(
           return "Undo task non applicabile: la task è cambiata nel frattempo.";
         case "not_found":
           return "Undo task non disponibile per questo utente.";
+      }
+    }
+    if (request.command.token.startsWith("rec_")) {
+      await dependencies.authorizer.authorize({
+        actorUserId: request.actorUserId,
+        scope: request.scope,
+        action: "reminders:undo",
+      });
+      const recurrences = dependencies.recurrences;
+      if (recurrences === undefined) return "Undo ricorrenza non disponibile.";
+      const result = await recurrences.undo(
+        request.scope,
+        request.command.token,
+        {
+          actorUserId: request.actorUserId,
+          correlationId: request.correlationId,
+          idempotencyKey: request.idempotencyKey,
+          auditId: dependencies.ids.newId(),
+          now: dependencies.clock.now(),
+        },
+      );
+      switch (result.outcome) {
+        case "reverted":
+          return result.recurrence === null
+            ? "Creazione ricorrenza annullata."
+            : `Arresto ricorrenza revocato. ID: ${result.recurrence.id}`;
+        case "duplicate":
+          return result.recurrence === null
+            ? "Undo ricorrenza già applicato: la regola non esiste."
+            : `Undo ricorrenza già applicato. ID: ${result.recurrence.id}`;
+        case "expired":
+          return "Undo ricorrenza scaduto: nessuna modifica applicata.";
+        case "used":
+          return "Undo ricorrenza già usato: nessuna modifica applicata.";
+        case "stale":
+          return "Undo ricorrenza non applicabile: la regola è cambiata o ha già generato occorrenze.";
+        case "not_found":
+          return "Undo ricorrenza non disponibile per questo utente.";
       }
     }
     if (request.command.token.startsWith("rem_")) {

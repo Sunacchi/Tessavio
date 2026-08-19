@@ -15,6 +15,11 @@ import type {
   ReminderStatus,
 } from "../domains/reminders/reminders";
 import type {
+  ReminderOccurrencePlan,
+  ReminderRecurrenceRecord,
+  ReminderRecurrenceValues,
+} from "../domains/reminders/recurrence";
+import type {
   TaskDayWindow,
   TaskRecord,
   TaskValues,
@@ -38,6 +43,16 @@ import type {
   FinanceEntryRecord,
   FinanceEntryValues,
 } from "../domains/finance/finance";
+import type {
+  ListEntityKind,
+  ListItemRecord,
+  ListItemValues,
+  ListRecord,
+  ListValues,
+  ListWithItems,
+  NoteRecord,
+  NoteValues,
+} from "../domains/lists/lists";
 
 export interface RegisteredInbound {
   readonly duplicate: boolean;
@@ -366,6 +381,86 @@ export interface ReminderRepository {
   ): Promise<void>;
 }
 
+export type ReminderRecurrenceMutationContext = ReminderMutationContext;
+
+export type MutateReminderRecurrenceResult =
+  | {
+      readonly outcome: "created" | "cancelled" | "duplicate";
+      readonly recurrence: ReminderRecurrenceRecord;
+      readonly undoToken: string | null;
+      readonly undoExpiresAt: Date | null;
+    }
+  | {
+      readonly outcome: "not_found" | "stale" | "not_cancellable";
+    };
+
+export type UndoReminderRecurrenceResult =
+  | {
+      readonly outcome: "reverted" | "duplicate";
+      readonly recurrence: ReminderRecurrenceRecord | null;
+    }
+  | { readonly outcome: "not_found" | "expired" | "used" | "stale" };
+
+export interface DueReminderRecurrenceCandidate {
+  readonly scope: UserScope;
+  readonly recurrenceId: string;
+}
+
+export interface MaterializeReminderOccurrenceContext {
+  readonly occurrenceId: string;
+  readonly generationKey: string;
+  readonly auditId: string;
+  readonly correlationId: string;
+  readonly now: Date;
+}
+
+export interface ReminderRecurrenceRepository {
+  get(
+    scope: UserScope,
+    recurrenceId: string,
+  ): Promise<ReminderRecurrenceRecord | null>;
+  listActive(
+    scope: UserScope,
+    limit: number,
+  ): Promise<ReminderRecurrenceRecord[]>;
+  create(
+    scope: UserScope,
+    recurrenceId: string,
+    values: ReminderRecurrenceValues,
+    context: ReminderRecurrenceMutationContext,
+  ): Promise<MutateReminderRecurrenceResult>;
+  cancel(
+    scope: UserScope,
+    recurrenceId: string,
+    expectedVersion: number,
+    context: ReminderRecurrenceMutationContext,
+  ): Promise<MutateReminderRecurrenceResult>;
+  undo(
+    scope: UserScope,
+    token: string,
+    context: Omit<
+      ReminderRecurrenceMutationContext,
+      "undoToken" | "undoExpiresAt"
+    >,
+  ): Promise<UndoReminderRecurrenceResult>;
+  purgeExpiredUndo(
+    scope: UserScope,
+    before: Date,
+    limit: number,
+  ): Promise<number>;
+  listDueCandidates(
+    now: Date,
+    limit: number,
+  ): Promise<DueReminderRecurrenceCandidate[]>;
+  materializeOccurrence(
+    scope: UserScope,
+    recurrenceId: string,
+    expectedVersion: number,
+    plan: ReminderOccurrencePlan,
+    context: MaterializeReminderOccurrenceContext,
+  ): Promise<"generated" | "duplicate" | "stale">;
+}
+
 export type NotificationDeliveryStatus = DeliveryStatus;
 
 export interface NotificationDeliveryRepository {
@@ -613,6 +708,127 @@ export interface FinanceRepository {
     token: string,
     context: Omit<FinanceMutationContext, "undoToken" | "undoExpiresAt">,
   ): Promise<UndoFinanceResult>;
+  purgeExpiredUndo(
+    scope: UserScope,
+    before: Date,
+    limit: number,
+  ): Promise<number>;
+}
+
+export interface ListMutationContext {
+  readonly actorUserId: string;
+  readonly correlationId: string;
+  readonly idempotencyKey: string;
+  readonly auditId: string;
+  readonly undoToken: string;
+  readonly now: Date;
+  readonly undoExpiresAt: Date;
+}
+
+export type MutateListEntityResult<T> =
+  | {
+      readonly outcome:
+        | "created"
+        | "updated"
+        | "deleted"
+        | "completed"
+        | "reopened"
+        | "duplicate";
+      readonly entity: T;
+      readonly undoToken: string | null;
+      readonly undoExpiresAt: Date | null;
+    }
+  | {
+      readonly outcome:
+        | "not_found"
+        | "stale"
+        | "list_not_found"
+        | "list_not_empty"
+        | "already_completed"
+        | "already_open";
+    };
+
+export type UndoListResult =
+  | {
+      readonly outcome: "reverted" | "duplicate";
+      readonly entityKind: ListEntityKind;
+      readonly entityId: string;
+    }
+  | { readonly outcome: "not_found" | "expired" | "used" | "stale" };
+
+export interface ListRepository {
+  getList(scope: UserScope, listId: string): Promise<ListWithItems | null>;
+  listLists(scope: UserScope, limit: number): Promise<ListRecord[]>;
+  listNotes(scope: UserScope, limit: number): Promise<NoteRecord[]>;
+  getNote(scope: UserScope, noteId: string): Promise<NoteRecord | null>;
+  createList(
+    scope: UserScope,
+    listId: string,
+    values: ListValues,
+    context: ListMutationContext,
+  ): Promise<MutateListEntityResult<ListRecord>>;
+  renameList(
+    scope: UserScope,
+    listId: string,
+    expectedVersion: number,
+    values: ListValues,
+    context: ListMutationContext,
+  ): Promise<MutateListEntityResult<ListRecord>>;
+  deleteList(
+    scope: UserScope,
+    listId: string,
+    expectedVersion: number,
+    context: ListMutationContext,
+  ): Promise<MutateListEntityResult<ListRecord>>;
+  createItem(
+    scope: UserScope,
+    itemId: string,
+    listId: string,
+    values: ListItemValues,
+    context: ListMutationContext,
+  ): Promise<MutateListEntityResult<ListItemRecord>>;
+  completeItem(
+    scope: UserScope,
+    itemId: string,
+    expectedVersion: number,
+    context: ListMutationContext,
+  ): Promise<MutateListEntityResult<ListItemRecord>>;
+  reopenItem(
+    scope: UserScope,
+    itemId: string,
+    expectedVersion: number,
+    context: ListMutationContext,
+  ): Promise<MutateListEntityResult<ListItemRecord>>;
+  deleteItem(
+    scope: UserScope,
+    itemId: string,
+    expectedVersion: number,
+    context: ListMutationContext,
+  ): Promise<MutateListEntityResult<ListItemRecord>>;
+  createNote(
+    scope: UserScope,
+    noteId: string,
+    values: NoteValues,
+    context: ListMutationContext,
+  ): Promise<MutateListEntityResult<NoteRecord>>;
+  updateNote(
+    scope: UserScope,
+    noteId: string,
+    expectedVersion: number,
+    values: NoteValues,
+    context: ListMutationContext,
+  ): Promise<MutateListEntityResult<NoteRecord>>;
+  deleteNote(
+    scope: UserScope,
+    noteId: string,
+    expectedVersion: number,
+    context: ListMutationContext,
+  ): Promise<MutateListEntityResult<NoteRecord>>;
+  undo(
+    scope: UserScope,
+    token: string,
+    context: Omit<ListMutationContext, "undoToken" | "undoExpiresAt">,
+  ): Promise<UndoListResult>;
   purgeExpiredUndo(
     scope: UserScope,
     before: Date,

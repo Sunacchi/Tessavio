@@ -38,6 +38,22 @@ export type ReminderCommand =
   | { readonly kind: "reminders.read"; readonly reminderId: string }
   | { readonly kind: "reminders.list" }
   | { readonly kind: "reminders.cancel"; readonly reminderId: string }
+  | {
+      readonly kind: "reminders.recurrence.create";
+      readonly frequency: "daily" | "weekly";
+      readonly scheduledLocal: string;
+      readonly text: string;
+    }
+  | {
+      readonly kind: "reminders.recurrence.read";
+      readonly recurrenceId: string;
+    }
+  | { readonly kind: "reminders.recurrence.list" }
+  | {
+      readonly kind: "reminders.recurrence.cancel";
+      readonly recurrenceId: string;
+      readonly expectedVersion: number;
+    }
   | { readonly kind: "reminders.invalid" };
 
 export type TaskCommand =
@@ -127,6 +143,65 @@ export type FinanceCommand =
     }
   | { readonly kind: "finance.invalid" };
 
+export type ListsCommand =
+  | { readonly kind: "lists.create"; readonly title: string }
+  | { readonly kind: "lists.read"; readonly listId: string }
+  | { readonly kind: "lists.list" }
+  | {
+      readonly kind: "lists.rename";
+      readonly listId: string;
+      readonly expectedVersion: number;
+      readonly title: string;
+    }
+  | {
+      readonly kind: "lists.delete";
+      readonly listId: string;
+      readonly expectedVersion: number;
+    }
+  | {
+      readonly kind: "lists.item.create";
+      readonly listId: string;
+      readonly text: string;
+    }
+  | {
+      readonly kind: "lists.item.complete";
+      readonly itemId: string;
+      readonly expectedVersion: number;
+    }
+  | {
+      readonly kind: "lists.item.reopen";
+      readonly itemId: string;
+      readonly expectedVersion: number;
+    }
+  | {
+      readonly kind: "lists.item.delete";
+      readonly itemId: string;
+      readonly expectedVersion: number;
+    }
+  | { readonly kind: "lists.invalid" };
+
+export type NotesCommand =
+  | {
+      readonly kind: "notes.create";
+      readonly title: string;
+      readonly body: string;
+    }
+  | { readonly kind: "notes.read"; readonly noteId: string }
+  | { readonly kind: "notes.list" }
+  | {
+      readonly kind: "notes.update";
+      readonly noteId: string;
+      readonly expectedVersion: number;
+      readonly title: string;
+      readonly body: string;
+    }
+  | {
+      readonly kind: "notes.delete";
+      readonly noteId: string;
+      readonly expectedVersion: number;
+    }
+  | { readonly kind: "notes.invalid" };
+
 export type EventCommand =
   | ({ readonly kind: "events.create" } & EventDraftCommand)
   | { readonly kind: "events.read"; readonly eventId: string }
@@ -151,6 +226,8 @@ export type DeterministicCommand =
   | TaskCommand
   | WorkCommand
   | FinanceCommand
+  | ListsCommand
+  | NotesCommand
   | UndoCommand
   | { readonly kind: "unsupported" };
 
@@ -254,6 +331,38 @@ function parseReminderCommand(text: string): ReminderCommand {
   }
   if (
     separatorIndex === -1 &&
+    operation === "ricorrenza" &&
+    parts.length === 3 &&
+    entityIdPattern.test(parts[2] ?? "")
+  ) {
+    return {
+      kind: "reminders.recurrence.read",
+      recurrenceId: parts[2] ?? "",
+    };
+  }
+  if (
+    separatorIndex === -1 &&
+    operation === "ricorrenze" &&
+    parts.length === 2
+  ) {
+    return { kind: "reminders.recurrence.list" };
+  }
+  const expectedVersion = parsePositiveVersion(parts[3]);
+  if (
+    separatorIndex === -1 &&
+    operation === "ferma" &&
+    parts.length === 4 &&
+    entityIdPattern.test(parts[2] ?? "") &&
+    expectedVersion !== null
+  ) {
+    return {
+      kind: "reminders.recurrence.cancel",
+      recurrenceId: parts[2] ?? "",
+      expectedVersion,
+    };
+  }
+  if (
+    separatorIndex === -1 &&
     operation === "annulla" &&
     parts.length === 3 &&
     entityIdPattern.test(parts[2] ?? "")
@@ -264,6 +373,25 @@ function parseReminderCommand(text: string): ReminderCommand {
     return {
       kind: "reminders.create",
       scheduledLocal: parts[2] ?? "",
+      text: reminderText,
+    };
+  }
+  const frequency =
+    parts[2]?.toLowerCase() === "giornaliero"
+      ? "daily"
+      : parts[2]?.toLowerCase() === "settimanale"
+        ? "weekly"
+        : null;
+  if (
+    operation === "ricorrente" &&
+    parts.length === 4 &&
+    frequency !== null &&
+    reminderText !== null
+  ) {
+    return {
+      kind: "reminders.recurrence.create",
+      frequency,
+      scheduledLocal: parts[3] ?? "",
       text: reminderText,
     };
   }
@@ -548,6 +676,144 @@ function parseFinanceCommand(text: string): FinanceCommand {
   return { kind: "finance.invalid" };
 }
 
+function parseListsCommand(text: string): ListsCommand {
+  const sections = text.split("|");
+  const commandText = sections[0]?.trim() ?? "";
+  const parts = commandText.split(/\s+/u);
+  const operation = parts[1]?.toLowerCase();
+
+  if (sections.length === 2) {
+    const content = sections[1] ?? "";
+    if (operation === "crea" && parts.length === 2) {
+      return { kind: "lists.create", title: content };
+    }
+    const expectedVersion = parsePositiveVersion(parts[3]);
+    if (
+      operation === "rinomina" &&
+      parts.length === 4 &&
+      entityIdPattern.test(parts[2] ?? "") &&
+      expectedVersion !== null
+    ) {
+      return {
+        kind: "lists.rename",
+        listId: parts[2] ?? "",
+        expectedVersion,
+        title: content,
+      };
+    }
+    if (
+      operation === "aggiungi" &&
+      parts.length === 3 &&
+      entityIdPattern.test(parts[2] ?? "")
+    ) {
+      return {
+        kind: "lists.item.create",
+        listId: parts[2] ?? "",
+        text: content,
+      };
+    }
+    return { kind: "lists.invalid" };
+  }
+  if (sections.length !== 1) return { kind: "lists.invalid" };
+
+  if (operation === "lista" && parts.length === 2) {
+    return { kind: "lists.list" };
+  }
+  if (
+    operation === "leggi" &&
+    parts.length === 3 &&
+    entityIdPattern.test(parts[2] ?? "")
+  ) {
+    return { kind: "lists.read", listId: parts[2] ?? "" };
+  }
+  const expectedVersion = parsePositiveVersion(parts[3]);
+  if (
+    parts.length === 4 &&
+    entityIdPattern.test(parts[2] ?? "") &&
+    expectedVersion !== null
+  ) {
+    if (operation === "elimina") {
+      return {
+        kind: "lists.delete",
+        listId: parts[2] ?? "",
+        expectedVersion,
+      };
+    }
+    const itemKind =
+      operation === "spunta"
+        ? "lists.item.complete"
+        : operation === "riapri"
+          ? "lists.item.reopen"
+          : operation === "rimuovi"
+            ? "lists.item.delete"
+            : null;
+    if (itemKind !== null) {
+      return {
+        kind: itemKind,
+        itemId: parts[2] ?? "",
+        expectedVersion,
+      };
+    }
+  }
+  return { kind: "lists.invalid" };
+}
+
+function parseNotesCommand(text: string): NotesCommand {
+  const sections = text.split("|");
+  const commandText = sections[0]?.trim() ?? "";
+  const parts = commandText.split(/\s+/u);
+  const operation = parts[1]?.toLowerCase();
+
+  if (sections.length === 3) {
+    const title = sections[1] ?? "";
+    const body = sections[2] ?? "";
+    if (operation === "crea" && parts.length === 2) {
+      return { kind: "notes.create", title, body };
+    }
+    const expectedVersion = parsePositiveVersion(parts[3]);
+    if (
+      operation === "modifica" &&
+      parts.length === 4 &&
+      entityIdPattern.test(parts[2] ?? "") &&
+      expectedVersion !== null
+    ) {
+      return {
+        kind: "notes.update",
+        noteId: parts[2] ?? "",
+        expectedVersion,
+        title,
+        body,
+      };
+    }
+    return { kind: "notes.invalid" };
+  }
+  if (sections.length !== 1) return { kind: "notes.invalid" };
+  if (operation === "lista" && parts.length === 2) {
+    return { kind: "notes.list" };
+  }
+  if (
+    operation === "leggi" &&
+    parts.length === 3 &&
+    entityIdPattern.test(parts[2] ?? "")
+  ) {
+    return { kind: "notes.read", noteId: parts[2] ?? "" };
+  }
+  const expectedVersion = parsePositiveVersion(parts[3]);
+  if (
+    operation === "elimina" &&
+    parts.length === 4 &&
+    entityIdPattern.test(parts[2] ?? "") &&
+    expectedVersion !== null
+  ) {
+    return {
+      kind: "notes.delete",
+      noteId: parts[2] ?? "",
+      expectedVersion,
+    };
+  }
+  return { kind: "notes.invalid" };
+}
+
 export function parseDeterministicCommand(text: string): DeterministicCommand {
   const normalized = text.trim();
   const parts = normalized.split(/\s+/u);
@@ -597,6 +863,12 @@ export function parseDeterministicCommand(text: string): DeterministicCommand {
   }
   if (command === "/finanze" || command === "/spese") {
     return parseFinanceCommand(normalized);
+  }
+  if (command === "/liste") {
+    return parseListsCommand(normalized);
+  }
+  if (command === "/note") {
+    return parseNotesCommand(normalized);
   }
   if (command === "/oggi" && parts.length === 1) {
     return { kind: "events.today" };

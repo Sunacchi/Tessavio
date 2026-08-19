@@ -22,7 +22,9 @@ task private, priorità, scadenze tipizzate, complete/reopen, Undo e viste
 giornaliere. B4 ha aggiunto regole lavoro private, turni pianificati, consuntivi,
 pause e report temporali riproducibili, tutti deterministici e user-scoped.
 B5 ha aggiunto spese/entrate manuali, minor unit, correzione, soft delete, Undo e
-totali per valuta. Documenti, persone e spazi restano nello stato indicato nelle tabelle.
+totali per valuta. B6.1 ha aggiunto liste/item/note e B6.2 reminder ricorrenti
+daily/weekly con generazione deterministica. Documenti, persone e spazi restano
+nello stato indicato nelle tabelle.
 
 ## 1. Tessavio Inbox
 
@@ -38,7 +40,7 @@ totali per valuta. Documenti, persone e spazi restano nello stato indicato nelle
 | Riconoscere appuntamenti, reminder e task   | Parziale       | domini deterministici B1-B3 presenti; Inbox AI non implementata             | C3                                       |
 | Riconoscere spese, entrate e bollette       | Parziale       | dominio B5 presente; riconoscimento Inbox/bollette resta futuro             | B5, C3, D3, K1                           |
 | Riconoscere documenti e scadenze            | Mancante       | dominio documenti assente                                                   | D3 e J1-J2                               |
-| Riconoscere elementi lista e note           | Parziale       | liste B6 pianificate, note non esplicite                                    | B6 e C3                                  |
+| Riconoscere elementi lista e note           | Parziale       | domini deterministici B6.1 presenti; riconoscimento Inbox resta futuro      | B6.1 e C3                                |
 | Riconoscere informazioni relative a persone | Mancante       | dominio persone assente                                                     | J3-J4                                    |
 | Archiviare o riproporre contenuti           | Mancante       | nessun dominio/attention lifecycle                                          | J2, poi contributor attivato in O        |
 | Punto comune senza duplicare i domini       | Parziale       | Smart Inbox è un confine architetturale, non ancora un dispatcher tipizzato | ADR-0010, C3                             |
