@@ -9,6 +9,7 @@ import type { SendNotificationEnvelope } from "./queue-envelope";
 import {
   isWithinQuietHours,
   nextQuietHoursEnd,
+  notificationDeliveryRetentionMs,
 } from "../domains/reminders/reminders";
 import type { Clock, UserScope } from "../shared/contracts";
 import { AppError } from "../shared/errors";
@@ -32,6 +33,11 @@ export async function sendReminderNotification(
 ): Promise<SendReminderOutcome> {
   const scope: UserScope = { userId: envelope.payload.userId };
   const now = dependencies.clock.now();
+  await dependencies.notificationDeliveries.purgeTerminal(
+    scope,
+    new Date(now.getTime() - notificationDeliveryRetentionMs),
+    100,
+  );
   const reminder = await dependencies.reminders.getForDelivery(
     scope,
     envelope.payload.reminderId,

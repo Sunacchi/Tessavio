@@ -6,11 +6,13 @@ import type {
 } from "../domains/preferences/preferences";
 import type {
   EventDayWindow,
+  EventRangeWindow,
   EventRecord,
   EventValues,
 } from "../domains/events/events";
 import type { UserScope } from "../shared/contracts";
 import type {
+  ReminderDayWindow,
   ReminderRecord,
   ReminderStatus,
 } from "../domains/reminders/reminders";
@@ -21,6 +23,7 @@ import type {
 } from "../domains/reminders/recurrence";
 import type {
   TaskDayWindow,
+  TaskRangeWindow,
   TaskRecord,
   TaskValues,
 } from "../domains/tasks/tasks";
@@ -156,6 +159,15 @@ export interface TelegramReplyPort {
     chatId: number | string,
     text: string,
   ): Promise<{ readonly messageId: string }>;
+  sendDocument?(
+    chatId: number | string,
+    document: {
+      readonly fileName: string;
+      readonly mimeType: "text/csv";
+      readonly content: string;
+      readonly caption: string;
+    },
+  ): Promise<{ readonly messageId: string }>;
 }
 
 export interface PreferenceMutationContext {
@@ -238,6 +250,11 @@ export interface EventRepository {
     window: EventDayWindow,
     limit?: number,
   ): Promise<EventRecord[]>;
+  listForRange(
+    scope: UserScope,
+    window: EventRangeWindow,
+    limit: number,
+  ): Promise<EventRecord[]>;
   create(
     scope: UserScope,
     eventId: string,
@@ -301,6 +318,11 @@ export interface ClaimedReminder {
 export interface ReminderRepository {
   get(scope: UserScope, reminderId: string): Promise<ReminderRecord | null>;
   listPending(scope: UserScope, limit: number): Promise<ReminderRecord[]>;
+  listForDay(
+    scope: UserScope,
+    window: ReminderDayWindow,
+    limit: number,
+  ): Promise<ReminderRecord[]>;
   create(
     scope: UserScope,
     reminderId: string,
@@ -493,6 +515,7 @@ export interface NotificationDeliveryRepository {
     now: Date,
   ): Promise<void>;
   markAmbiguous(scope: UserScope, dedupeKey: string, now: Date): Promise<void>;
+  purgeTerminal(scope: UserScope, before: Date, limit: number): Promise<number>;
 }
 
 export interface TaskMutationContext {
@@ -528,6 +551,11 @@ export interface TaskRepository {
     scope: UserScope,
     window: TaskDayWindow,
     limit?: number,
+  ): Promise<TaskRecord[]>;
+  listForRange(
+    scope: UserScope,
+    window: TaskRangeWindow,
+    limit: number,
   ): Promise<TaskRecord[]>;
   create(
     scope: UserScope,
@@ -676,6 +704,11 @@ export type UndoFinanceResult =
 export interface FinanceRepository {
   get(scope: UserScope, entryId: string): Promise<FinanceEntryRecord | null>;
   list(
+    scope: UserScope,
+    range: FinanceDateRange,
+    limit: number,
+  ): Promise<FinanceEntryRecord[]>;
+  listForReport(
     scope: UserScope,
     range: FinanceDateRange,
     limit: number,

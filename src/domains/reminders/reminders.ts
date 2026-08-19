@@ -21,6 +21,11 @@ export interface ReminderRecord {
   readonly deliveryAttempts: number;
 }
 
+export interface ReminderDayWindow {
+  readonly startAtUtc: Date;
+  readonly endAtUtc: Date;
+}
+
 export type ReminderValidationResult =
   | {
       readonly ok: true;
@@ -41,6 +46,7 @@ export type ReminderValidationResult =
     };
 
 export const reminderUndoTtlMs = 15 * 60 * 1_000;
+export const notificationDeliveryRetentionMs = 30 * 24 * 60 * 60 * 1_000;
 
 export function validateReminder(input: {
   readonly text: string;

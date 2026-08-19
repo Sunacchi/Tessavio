@@ -4,9 +4,11 @@ import type {
   EventRepository,
   MutateEventResult,
   PreferenceRepository,
+  ReminderRepository,
   TaskRepository,
   WorkRepository,
 } from "./ports";
+import { renderReminder } from "./manage-reminders";
 import { renderTask } from "./manage-tasks";
 import { renderBoundedSections, renderPlannedShift } from "./manage-work";
 import {
@@ -28,6 +30,7 @@ export interface ManageEventsDependencies {
   readonly events: EventRepository;
   readonly ids: IdGenerator;
   readonly preferences: PreferenceRepository;
+  readonly reminders?: ReminderRepository;
   readonly tasks?: TaskRepository;
   readonly work?: WorkRepository;
 }
@@ -194,6 +197,20 @@ export async function manageEvents(
     request.command.kind === "events.today" ||
     request.command.kind === "events.tomorrow"
   ) {
+    if (dependencies.tasks !== undefined) {
+      await dependencies.authorizer.authorize({
+        actorUserId: request.actorUserId,
+        scope: request.scope,
+        action: "tasks:read",
+      });
+    }
+    if (dependencies.reminders !== undefined) {
+      await dependencies.authorizer.authorize({
+        actorUserId: request.actorUserId,
+        scope: request.scope,
+        action: "reminders:read",
+      });
+    }
     if (dependencies.work !== undefined) {
       await dependencies.authorizer.authorize({
         actorUserId: request.actorUserId,
@@ -206,10 +223,15 @@ export async function manageEvents(
       profile.timeZone,
       request.command.kind === "events.today" ? 0 : 1,
     );
-    const [eventRows, taskRows, workDay] = await Promise.all([
+    const [eventRows, taskRows, reminderRows, workDay] = await Promise.all([
       dependencies.events.listForDay(request.scope, window, dayViewLimit + 1),
       dependencies.tasks?.listForDay(request.scope, window, dayViewLimit + 1) ??
         Promise.resolve([]),
+      dependencies.reminders?.listForDay(
+        request.scope,
+        window,
+        dayViewLimit + 1,
+      ) ?? Promise.resolve([]),
       dependencies.work?.listForDay(request.scope, {
         startAtUtc: window.startAtUtc,
         endAtUtc: window.endAtUtc,
@@ -225,15 +247,15 @@ export async function manageEvents(
     ]);
     const events = eventRows.slice(0, dayViewLimit);
     const tasks = taskRows.slice(0, dayViewLimit);
+    const reminders = reminderRows.slice(0, dayViewLimit);
     const heading = request.command.kind === "events.today" ? "Oggi" : "Domani";
     if (
       events.length === 0 &&
       tasks.length === 0 &&
+      reminders.length === 0 &&
       workDay.plannedShifts.length === 0
     ) {
-      return dependencies.work === undefined
-        ? `${heading} (${window.localDate}): nessun evento o task in scadenza.`
-        : `${heading} (${window.localDate}): nessun evento, task in scadenza o turno pianificato.`;
+      return `${heading} (${window.localDate}): nessun evento, task in scadenza, promemoria o turno pianificato.`;
     }
     const sections: string[] = [];
     if (events.length > 0) {
@@ -244,6 +266,12 @@ export async function manageEvents(
     }
     if (tasks.length > 0) {
       sections.push("Task:", ...tasks.map((task) => renderTask(task, profile)));
+    }
+    if (reminders.length > 0) {
+      sections.push(
+        "Promemoria:",
+        ...reminders.map((reminder) => renderReminder(reminder, profile)),
+      );
     }
     if (workDay.plannedShifts.length > 0) {
       sections.push(
@@ -258,6 +286,7 @@ export async function manageEvents(
       sections,
       eventRows.length > dayViewLimit ||
         taskRows.length > dayViewLimit ||
+        reminderRows.length > dayViewLimit ||
         workDay.plannedShiftsTruncated,
     );
   }

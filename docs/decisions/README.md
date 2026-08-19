@@ -21,6 +21,8 @@ Gli ADR registrano decisioni difficili da ricostruire dal codice. Stato ammesso:
 - [ADR-0017 — B5 finanze: registro privato, minor unit e Undo versionato](0017-b5-finance-contract.md)
 - [ADR-0018 — B6.1 liste, item e note private](0018-b6-private-lists-notes-contract.md)
 - [ADR-0019 — B6.2 ricorrenza minima dei reminder](0019-b6-minimal-reminder-recurrence.md)
+- [ADR-0020 — B7 report base trasversali e CSV bounded](0020-b7-base-reports.md)
+- [ADR-0021 — Chiusura trasversale della Phase B](0021-phase-b-closure.md)
 
 ## Template
 

@@ -53,7 +53,7 @@ function formatInstant(value: Date, profile: PreferenceProfile): string {
   }).format(value);
 }
 
-function renderReminder(
+export function renderReminder(
   reminder: ReminderRecord,
   profile: PreferenceProfile,
 ): string {

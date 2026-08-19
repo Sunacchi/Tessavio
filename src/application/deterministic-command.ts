@@ -202,6 +202,19 @@ export type NotesCommand =
     }
   | { readonly kind: "notes.invalid" };
 
+export type ReportCommand =
+  | {
+      readonly kind: "reports.summary";
+      readonly startDate: string;
+      readonly endDate: string;
+    }
+  | {
+      readonly kind: "reports.csv";
+      readonly startDate: string;
+      readonly endDate: string;
+    }
+  | { readonly kind: "reports.invalid" };
+
 export type EventCommand =
   | ({ readonly kind: "events.create" } & EventDraftCommand)
   | { readonly kind: "events.read"; readonly eventId: string }
@@ -228,6 +241,7 @@ export type DeterministicCommand =
   | FinanceCommand
   | ListsCommand
   | NotesCommand
+  | ReportCommand
   | UndoCommand
   | { readonly kind: "unsupported" };
 
@@ -869,6 +883,23 @@ export function parseDeterministicCommand(text: string): DeterministicCommand {
   }
   if (command === "/note") {
     return parseNotesCommand(normalized);
+  }
+  if (command === "/report") {
+    if (parts[1]?.toLowerCase() === "csv" && parts.length === 4) {
+      return {
+        kind: "reports.csv",
+        startDate: parts[2] ?? "",
+        endDate: parts[3] ?? "",
+      };
+    }
+    if (parts[1]?.toLowerCase() !== "csv" && parts.length === 3) {
+      return {
+        kind: "reports.summary",
+        startDate: parts[1] ?? "",
+        endDate: parts[2] ?? "",
+      };
+    }
+    return { kind: "reports.invalid" };
   }
   if (command === "/oggi" && parts.length === 1) {
     return { kind: "events.today" };

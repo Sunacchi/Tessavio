@@ -7,6 +7,7 @@ import type {
   UndoReminderResult,
 } from "../../application/ports";
 import type { ReminderRecord } from "../../domains/reminders/reminders";
+import type { ReminderDayWindow } from "../../domains/reminders/reminders";
 import type { UserScope } from "../../shared/contracts";
 import { AppError } from "../../shared/errors";
 
@@ -146,6 +147,33 @@ export class D1ReminderRepository implements ReminderRepository {
          ORDER BY due_at_utc, id LIMIT ?`,
       )
       .bind(scope.userId, limit)
+      .all();
+    return rows.results.map(toRecord);
+  }
+
+  async listForDay(
+    scope: UserScope,
+    window: ReminderDayWindow,
+    limit: number,
+  ): Promise<ReminderRecord[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      throw new AppError("INVALID_INPUT", false);
+    }
+    const rows = await this.database
+      .prepare(
+        `SELECT id, text, requested_at_utc, due_at_utc, original_time_zone,
+                status, version, attempt_count
+         FROM reminders
+         WHERE user_id = ? AND status IN ('pending', 'claimed', 'sending')
+           AND due_at_utc >= ? AND due_at_utc < ?
+         ORDER BY due_at_utc, id LIMIT ?`,
+      )
+      .bind(
+        scope.userId,
+        window.startAtUtc.getTime(),
+        window.endAtUtc.getTime(),
+        limit,
+      )
       .all();
     return rows.results.map(toRecord);
   }

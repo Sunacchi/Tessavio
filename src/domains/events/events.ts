@@ -63,6 +63,13 @@ export interface EventDayWindow {
   readonly endAtUtc: Date;
 }
 
+export interface EventRangeWindow {
+  readonly startDate: string;
+  readonly endDate: string;
+  readonly startAtUtc: Date;
+  readonly endAtUtc: Date;
+}
+
 const localDatePattern = /^\d{4}-\d{2}-\d{2}$/u;
 const localDateTimePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/u;
 

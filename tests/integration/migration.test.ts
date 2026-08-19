@@ -334,6 +334,36 @@ describe("foundation migration", () => {
       ),
     ).toBe(true);
 
+    const reminderDayPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN
+       SELECT id FROM reminders
+       WHERE user_id = ? AND status IN ('pending', 'claimed', 'sending')
+         AND due_at_utc >= ? AND due_at_utc < ?
+       ORDER BY due_at_utc, id LIMIT 51`,
+    )
+      .bind("user-a", Date.now(), Date.now() + 86_400_000)
+      .all<{ detail: string }>();
+    expect(
+      reminderDayPlan.results.some((row) =>
+        row.detail.includes("reminders_scope_list_idx"),
+      ),
+    ).toBe(true);
+
+    const notificationPurgePlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN
+       SELECT dedupe_key FROM notification_deliveries
+       WHERE scope_user_id = ? AND created_at <= ?
+         AND status IN ('sent', 'ambiguous', 'permanent_failure')
+       ORDER BY created_at, dedupe_key LIMIT 100`,
+    )
+      .bind("user-a", Date.now())
+      .all<{ detail: string }>();
+    expect(
+      notificationPurgePlan.results.some((row) =>
+        row.detail.includes("notification_deliveries_scope_idx"),
+      ),
+    ).toBe(true);
+
     const reminderRecoveryPlan = await env.DB.prepare(
       `EXPLAIN QUERY PLAN
        SELECT id FROM reminders

@@ -7,6 +7,7 @@ import type {
 } from "../../application/ports";
 import type {
   EventDayWindow,
+  EventRangeWindow,
   EventRecord,
   EventValues,
 } from "../../domains/events/events";
@@ -241,6 +242,40 @@ export class D1EventRepository implements EventRepository {
                   start_at_utc, title, id${suffix}`,
       )
       .bind(...bindings)
+      .all();
+    return rows.results.map(fromStoredRow);
+  }
+
+  async listForRange(
+    scope: UserScope,
+    window: EventRangeWindow,
+    limit: number,
+  ): Promise<EventRecord[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 501) {
+      throw new AppError("INVALID_INPUT", false);
+    }
+    const rows = await this.database
+      .prepare(
+        `SELECT id, event_kind, title, local_date, start_at_utc, end_at_utc,
+                time_zone, status, version, created_at, updated_at, cancelled_at
+         FROM events
+         WHERE user_id = ? AND status = 'active' AND (
+           (event_kind = 'date_only' AND local_date >= ? AND local_date <= ?)
+           OR
+           (event_kind = 'instant' AND start_at_utc < ? AND end_at_utc > ?)
+         )
+         ORDER BY CASE event_kind WHEN 'date_only' THEN 0 ELSE 1 END,
+                  local_date, start_at_utc, id
+         LIMIT ?`,
+      )
+      .bind(
+        scope.userId,
+        window.startDate,
+        window.endDate,
+        window.endAtUtc.getTime(),
+        window.startAtUtc.getTime(),
+        limit,
+      )
       .all();
     return rows.results.map(fromStoredRow);
   }

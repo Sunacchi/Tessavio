@@ -201,6 +201,28 @@ export class D1FinanceRepository implements FinanceRepository {
     return rows.results.map(fromStoredRow);
   }
 
+  async listForReport(
+    scope: UserScope,
+    range: FinanceDateRange,
+    limit: number,
+  ): Promise<FinanceEntryRecord[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 501) {
+      throw new AppError("INVALID_INPUT", false);
+    }
+    const rows = await this.database
+      .prepare(
+        `SELECT ${selectColumns}
+         FROM finance_entries
+         WHERE user_id = ? AND status = 'active'
+           AND local_date >= ? AND local_date <= ?
+         ORDER BY local_date, created_at, id
+         LIMIT ?`,
+      )
+      .bind(scope.userId, range.startDate, range.endDate, limit)
+      .all();
+    return rows.results.map(fromStoredRow);
+  }
+
   async totals(
     scope: UserScope,
     range: FinanceDateRange,

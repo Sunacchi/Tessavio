@@ -24,6 +24,7 @@ import { manageTasks } from "./manage-tasks";
 import { manageWork } from "./manage-work";
 import { manageFinance } from "./manage-finance";
 import { manageLists } from "./manage-lists";
+import { manageReports, type ManageReportsResult } from "./manage-reports";
 import { startOnboarding } from "../domains/onboarding/start";
 import type { Authorizer } from "../security/authorization";
 import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
@@ -105,7 +106,7 @@ export async function processInboundMessage(
     dependencies.clock.now(),
   );
   const scope: UserScope = { userId: identity.userId };
-  let replyText: string;
+  let replyText: ManageReportsResult;
   if (command.kind === "start") {
     await dependencies.authorizer.authorize({
       actorUserId: identity.userId,
@@ -260,6 +261,24 @@ export async function processInboundMessage(
       { ...dependencies, finance },
     );
   } else if (
+    command.kind === "reports.summary" ||
+    command.kind === "reports.csv" ||
+    command.kind === "reports.invalid"
+  ) {
+    const finance = dependencies.finance;
+    const work = dependencies.work;
+    if (finance === undefined || work === undefined) {
+      throw new AppError("INTERNAL_REDACTED", false);
+    }
+    replyText = await manageReports(
+      {
+        actorUserId: identity.userId,
+        scope,
+        command,
+      },
+      { ...dependencies, finance, work },
+    );
+  } else if (
     command.kind === "lists.create" ||
     command.kind === "lists.read" ||
     command.kind === "lists.list" ||
@@ -341,7 +360,15 @@ export async function processInboundMessage(
   }
 
   try {
-    const sent = await dependencies.reply.send(message.chat.id, replyText);
+    let sent: { readonly messageId: string };
+    if (typeof replyText === "string") {
+      sent = await dependencies.reply.send(message.chat.id, replyText);
+    } else {
+      if (dependencies.reply.sendDocument === undefined) {
+        throw new AppError("INTERNAL_REDACTED", false);
+      }
+      sent = await dependencies.reply.sendDocument(message.chat.id, replyText);
+    }
     await dependencies.deliveries.markSent(
       scope,
       deliveryKey,

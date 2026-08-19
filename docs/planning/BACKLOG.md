@@ -128,9 +128,34 @@ La milestone è chiusa localmente; B6.2 è stata attivata e chiusa separatamente
 - [x] validare migration fresh/upgrade, query plan e recovery;
 - [x] chiudere tutti i gate applicabili prima di attivare B7.
 
+## B7 — Report base (completed)
+
+- [x] congelare periodo civile, contributor, provenance, limiti e CSV in ADR;
+- [x] implementare riepilogo agenda/task/lavoro/finanze tramite porte scoped;
+- [x] riusare formule lavoro e somme finanziarie esatte senza conversione;
+- [x] consegnare CSV RFC 4180 bounded e formula-safe come documento Telegram;
+- [x] coprire DST, input invalidi, duplicate delivery e cross-tenant;
+- [x] provare query plan e documentare recovery/rollback senza migration;
+- [x] chiudere `npm run validate` e tutti i gate applicabili prima di completare B7.
+
+## Phase B — Gate di chiusura trasversali (completed)
+
+La Phase B è stata chiusa localmente il 2026-08-19:
+
+- [x] includere i reminder nella vista `/oggi`, oppure modificare esplicitamente
+      il criterio trasversale con una decisione versionata;
+- [x] aggiungere prove fake-clock, idempotenza e isolamento tenant per purge e
+      retention di tutte le categorie B non ancora coperte;
+- [x] eseguire e documentare una demo end-to-end delle capacità B con provider AI
+      assente;
+- [x] rieseguire `npm run validate` e registrare la firma finale del gate Phase B
+      (33 file Vitest, 148 test, build Worker dry-run);
+- [x] mantenere C1 non attiva fino alla chiusura dei punti precedenti; la sua
+      attivazione resta una decisione di milestone separata.
+
 ## Later phases
 
-Break down Phase B onward only when the preceding exit criteria are met. The
+Break down Phase C onward only when the preceding exit criteria are met. The
 ordered, committed feature list is in `ROADMAP.md` and its pre-audit status in
 `REQUIREMENTS_COVERAGE.md`; avoid speculative tickets, tables or adapters that
 imply premature APIs. Open Banking is not a later phase.

@@ -233,6 +233,7 @@ describe("B2 reminder Cron, Queue and delivery", () => {
       [1203, "/impostazioni quiete disattiva"],
       [1204, "/promemoria crea 2026-08-08T10:05 | Chiama il dentista"],
       [1205, "/promemoria lista"],
+      [1206, "/oggi"],
     ] as const) {
       await handleTelegramWebhook(
         webhookRequest(telegramTextUpdate(command, updateId, 7101)),
@@ -261,6 +262,8 @@ describe("B2 reminder Cron, Queue and delivery", () => {
     expect(reply.texts[3]).toContain("Chiama il dentista");
     expect(reply.texts[4]).toContain("Promemoria in attesa:");
     expect(reply.texts[4]).toContain("Chiama il dentista");
+    expect(reply.texts[5]).toContain("Promemoria:");
+    expect(reply.texts[5]).toContain("Chiama il dentista");
     const identity = await env.DB.prepare(
       "SELECT user_id FROM telegram_identities WHERE telegram_user_id = '7101'",
     ).first<{ user_id: string }>();

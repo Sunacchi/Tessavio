@@ -3,6 +3,7 @@ import type {
   NotificationDeliveryStatus,
 } from "../../application/ports";
 import type { UserScope } from "../../shared/contracts";
+import { AppError } from "../../shared/errors";
 
 export class D1NotificationDeliveryRepository implements NotificationDeliveryRepository {
   constructor(private readonly database: D1Database) {}
@@ -112,6 +113,29 @@ export class D1NotificationDeliveryRepository implements NotificationDeliveryRep
       null,
       "AMBIGUOUS_EXTERNAL",
     );
+  }
+
+  async purgeTerminal(
+    scope: UserScope,
+    before: Date,
+    limit: number,
+  ): Promise<number> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      throw new AppError("INVALID_INPUT", false);
+    }
+    const result = await this.database
+      .prepare(
+        `DELETE FROM notification_deliveries
+         WHERE scope_user_id = ? AND dedupe_key IN (
+           SELECT dedupe_key FROM notification_deliveries
+           WHERE scope_user_id = ? AND created_at <= ?
+             AND status IN ('sent', 'ambiguous', 'permanent_failure')
+           ORDER BY created_at, dedupe_key LIMIT ?
+         )`,
+      )
+      .bind(scope.userId, scope.userId, before.getTime(), limit)
+      .run();
+    return result.meta.changes;
   }
 
   private async update(
