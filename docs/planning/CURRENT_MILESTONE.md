@@ -25,7 +25,7 @@ comandi espliciti, con audit, Undo e provenance.
   cancella il ciphertext, rotazione KEK con decrypt su N-1;
 - tre controlli di costo distinti e provati, con recovery delle prenotazioni;
 - migration 0009-0011 provate fresh e upgrade;
-- `npm run validate` verde: 60 file Vitest, 284 test.
+- `npm run validate` verde: 61 file Vitest, 290 test.
 
 ## Cosa resta al proprietario
 

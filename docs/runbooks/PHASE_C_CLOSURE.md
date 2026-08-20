@@ -68,8 +68,25 @@ npm run validate
 ```
 
 Firma del 2026-08-20: format, lint, type generation check, typecheck,
-`drizzle-kit check`, 60 file Vitest e 284 test verdi, build Worker dry-run
+`drizzle-kit check`, 61 file Vitest e 290 test verdi, build Worker dry-run
 verde. Nessun deploy, provisioning o mutazione remota fa parte del gate.
+
+## Review indipendente e difetti chiusi
+
+Prima della firma la fase è stata riletta da un revisore che non l'aveva
+scritta, con mandato esplicito su idempotenza, budget, crittografia e tempo.
+Ha trovato quattro difetti reali; tutti sono corretti e coperti da un test di
+regressione che fallisce senza la correzione.
+
+| Difetto                                                             | Effetto se non corretto                                      | Regressione                                                   |
+| ------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------- |
+| prenotazione budget `duplicate` dopo un rilascio                    | un retry chiamava il modello senza contabilizzarne il costo  | `tests/integration/ai-budget.test.ts` (riapertura, accumulo)  |
+| chiusura del job prima della consegna della risposta                | consegna fallita in modo ritentabile = utente senza risposta | `tests/integration/ai-proposal-flow.test.ts`                  |
+| durata di default sommata in millisecondi                           | orario civile inesistente nel salto DST di primavera         | `tests/unit/ai-proposal.test.ts` (29 marzo 2026, Europe/Rome) |
+| effetto lasciato in `claimed` da un'eccezione successiva alla claim | l'operazione restava bloccata per sempre, retry inclusi      | `tests/unit/ai-executor.test.ts`                              |
+
+Il quarto ha richiesto un'aggiunta di porta (`EffectRepository.release()`): il
+ledger degli effetti ora distingue "in corso" da "abbandonato".
 
 ## Limiti dichiarati alla chiusura
 
