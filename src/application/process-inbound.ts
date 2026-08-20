@@ -1,9 +1,7 @@
-import type {
-  DeliveryRepository,
-  IdentityRepository,
-  InboundRepository,
-  TelegramReplyPort,
-} from "./ports";
+import type { DeliveryRepository } from "./ports/delivery";
+import type { IdentityRepository } from "./ports/identity";
+import type { InboundRepository } from "./ports/inbound";
+import type { TelegramReplyPort } from "./ports/telegram";
 import type { InboundMessageEnvelope } from "./queue-envelope";
 import { parseDeterministicCommand } from "./deterministic-command";
 import type { CommandRegistry, CommandReply } from "./handler-registry";

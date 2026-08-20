@@ -1,7 +1,7 @@
 import type {
   NotificationDeliveryRepository,
   NotificationDeliveryStatus,
-} from "../../application/ports";
+} from "../../application/ports/reminders";
 import type { UserScope } from "../../shared/contracts";
 import { AppError } from "../../shared/errors";
 

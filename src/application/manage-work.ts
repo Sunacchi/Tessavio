@@ -11,12 +11,12 @@ import {
 } from "./handler-registry";
 import type { UndoHandler } from "./undo-registry";
 import { renderBoundedSections } from "./rendering";
+import type { PreferenceRepository } from "./ports/preferences";
 import type {
   MutateWorkResult,
-  PreferenceRepository,
   WorkMutationContext,
   WorkRepository,
-} from "./ports";
+} from "./ports/work";
 import {
   validateWorkBreak,
   validateWorkInterval,

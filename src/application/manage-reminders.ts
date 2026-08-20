@@ -10,12 +10,12 @@ import {
   type CommandRegistration,
 } from "./handler-registry";
 import type { UndoHandler } from "./undo-registry";
+import type { PreferenceRepository } from "./ports/preferences";
 import type {
   MutateReminderResult,
-  PreferenceRepository,
   ReminderMutationContext,
   ReminderRepository,
-} from "./ports";
+} from "./ports/reminders";
 import {
   reminderUndoTtlMs,
   validateReminder,

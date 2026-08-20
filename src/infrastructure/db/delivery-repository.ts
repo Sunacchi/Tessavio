@@ -1,7 +1,7 @@
 import type {
   DeliveryRepository,
   DeliveryStatus,
-} from "../../application/ports";
+} from "../../application/ports/delivery";
 import type { UserScope } from "../../shared/contracts";
 
 export class D1DeliveryRepository implements DeliveryRepository {

@@ -5,7 +5,7 @@ import {
   manageWork,
   workDayViewContributor,
 } from "../../src/application/manage-work";
-import type { WorkMutationContext } from "../../src/application/ports";
+import type { WorkMutationContext } from "../../src/application/ports/work";
 import { D1EventRepository } from "../../src/infrastructure/db/event-repository";
 import { D1PreferenceRepository } from "../../src/infrastructure/db/preference-repository";
 import { D1WorkRepository } from "../../src/infrastructure/db/work-repository";

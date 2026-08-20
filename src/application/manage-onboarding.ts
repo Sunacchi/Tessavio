@@ -8,7 +8,7 @@ import {
   type CommandContext,
   type CommandRegistration,
 } from "./handler-registry";
-import type { EffectRepository } from "./ports";
+import type { EffectRepository } from "./ports/effects";
 import { startOnboarding } from "../domains/onboarding/start";
 import type { Authorizer } from "../security/authorization";
 import type { Clock } from "../shared/contracts";

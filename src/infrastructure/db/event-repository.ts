@@ -4,7 +4,7 @@ import type {
   EventRepository,
   MutateEventResult,
   UndoEventResult,
-} from "../../application/ports";
+} from "../../application/ports/events";
 import type {
   EventDayWindow,
   EventRangeWindow,

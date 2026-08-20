@@ -1,10 +1,8 @@
 import { env } from "cloudflare:workers";
 import { createMessageBatch } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
-import type {
-  FinanceMutationContext,
-  TelegramReplyPort,
-} from "../../src/application/ports";
+import type { FinanceMutationContext } from "../../src/application/ports/finance";
+import type { TelegramReplyPort } from "../../src/application/ports/telegram";
 import type { InboundMessageEnvelope } from "../../src/application/queue-envelope";
 import { processInboundMessage } from "../../src/application/process-inbound";
 import { validateFinanceDateRange } from "../../src/domains/finance/finance";

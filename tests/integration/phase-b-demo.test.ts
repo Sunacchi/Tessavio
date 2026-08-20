@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { createMessageBatch } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { TelegramReplyPort } from "../../src/application/ports";
+import type { TelegramReplyPort } from "../../src/application/ports/telegram";
 import { handleInboundQueue } from "../../src/entrypoints/queue";
 import { handleTelegramWebhook } from "../../src/entrypoints/webhook";
 import {

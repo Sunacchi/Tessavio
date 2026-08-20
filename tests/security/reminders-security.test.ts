@@ -3,7 +3,7 @@ import { reminderDayViewContributor } from "../../src/application/manage-reminde
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { manageEvents } from "../../src/application/manage-events";
-import type { ReminderMutationContext } from "../../src/application/ports";
+import type { ReminderMutationContext } from "../../src/application/ports/reminders";
 import { D1EventRepository } from "../../src/infrastructure/db/event-repository";
 import { D1PreferenceRepository } from "../../src/infrastructure/db/preference-repository";
 import { D1ReminderRepository } from "../../src/infrastructure/db/reminder-repository";

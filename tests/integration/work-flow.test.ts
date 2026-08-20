@@ -6,10 +6,8 @@ import {
   manageWork,
   workDayViewContributor,
 } from "../../src/application/manage-work";
-import type {
-  TelegramReplyPort,
-  WorkMutationContext,
-} from "../../src/application/ports";
+import type { TelegramReplyPort } from "../../src/application/ports/telegram";
+import type { WorkMutationContext } from "../../src/application/ports/work";
 import type { InboundMessageEnvelope } from "../../src/application/queue-envelope";
 import { processInboundMessage } from "../../src/application/process-inbound";
 import { workReportWindow } from "../../src/domains/work/work";

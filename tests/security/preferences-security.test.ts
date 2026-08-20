@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { managePreferences } from "../../src/application/manage-preferences";
-import type { PreferenceMutationContext } from "../../src/application/ports";
+import type { PreferenceMutationContext } from "../../src/application/ports/preferences";
 import { D1PreferenceRepository } from "../../src/infrastructure/db/preference-repository";
 import { SelfScopeAuthorizer } from "../../src/security/authorization";
 import { FakeClock, SequenceIds } from "../helpers";

@@ -1,4 +1,7 @@
-import type { EffectRepository, EffectStatus } from "../../application/ports";
+import type {
+  EffectRepository,
+  EffectStatus,
+} from "../../application/ports/effects";
 import type { UserScope } from "../../shared/contracts";
 
 export class D1EffectRepository implements EffectRepository {

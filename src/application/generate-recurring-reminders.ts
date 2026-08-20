@@ -1,4 +1,4 @@
-import type { ReminderRecurrenceRepository } from "./ports";
+import type { ReminderRecurrenceRepository } from "./ports/recurrences";
 import { planReminderOccurrence } from "../domains/reminders/recurrence";
 import type { Clock, IdGenerator } from "../shared/contracts";
 

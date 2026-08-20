@@ -4,7 +4,7 @@ import type {
   PreferenceRepository,
   SetPreferencesResult,
   UndoPreferencesResult,
-} from "../../application/ports";
+} from "../../application/ports/preferences";
 import type {
   PreferenceProfile,
   PreferenceValues,

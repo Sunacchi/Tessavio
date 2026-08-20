@@ -13,7 +13,7 @@ import type {
   FinanceMutationContext,
   FinanceRepository,
   MutateFinanceResult,
-} from "./ports";
+} from "./ports/finance";
 import {
   financeListLimit,
   financeUndoTtlMs,

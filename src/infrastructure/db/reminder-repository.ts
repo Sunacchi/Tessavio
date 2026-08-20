@@ -5,7 +5,7 @@ import type {
   ReminderMutationContext,
   ReminderRepository,
   UndoReminderResult,
-} from "../../application/ports";
+} from "../../application/ports/reminders";
 import type { ReminderRecord } from "../../domains/reminders/reminders";
 import type { ReminderDayWindow } from "../../domains/reminders/reminders";
 import type { UserScope } from "../../shared/contracts";

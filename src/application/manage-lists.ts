@@ -18,7 +18,7 @@ import type {
   ListMutationContext,
   ListRepository,
   MutateListEntityResult,
-} from "./ports";
+} from "./ports/lists";
 import {
   listCollectionLimit,
   listItemLimit,

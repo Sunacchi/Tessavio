@@ -1,5 +1,5 @@
 import { Api, GrammyError, HttpError, InputFile } from "grammy";
-import type { TelegramReplyPort } from "../application/ports";
+import type { TelegramReplyPort } from "../application/ports/telegram";
 import { AppError } from "../shared/errors";
 
 export function normalizeTelegramReplyError(error: unknown): AppError {

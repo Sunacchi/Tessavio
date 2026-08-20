@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { createMessageBatch } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { InboundMessageEnvelope } from "../../src/application/queue-envelope";
-import type { TelegramReplyPort } from "../../src/application/ports";
+import type { TelegramReplyPort } from "../../src/application/ports/telegram";
 import { processInboundMessage } from "../../src/application/process-inbound";
 import { handleTelegramWebhook } from "../../src/entrypoints/webhook";
 import { handleInboundQueue } from "../../src/entrypoints/queue";

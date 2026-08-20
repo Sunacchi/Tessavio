@@ -62,8 +62,10 @@ vengono comunque toccati.
   storia del repository.
 - La direzione delle dipendenze di `REPOSITORY_STRUCTURE.md` resta invariata:
   cambia la granularità dei file, non i layer.
-- Rimane un periodo misto in cui `ports.ts` e `deterministic-command.ts`
-  contengono ancora le slice B: è accettato, purché non crescano.
+- Il periodo misto previsto è finito con la slice C0 (2026-08-19): i parser
+  vivono in `application/commands/<dominio>.ts`, le porte in
+  `application/ports/<slice>.ts` con `ports/index.ts` come solo re-export di
+  compatibilità, e `deterministic-command.ts` è ridotto al dispatch.
 - Il budget è una regola di review, non un lint: va verificato nel gate di
   qualità finché non esiste una regola automatica.
 

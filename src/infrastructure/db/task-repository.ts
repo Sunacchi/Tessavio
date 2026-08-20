@@ -4,7 +4,7 @@ import type {
   TaskMutationContext,
   TaskRepository,
   UndoTaskResult,
-} from "../../application/ports";
+} from "../../application/ports/tasks";
 import type {
   TaskDayWindow,
   TaskRangeWindow,

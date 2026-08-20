@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { manageReminderRecurrences } from "../../src/application/manage-reminder-recurrences";
-import type { ReminderRecurrenceMutationContext } from "../../src/application/ports";
+import type { ReminderRecurrenceMutationContext } from "../../src/application/ports/recurrences";
 import { D1PreferenceRepository } from "../../src/infrastructure/db/preference-repository";
 import { D1ReminderRecurrenceRepository } from "../../src/infrastructure/db/reminder-recurrence-repository";
 import { SelfScopeAuthorizer } from "../../src/security/authorization";

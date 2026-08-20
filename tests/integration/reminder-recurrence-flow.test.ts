@@ -3,10 +3,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { generateRecurringReminders } from "../../src/application/generate-recurring-reminders";
 import { manageReminderRecurrences } from "../../src/application/manage-reminder-recurrences";
 import { parseDeterministicCommand } from "../../src/application/deterministic-command";
-import type {
-  PreferenceMutationContext,
-  ReminderRecurrenceMutationContext,
-} from "../../src/application/ports";
+import type { PreferenceMutationContext } from "../../src/application/ports/preferences";
+import type { ReminderRecurrenceMutationContext } from "../../src/application/ports/recurrences";
 import {
   validateReminderRecurrence,
   type ReminderRecurrenceValues,

@@ -41,21 +41,19 @@ import {
   workDayViewContributor,
   workUndoHandler,
 } from "../src/application/manage-work";
-import type {
-  DeliveryRepository,
-  EffectRepository,
-  EventRepository,
-  FinanceRepository,
-  IdentityRepository,
-  InboundRepository,
-  ListRepository,
-  PreferenceRepository,
-  ReminderRecurrenceRepository,
-  ReminderRepository,
-  TaskRepository,
-  TelegramReplyPort,
-  WorkRepository,
-} from "../src/application/ports";
+import type { DeliveryRepository } from "../src/application/ports/delivery";
+import type { EffectRepository } from "../src/application/ports/effects";
+import type { EventRepository } from "../src/application/ports/events";
+import type { FinanceRepository } from "../src/application/ports/finance";
+import type { IdentityRepository } from "../src/application/ports/identity";
+import type { InboundRepository } from "../src/application/ports/inbound";
+import type { ListRepository } from "../src/application/ports/lists";
+import type { PreferenceRepository } from "../src/application/ports/preferences";
+import type { ReminderRecurrenceRepository } from "../src/application/ports/recurrences";
+import type { ReminderRepository } from "../src/application/ports/reminders";
+import type { TaskRepository } from "../src/application/ports/tasks";
+import type { TelegramReplyPort } from "../src/application/ports/telegram";
+import type { WorkRepository } from "../src/application/ports/work";
 import type { ProcessInboundDependencies } from "../src/application/process-inbound";
 import type { UndoHandler } from "../src/application/undo-registry";
 import type { Authorizer } from "../src/security/authorization";

@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { manageLists } from "../../src/application/manage-lists";
-import type { ListMutationContext } from "../../src/application/ports";
+import type { ListMutationContext } from "../../src/application/ports/lists";
 import { D1ListRepository } from "../../src/infrastructure/db/list-repository";
 import { SelfScopeAuthorizer } from "../../src/security/authorization";
 import { AppError } from "../../src/shared/errors";

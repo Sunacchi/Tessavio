@@ -8,8 +8,8 @@ import type {
   EventMutationContext,
   EventRepository,
   MutateEventResult,
-  PreferenceRepository,
-} from "./ports";
+} from "./ports/events";
+import type { PreferenceRepository } from "./ports/preferences";
 import { collectDayView, type DayViewContributor } from "./day-view";
 import {
   commandRegistration,

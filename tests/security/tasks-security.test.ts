@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { manageTasks } from "../../src/application/manage-tasks";
-import type { TaskMutationContext } from "../../src/application/ports";
+import type { TaskMutationContext } from "../../src/application/ports/tasks";
 import { D1PreferenceRepository } from "../../src/infrastructure/db/preference-repository";
 import { D1TaskRepository } from "../../src/infrastructure/db/task-repository";
 import { SelfScopeAuthorizer } from "../../src/security/authorization";

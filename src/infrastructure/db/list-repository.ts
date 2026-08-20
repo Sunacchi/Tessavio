@@ -4,7 +4,7 @@ import type {
   ListRepository,
   MutateListEntityResult,
   UndoListResult,
-} from "../../application/ports";
+} from "../../application/ports/lists";
 import {
   listItemLimit,
   type ListEntityKind,

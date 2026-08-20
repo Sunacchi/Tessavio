@@ -6,7 +6,7 @@ import type {
   ReminderRecurrenceMutationContext,
   ReminderRecurrenceRepository,
   UndoReminderRecurrenceResult,
-} from "../../application/ports";
+} from "../../application/ports/recurrences";
 import type {
   ReminderOccurrencePlan,
   ReminderRecurrenceRecord,

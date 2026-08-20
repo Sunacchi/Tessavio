@@ -1,6 +1,6 @@
 import { processInboundMessage } from "../application/process-inbound";
 import { sendReminderNotification } from "../application/send-reminder-notification";
-import type { TelegramReplyPort } from "../application/ports";
+import type { TelegramReplyPort } from "../application/ports/telegram";
 import { queueEnvelopeSchema } from "../application/queue-envelope";
 import { D1NotificationDeliveryRepository } from "../infrastructure/db/notification-delivery-repository";
 import { parseConfig } from "../shared/config";

@@ -2,7 +2,7 @@ import { z } from "zod";
 import type {
   InboundRepository,
   RegisteredInbound,
-} from "../../application/ports";
+} from "../../application/ports/inbound";
 import {
   inboundMessageEnvelopeSchema,
   type InboundMessageEnvelope,

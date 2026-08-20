@@ -9,13 +9,11 @@ import {
   type CommandRegistration,
   type CommandReply,
 } from "./handler-registry";
-import type {
-  EventRepository,
-  FinanceRepository,
-  PreferenceRepository,
-  TaskRepository,
-  WorkRepository,
-} from "./ports";
+import type { EventRepository } from "./ports/events";
+import type { FinanceRepository } from "./ports/finance";
+import type { PreferenceRepository } from "./ports/preferences";
+import type { TaskRepository } from "./ports/tasks";
+import type { WorkRepository } from "./ports/work";
 import type { EventRecord } from "../domains/events/events";
 import {
   calculateFinanceTotals,

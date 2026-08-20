@@ -37,7 +37,7 @@ import {
   workDayViewContributor,
   workUndoHandler,
 } from "../application/manage-work";
-import type { TelegramReplyPort } from "../application/ports";
+import type { TelegramReplyPort } from "../application/ports/telegram";
 import type { ProcessInboundDependencies } from "../application/process-inbound";
 import { D1DeliveryRepository } from "../infrastructure/db/delivery-repository";
 import { D1EffectRepository } from "../infrastructure/db/effect-repository";

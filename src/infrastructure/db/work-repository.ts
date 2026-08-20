@@ -5,7 +5,7 @@ import type {
   WorkEntityKind,
   WorkMutationContext,
   WorkRepository,
-} from "../../application/ports";
+} from "../../application/ports/work";
 import {
   calculateWorkReport,
   workListLimit,

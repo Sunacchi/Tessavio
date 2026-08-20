@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { manageFinance } from "../../src/application/manage-finance";
-import type { FinanceMutationContext } from "../../src/application/ports";
+import type { FinanceMutationContext } from "../../src/application/ports/finance";
 import { D1FinanceRepository } from "../../src/infrastructure/db/finance-repository";
 import { SelfScopeAuthorizer } from "../../src/security/authorization";
 import { AppError } from "../../src/shared/errors";

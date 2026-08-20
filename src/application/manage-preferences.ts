@@ -9,7 +9,7 @@ import {
   type CommandRegistration,
 } from "./handler-registry";
 import type { UndoHandler } from "./undo-registry";
-import type { PreferenceRepository } from "./ports";
+import type { PreferenceRepository } from "./ports/preferences";
 import {
   preferenceUndoTtlMs,
   validateQuietHours,

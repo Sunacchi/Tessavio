@@ -1,10 +1,8 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { InboundMessageEnvelope } from "../../src/application/queue-envelope";
-import type {
-  TaskMutationContext,
-  TelegramReplyPort,
-} from "../../src/application/ports";
+import type { TaskMutationContext } from "../../src/application/ports/tasks";
+import type { TelegramReplyPort } from "../../src/application/ports/telegram";
 import { processInboundMessage } from "../../src/application/process-inbound";
 import { D1DeliveryRepository } from "../../src/infrastructure/db/delivery-repository";
 import { D1EffectRepository } from "../../src/infrastructure/db/effect-repository";

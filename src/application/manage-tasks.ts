@@ -10,12 +10,12 @@ import {
   type CommandRegistration,
 } from "./handler-registry";
 import type { UndoHandler } from "./undo-registry";
+import type { PreferenceRepository } from "./ports/preferences";
 import type {
   MutateTaskResult,
-  PreferenceRepository,
   TaskMutationContext,
   TaskRepository,
-} from "./ports";
+} from "./ports/tasks";
 import {
   taskUndoTtlMs,
   validateTask,

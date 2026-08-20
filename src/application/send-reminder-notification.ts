@@ -1,10 +1,10 @@
+import type { IdentityRepository } from "./ports/identity";
+import type { PreferenceRepository } from "./ports/preferences";
 import type {
-  IdentityRepository,
   NotificationDeliveryRepository,
-  PreferenceRepository,
   ReminderRepository,
-  TelegramReplyPort,
-} from "./ports";
+} from "./ports/reminders";
+import type { TelegramReplyPort } from "./ports/telegram";
 import type { SendNotificationEnvelope } from "./queue-envelope";
 import {
   isWithinQuietHours,

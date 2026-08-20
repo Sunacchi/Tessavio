@@ -2,11 +2,9 @@ import { env } from "cloudflare:workers";
 import { createMessageBatch } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { SendNotificationEnvelope } from "../../src/application/queue-envelope";
-import type {
-  PreferenceMutationContext,
-  ReminderMutationContext,
-  TelegramReplyPort,
-} from "../../src/application/ports";
+import type { PreferenceMutationContext } from "../../src/application/ports/preferences";
+import type { ReminderMutationContext } from "../../src/application/ports/reminders";
+import type { TelegramReplyPort } from "../../src/application/ports/telegram";
 import { handleInboundQueue } from "../../src/entrypoints/queue";
 import { dispatchDueReminders } from "../../src/entrypoints/scheduled";
 import { handleTelegramWebhook } from "../../src/entrypoints/webhook";

@@ -4,7 +4,7 @@ import type {
   FinanceRepository,
   MutateFinanceResult,
   UndoFinanceResult,
-} from "../../application/ports";
+} from "../../application/ports/finance";
 import {
   financeMaximumAmountMinor,
   type FinanceCurrencyTotal,
