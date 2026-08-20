@@ -21,13 +21,26 @@ import type {
   AiJobQueuePort,
   AiProviderPort,
 } from "../src/application/ports/ai";
+import type {
+  AiAuthorizationPort,
+  AiKeyInspectionPort,
+} from "../src/application/ports/ai-credentials";
 import type { TelegramReplyPort } from "../src/application/ports/telegram";
 import type { ProcessAiProposalDependencies } from "../src/application/process-ai-proposal";
+import {
+  resolveApiKey,
+  type LinkAiCredentialDependencies,
+} from "../src/application/link-ai-credential";
 import type { ProcessInboundDependencies } from "../src/application/process-inbound";
 import type { AiProposalJobEnvelope } from "../src/application/queue-envelope";
 import { modelPolicy } from "../src/ai/model-policy";
 import { c1Actions, type AiAction } from "../src/domains/ai/proposal";
 import { D1AiProposalRepository } from "../src/infrastructure/db/ai-proposal-repository";
+import {
+  D1AiBudgetRepository,
+  D1AiCredentialRepository,
+  D1AiOauthSessionRepository,
+} from "../src/infrastructure/db/ai-credential-repository";
 import { D1DeliveryRepository } from "../src/infrastructure/db/delivery-repository";
 import { D1EffectRepository } from "../src/infrastructure/db/effect-repository";
 import { D1EventRepository } from "../src/infrastructure/db/event-repository";
@@ -39,7 +52,8 @@ import { D1TaskRepository } from "../src/infrastructure/db/task-repository";
 import { MockAiProvider } from "../src/infrastructure/ai/mock-provider";
 import { SelfScopeAuthorizer } from "../src/security/authorization";
 import type { AiMode } from "../src/shared/config";
-import type { Clock, IdGenerator } from "../src/shared/contracts";
+import type { KekRing } from "../src/security/credential-crypto";
+import type { Clock, IdGenerator, UserScope } from "../src/shared/contracts";
 
 export class CapturingAiQueue implements AiJobQueuePort {
   readonly published: {
@@ -94,6 +108,8 @@ export interface AiTestRuntime {
   readonly queue: CapturingAiQueue;
   readonly proposals: D1AiProposalRepository;
   readonly inbox: D1InboundRepository;
+  readonly link: LinkAiCredentialDependencies;
+  readonly budget: D1AiBudgetRepository;
 }
 
 /**
@@ -111,6 +127,13 @@ export function createAiTestRuntime(
     readonly leaseSeconds?: number;
     readonly enabledActions?: readonly AiAction[];
     readonly confirmationTtlMs?: number;
+    readonly kek?: KekRing | null;
+    readonly authorization?: AiAuthorizationPort;
+    readonly keyInspection?: AiKeyInspectionPort | null;
+    readonly publicBaseUrl?: string | null;
+    readonly requiresCredential?: boolean;
+    readonly dailyBudgetMicros?: number;
+    readonly maxCostMicros?: number;
   },
 ): AiTestRuntime {
   const authorizer = new SelfScopeAuthorizer();
@@ -126,6 +149,26 @@ export function createAiTestRuntime(
   const proposals = new D1AiProposalRepository(database);
   const queue = new CapturingAiQueue();
   const mode = options.mode ?? "mock";
+  const credentials = new D1AiCredentialRepository(database);
+  const sessions = new D1AiOauthSessionRepository(database);
+  const budget = new D1AiBudgetRepository(database);
+  const link: LinkAiCredentialDependencies = {
+    authorizer,
+    authorization: options.authorization ?? {
+      authorizeUrl: () => "https://provider.test/auth",
+      exchange: () => Promise.resolve({ outcome: "rejected" as const }),
+    },
+    clock,
+    credentials,
+    ids,
+    keyInspection: options.keyInspection ?? {
+      inspect: () => Promise.resolve(null),
+    },
+    kek: options.kek ?? null,
+    publicBaseUrl: options.publicBaseUrl ?? null,
+    sessionTtlMs: 10 * 60 * 1_000,
+    sessions,
+  };
 
   const executionRegistry = createCommandRegistry([
     eventCommandRegistration({
@@ -195,6 +238,7 @@ export function createAiTestRuntime(
       executor,
       ids,
       jobs: queue,
+      link,
       mode,
       model: "mock/deterministic-v1",
       preferences,
@@ -215,6 +259,10 @@ export function createAiTestRuntime(
     },
     aiJob: {
       authorizer,
+      budget,
+      keyInspection: options.keyInspection ?? null,
+      requiresCredential: options.requiresCredential ?? false,
+      resolveApiKey: (scope: UserScope) => resolveApiKey(scope, link),
       candidateContributors: [
         eventCandidateContributor({ authorizer, events }),
         reminderCandidateContributor({ authorizer, reminders }),
@@ -229,8 +277,8 @@ export function createAiTestRuntime(
       policy: modelPolicy({
         provider: "mock",
         model: "mock/deterministic-v1",
-        maxCostMicrosPerOperation: 5_000,
-        dailyBudgetMicrosPerUser: 500_000,
+        maxCostMicrosPerOperation: options.maxCostMicros ?? 5_000,
+        dailyBudgetMicrosPerUser: options.dailyBudgetMicros ?? 500_000,
         enabledActions: options.enabledActions ?? c1Actions,
       }),
       preferences,
@@ -242,5 +290,7 @@ export function createAiTestRuntime(
     queue,
     proposals,
     inbox,
+    link,
+    budget,
   };
 }

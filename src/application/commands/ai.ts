@@ -9,6 +9,8 @@ export type AiCommand =
   | { readonly kind: "ai.status" }
   | { readonly kind: "ai.propose"; readonly text: string }
   | { readonly kind: "ai.confirm"; readonly token: string }
+  | { readonly kind: "ai.link" }
+  | { readonly kind: "ai.unlink" }
   | { readonly kind: "ai.invalid" };
 
 export function parseAiCommand(text: string): AiCommand {
@@ -16,6 +18,12 @@ export function parseAiCommand(text: string): AiCommand {
   if (parts.length === 1) return { kind: "ai.status" };
 
   const operation = parts[1]?.toLowerCase();
+  if (operation === "collega") {
+    return parts.length === 2 ? { kind: "ai.link" } : { kind: "ai.invalid" };
+  }
+  if (operation === "scollega") {
+    return parts.length === 2 ? { kind: "ai.unlink" } : { kind: "ai.invalid" };
+  }
   if (operation === "conferma") {
     const token = parts[2];
     if (
@@ -42,6 +50,8 @@ export const aiCommandKinds = [
   "ai.status",
   "ai.propose",
   "ai.confirm",
+  "ai.link",
+  "ai.unlink",
   "ai.invalid",
 ] as const;
 

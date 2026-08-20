@@ -29,7 +29,7 @@ export async function handleInboundQueue(
 ): Promise<void> {
   const config = parseConfig(env);
   const clock = overrides.clock ?? systemClock;
-  const runtime = buildInboundRuntime(env, config, {
+  const runtime = await buildInboundRuntime(env, config, {
     clock,
     ids: overrides.ids ?? cryptoIdGenerator,
     reply:

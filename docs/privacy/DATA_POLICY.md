@@ -14,7 +14,11 @@
 | estratto/provenance      | con l'entità utile; policy di dominio     |
 | prompt raw nei log       | disabilitato                              |
 | testo normalizzato inbox | 7 giorni per A1                           |
-| ActionProposal           | 30-90 giorni, da approvare prima di C     |
+| ActionProposal C1        | 30 giorni; purge idempotente e bounded    |
+| token conferma proposta  | TTL 15 minuti; purge alla scadenza        |
+| sessione OAuth C2        | TTL 10 minuti; purge dopo la scadenza     |
+| credenziale BYOK C2      | cifrata; fino a `/ai scollega` o delete   |
+| ledger budget AI C2      | 90 giorni; prenotazioni appese rilasciate |
 | effect/delivery A1       | 30 giorni                                 |
 | audit identità A1        | minimo 90 giorni; approvazione produzione |
 | preferenze temporali B1  | fino a cancellazione utente               |

@@ -60,7 +60,7 @@ export interface InboundRuntime {
  * Una slice assente qui semplicemente non è registrata, e il registry risponde
  * che la funzione non è disponibile invece di lanciare.
  */
-export function buildInboundRuntime(
+export async function buildInboundRuntime(
   env: Env,
   config: AppConfig,
   runtime: {
@@ -68,7 +68,7 @@ export function buildInboundRuntime(
     readonly ids: IdGenerator;
     readonly reply: TelegramReplyPort;
   },
-): InboundRuntime {
+): Promise<InboundRuntime> {
   const { clock, ids, reply } = runtime;
   const authorizer = new SelfScopeAuthorizer();
   const repositories = createSliceRepositories(env);
@@ -84,7 +84,7 @@ export function buildInboundRuntime(
     work,
   } = repositories;
 
-  const ai = buildAiRuntime({
+  const ai = await buildAiRuntime({
     env,
     config,
     authorizer,

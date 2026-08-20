@@ -52,6 +52,26 @@ const configSchema = z.object({
   AI_CONFIRMATION_TTL_MINUTES: positiveIntegerString
     .pipe(z.number().max(1_440))
     .optional(),
+  AI_OAUTH_SESSION_TTL_MINUTES: positiveIntegerString
+    .pipe(z.number().max(60))
+    .optional(),
+  AI_REQUEST_TIMEOUT_MS: positiveIntegerString
+    .pipe(z.number().max(120_000))
+    .optional(),
+  AI_PUBLIC_BASE_URL: z
+    .url()
+    .refine((url) => url.startsWith("https://"))
+    .optional(),
+  AI_OPENROUTER_BASE_URL: z
+    .url()
+    .refine((url) => url.startsWith("https://"))
+    .optional(),
+  AI_KEK: z.string().min(1).max(256).optional(),
+  AI_KEK_VERSION: positiveIntegerString.pipe(z.number().max(1_000)).optional(),
+  AI_KEK_PREVIOUS: z.string().min(1).max(256).optional(),
+  AI_KEK_PREVIOUS_VERSION: positiveIntegerString
+    .pipe(z.number().max(1_000))
+    .optional(),
 });
 
 export type AppConfig = z.output<typeof configSchema>;
@@ -70,9 +90,16 @@ export interface AiRuntimeConfig {
   readonly dailyBudgetMicros: number;
   readonly proposalRetentionMs: number;
   readonly confirmationTtlMs: number;
+  readonly oauthSessionTtlMs: number;
+  readonly requestTimeoutMs: number;
+  readonly publicBaseUrl: string | null;
+  readonly providerBaseUrl: string;
 }
 
 const defaultAiLeaseSeconds = 180;
+const defaultOauthSessionTtlMinutes = 10;
+const defaultRequestTimeoutMs = 20_000;
+const defaultProviderBaseUrl = "https://openrouter.ai";
 const defaultAiRetentionDays = 30;
 const defaultConfirmationTtlMinutes = 15;
 
@@ -98,5 +125,12 @@ export function aiRuntimeConfig(config: AppConfig): AiRuntimeConfig {
       (config.AI_CONFIRMATION_TTL_MINUTES ?? defaultConfirmationTtlMinutes) *
       60 *
       1_000,
+    oauthSessionTtlMs:
+      (config.AI_OAUTH_SESSION_TTL_MINUTES ?? defaultOauthSessionTtlMinutes) *
+      60 *
+      1_000,
+    requestTimeoutMs: config.AI_REQUEST_TIMEOUT_MS ?? defaultRequestTimeoutMs,
+    publicBaseUrl: config.AI_PUBLIC_BASE_URL ?? null,
+    providerBaseUrl: config.AI_OPENROUTER_BASE_URL ?? defaultProviderBaseUrl,
   };
 }

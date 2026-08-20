@@ -79,3 +79,105 @@ export const aiProposalConfirmations = sqliteTable(
     ),
   ],
 );
+
+/**
+ * Sessione OAuth opaca: user-bound, single-use, TTL 10 minuti. OpenRouter non
+ * documenta un parametro `state`, quindi il binding CSRF viaggia nel
+ * `callback_url` ed è questa riga a legarlo all'utente.
+ */
+export const aiOauthSessions = sqliteTable(
+  "ai_oauth_sessions",
+  {
+    sessionId: text("session_id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    chatId: text("chat_id").notNull(),
+    codeVerifier: text("code_verifier").notNull(),
+    codeChallenge: text("code_challenge").notNull(),
+    status: text("status", { enum: ["pending", "consumed"] }).notNull(),
+    correlationId: text("correlation_id").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    consumedAt: integer("consumed_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    index("ai_oauth_sessions_scope_idx").on(table.userId, table.status),
+    index("ai_oauth_sessions_expiry_idx").on(table.expiresAt),
+    check(
+      "ai_oauth_sessions_status_ck",
+      sql`${table.status} IN ('pending', 'consumed')`,
+    ),
+  ],
+);
+
+/**
+ * Credenziale BYOK cifrata con envelope encryption: la chiave in chiaro non
+ * viene mai persistita e non transita da Telegram.
+ */
+export const aiCredentials = sqliteTable(
+  "ai_credentials",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: text("provider", { enum: ["openrouter"] }).notNull(),
+    status: text("status", { enum: ["active", "revoked"] }).notNull(),
+    recordVersion: integer("record_version").notNull(),
+    kekVersion: integer("kek_version").notNull(),
+    nonce: text("nonce").notNull(),
+    wrappedDek: text("wrapped_dek").notNull(),
+    ciphertext: text("ciphertext").notNull(),
+    label: text("label"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    check(
+      "ai_credentials_status_ck",
+      sql`${table.status} IN ('active', 'revoked')`,
+    ),
+    check(
+      "ai_credentials_provider_ck",
+      sql`${table.provider} IN ('openrouter')`,
+    ),
+    check("ai_credentials_version_ck", sql`${table.recordVersion} > 0`),
+  ],
+);
+
+/**
+ * Ledger del budget: la prenotazione è atomica e precede la chiamata, il
+ * consuntivo la chiude col costo reale. Tre controlli distinti restano
+ * distinti: budget applicativo, hard limit del provider, costo per operazione.
+ */
+export const aiBudgetEntries = sqliteTable(
+  "ai_budget_entries",
+  {
+    entryKey: text("entry_key").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    localDate: text("local_date").notNull(),
+    reservedMicros: integer("reserved_micros").notNull(),
+    actualMicros: integer("actual_micros"),
+    status: text("status", {
+      enum: ["reserved", "settled", "released"],
+    }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    index("ai_budget_entries_scope_day_idx").on(
+      table.userId,
+      table.localDate,
+      table.status,
+    ),
+    index("ai_budget_entries_stale_idx").on(table.status, table.updatedAt),
+    check(
+      "ai_budget_entries_status_ck",
+      sql`${table.status} IN ('reserved', 'settled', 'released')`,
+    ),
+    check("ai_budget_entries_reserved_ck", sql`${table.reservedMicros} >= 0`),
+  ],
+);

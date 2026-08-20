@@ -21,6 +21,7 @@
 | ricorrenze reminder daily/weekly non generate o duplicate     | [B6_REMINDER_RECURRENCE_RECOVERY](B6_REMINDER_RECURRENCE_RECOVERY.md) |
 | report e CSV                                                  | [B7_REPORTS_RECOVERY](B7_REPORTS_RECOVERY.md)                         |
 | proposte AI: job bloccati, output non valido, conferme        | [C1_PROPOSALS_RECOVERY](C1_PROPOSALS_RECOVERY.md)                     |
+| OAuth BYOK, credenziali cifrate, budget e rotazione KEK       | [C2_OAUTH_RECOVERY](C2_OAUTH_RECOVERY.md)                             |
 | riprodurre il gate di chiusura Phase B                        | [PHASE_B_CLOSURE](PHASE_B_CLOSURE.md)                                 |
 | capacità D1, DLQ, residenza e DPIA prima del pilot            | [PRE_PILOT_OPERATIONS](PRE_PILOT_OPERATIONS.md)                       |
 

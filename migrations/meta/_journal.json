@@ -71,6 +71,13 @@
       "when": 1787203841585,
       "tag": "0009_blue_kingpin",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1787206564799,
+      "tag": "0010_daffy_old_lace",
+      "breakpoints": true
     }
   ]
 }

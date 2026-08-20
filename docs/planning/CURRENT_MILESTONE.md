@@ -1,39 +1,44 @@
-# Milestone corrente — C1 ActionProposal con provider mock
+# Milestone corrente — C2 OAuth, cifratura, budget e privacy
 
-**Stato: attiva dal 2026-08-20.** Slice C0 chiusa e firmata; il perimetro
-autorizzato è ora C1 come descritto in [phases/c-ai-byok.md](phases/c-ai-byok.md).
-Il contratto congelato è in [ADR-0023](../decisions/0023-action-proposal-contract.md).
+**Stato: attiva dal 2026-08-20.** Slice C1 chiusa e firmata; il perimetro
+autorizzato è ora C2 come descritto in [phases/c-ai-byok.md](phases/c-ai-byok.md).
+I contratti congelati sono in [ADR-0024](../decisions/0024-oauth-and-credential-crypto.md)
+(OAuth e crypto) e [ADR-0025](../decisions/0025-ai-budget-privacy-model-policy.md)
+(budget, privacy, model policy).
 
 ## Risultato atteso
 
-Un testo libero passato a `/ai proponi` produce proposte strutturate che
-attraversano schema strict → Zod → validator semantico → confirmation policy →
-dominio, con **provider mock**: nessuna rete, nessuna credenziale, nessun costo.
-Un output non valido non scrive mai nulla.
+L'utente collega la propria chiave OpenRouter con un flusso OAuth PKCE che non
+fa mai passare la chiave da Telegram; la credenziale è cifrata con envelope
+encryption legata al tenant; ogni chiamata passa da tre controlli distinti
+(budget applicativo prenotato, hard limit del provider, costo massimo per
+operazione) e da una configurazione di privacy strict.
 
 ## Gate di chiusura
 
-- test di conformità dello schema strict verde;
-- property test: nessun input produce `execute_with_undo` per una classe
-  distruttiva o per cardinalità > 1;
-- idempotenza sotto retry: stesso `jobId` due volte, una sola chiamata al
-  provider e una sola scrittura;
-- cross-tenant, prompt injection, output invalido e conferma altrui coperti da
-  test security;
-- `NO_AI` verde: il Worker parte senza alcuna variabile AI;
-- migration provata fresh e upgrade, con `provenance` a `entered` sul dato
-  preesistente e ledger `effects` integro;
-- baseline del benchmark registrata;
+- test security su replay, sessione scaduta, PKCE errato, callback concorrente,
+  host fuori allowlist, rate limit e revoca;
+- test crypto su cross-tenant, manomissione, rotazione KEK e unicità del nonce;
+- test a due job concorrenti sul budget: esattamente una chiamata al provider;
+- prenotazione appesa rilasciata invece di bloccare il budget;
+- migration additiva provata fresh e upgrade, con conservazione dei ciphertext;
 - `npm run validate` verde.
+
+## Fuori perimetro, per decisione firmata (G0.2)
+
+Lo **smoke live** con OpenRouter reale non fa parte di questa slice: non esiste
+un host pubblico e non è autorizzato alcun deploy. C2 chiude **verde in locale
+con smoke live pendente**, e la procedura per eseguirlo quando l'host esisterà è
+nel [runbook C2](../runbooks/C2_OAUTH_RECOVERY.md).
 
 ## Out of scope
 
-- OAuth OpenRouter, credenziali utente, cifratura, budget monetario reale (C2);
-- estensione dell'enum a lavoro, finanze e liste (C1.2);
+- estensione dell'enum azioni a lavoro, finanze e liste (C1.2);
 - testo libero senza comando esplicito, inoltri e link (C3);
+- modalità free/best-effort, esclusa dalla Phase C;
 - creazione di risorse Cloudflare remote e deploy.
 
 ## Prossima decisione
 
-C2 si attiva solo con un ulteriore aggiornamento esplicito di questo file, dopo
-la firma del gate C1.
+C1.2 si attiva solo con un ulteriore aggiornamento esplicito di questo file,
+dopo la firma del gate C2.

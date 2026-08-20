@@ -27,7 +27,8 @@ export type Action =
   | "reports:read"
   | "undo:usage"
   | "ai:propose"
-  | "ai:execute";
+  | "ai:execute"
+  | "ai:link";
 
 export interface AuthorizationRequest {
   readonly actorUserId: string;

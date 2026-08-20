@@ -713,4 +713,73 @@ describe("foundation migration", () => {
       ),
     ).toBe(true);
   });
+  it("aggiunge le tabelle C2 e conserva i ciphertext su un worker N-1", async () => {
+    const c2MigrationIndex = env.TEST_MIGRATIONS.findIndex((migration) =>
+      migration.name.startsWith("0010_"),
+    );
+    expect(c2MigrationIndex).toBeGreaterThan(0);
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(0, c2MigrationIndex),
+    );
+    const timestamp = Date.parse("2026-08-20T10:00:00Z");
+    await env.UPGRADE_DB.prepare(
+      "INSERT INTO users (id, status, created_at) VALUES ('c2-upgrade', 'active', ?)",
+    )
+      .bind(timestamp)
+      .run();
+
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(c2MigrationIndex),
+    );
+
+    const tables = await env.UPGRADE_DB.prepare(
+      `SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (
+        'ai_credentials', 'ai_oauth_sessions', 'ai_budget_entries'
+      ) ORDER BY name`,
+    ).all<{ name: string }>();
+    expect(tables.results.map((row) => row.name)).toEqual([
+      "ai_budget_entries",
+      "ai_credentials",
+      "ai_oauth_sessions",
+    ]);
+
+    // Un ciphertext scritto sullo schema N sopravvive a una riapplicazione
+    // delle migration (idempotente) e resta leggibile con i suoi metadati.
+    await env.UPGRADE_DB.prepare(
+      `INSERT INTO ai_credentials (
+        user_id, provider, status, record_version, kek_version, nonce,
+        wrapped_dek, ciphertext, label, created_at, updated_at, revoked_at
+      ) VALUES ('c2-upgrade','openrouter','active',1,1,'bm9uY2U=','d3JhcA==',
+        'Y2lwaGVy',NULL,?,?,NULL)`,
+    )
+      .bind(timestamp, timestamp)
+      .run();
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(c2MigrationIndex),
+    );
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT ciphertext, kek_version, record_version FROM ai_credentials WHERE user_id = 'c2-upgrade'",
+      ).first(),
+    ).resolves.toEqual({
+      ciphertext: "Y2lwaGVy",
+      kek_version: 1,
+      record_version: 1,
+    });
+
+    const budgetPlan = await env.UPGRADE_DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT reserved_micros FROM ai_budget_entries
+       WHERE user_id = ? AND local_date = ? AND status IN ('reserved', 'settled')`,
+    )
+      .bind("c2-upgrade", "2026-08-20")
+      .all<{ detail: string }>();
+    expect(
+      budgetPlan.results.some((row) =>
+        row.detail.includes("ai_budget_entries_scope_day_idx"),
+      ),
+    ).toBe(true);
+  });
 });

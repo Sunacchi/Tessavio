@@ -1,4 +1,8 @@
 import { D1AiProposalRepository } from "../infrastructure/db/ai-proposal-repository";
+import {
+  D1AiBudgetRepository,
+  D1AiOauthSessionRepository,
+} from "../infrastructure/db/ai-credential-repository";
 import { D1InboundRepository } from "../infrastructure/db/inbound-repository";
 import { D1ReminderRepository } from "../infrastructure/db/reminder-repository";
 import { D1ReminderRecurrenceRepository } from "../infrastructure/db/reminder-recurrence-repository";
@@ -132,9 +136,22 @@ export async function purgeExpiredAiProposals(
 ): Promise<void> {
   if (aiRuntimeConfig(config).mode === "disabled") return;
   const proposals = new D1AiProposalRepository(env.DB);
-  const removed = await proposals.purgeExpired(clock.now(), 200);
-  if (removed > 0) {
-    logEvent("info", "ai.retention_purged", { state: String(removed) });
+  const sessions = new D1AiOauthSessionRepository(env.DB);
+  const budget = new D1AiBudgetRepository(env.DB);
+  const now = clock.now();
+  const removed =
+    (await proposals.purgeExpired(now, 200)) +
+    (await sessions.purgeExpired(now, 200));
+  // Una prenotazione senza consuntivo non può bloccare il budget per sempre:
+  // dopo un'ora viene rilasciata.
+  const released = await budget.releaseStale(
+    new Date(now.getTime() - 60 * 60 * 1_000),
+    200,
+  );
+  if (removed > 0 || released > 0) {
+    logEvent("info", "ai.retention_purged", {
+      state: `${String(removed)}/${String(released)}`,
+    });
   }
 }
 

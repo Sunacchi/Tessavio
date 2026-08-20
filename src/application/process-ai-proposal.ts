@@ -11,6 +11,10 @@ import type {
   AiProviderPort,
   ProposalCandidateContributor,
 } from "./ports/ai";
+import type {
+  AiBudgetRepository,
+  AiKeyInspectionPort,
+} from "./ports/ai-credentials";
 import type { DeliveryRepository } from "./ports/delivery";
 import type { PreferenceRepository } from "./ports/preferences";
 import type { TelegramReplyPort } from "./ports/telegram";
@@ -38,6 +42,11 @@ import { AppError } from "../shared/errors";
 
 export interface ProcessAiProposalDependencies {
   readonly authorizer: Authorizer;
+  readonly budget: AiBudgetRepository;
+  /** `null` quando il provider non richiede credenziali (mock). */
+  readonly keyInspection: AiKeyInspectionPort | null;
+  readonly resolveApiKey: (scope: UserScope) => Promise<string | null>;
+  readonly requiresCredential: boolean;
   readonly candidateContributors: readonly ProposalCandidateContributor[];
   readonly clock: Clock;
   readonly confirmationTtlMs: number;
@@ -63,6 +72,16 @@ const referenceActions: ReadonlySet<AiAction> = new Set([
   "reminders.cancel",
   "tasks.complete",
 ]);
+
+const budgetExhaustedReply = [
+  "Budget AI giornaliero esaurito: non ho chiamato il modello e non ho scritto nulla.",
+  "Puoi usare i comandi espliciti, oppure riprovare domani.",
+].join("\n");
+
+const missingCredentialReply = [
+  "Nessuna chiave collegata: non posso chiamare il modello.",
+  "Usa /ai collega per collegarla, oppure continua con i comandi espliciti.",
+].join("\n");
 
 const invalidOutputReply = [
   "Non sono riuscito a interpretare la risposta del modello, quindi non ho scritto nulla.",
@@ -222,19 +241,79 @@ export async function processAiProposal(
       profile.timeZone,
       0,
     );
-    const result = await dependencies.provider.propose({
-      context: {
-        messageText: envelope.payload.messageText,
-        timeZone: profile.timeZone,
-        localDate: window.localDate,
-        enabledActions: dependencies.policy.enabledActions,
-      },
-      schema: buildStrictProposalSchema(dependencies.policy.enabledActions),
-      model: dependencies.policy.model,
-      apiKey: null,
-      correlationId: envelope.correlationId,
-      maxCostMicros: dependencies.policy.maxCostMicrosPerOperation,
-    });
+
+    const apiKey = dependencies.requiresCredential
+      ? await dependencies.resolveApiKey(scope)
+      : null;
+    if (dependencies.requiresCredential && apiKey === null) {
+      return finish(dependencies, scope, envelope, missingCredentialReply);
+    }
+
+    // Tre controlli distinti e non sostituibili: budget applicativo
+    // (prenotazione atomica), hard limit del provider (pre-volo sulla chiave)
+    // e costo massimo per operazione (`max_price` nella richiesta).
+    const budgetKey = `ai-budget:${envelope.jobId}`;
+    const reservation = await dependencies.budget.reserve(
+      scope,
+      budgetKey,
+      window.localDate,
+      dependencies.policy.maxCostMicrosPerOperation,
+      dependencies.policy.dailyBudgetMicrosPerUser,
+      dependencies.clock.now(),
+    );
+    if (reservation.outcome === "exceeded") {
+      return finish(dependencies, scope, envelope, budgetExhaustedReply);
+    }
+    if (apiKey !== null && dependencies.keyInspection !== null) {
+      const status = await dependencies.keyInspection.inspect({
+        apiKey,
+        correlationId: envelope.correlationId,
+      });
+      if (
+        status !== null &&
+        status.limitRemainingMicros !== null &&
+        status.limitRemainingMicros <
+          dependencies.policy.maxCostMicrosPerOperation
+      ) {
+        await dependencies.budget.release(
+          scope,
+          budgetKey,
+          dependencies.clock.now(),
+        );
+        return finish(dependencies, scope, envelope, budgetExhaustedReply);
+      }
+    }
+
+    let result;
+    try {
+      result = await dependencies.provider.propose({
+        context: {
+          messageText: envelope.payload.messageText,
+          timeZone: profile.timeZone,
+          localDate: window.localDate,
+          enabledActions: dependencies.policy.enabledActions,
+        },
+        schema: buildStrictProposalSchema(dependencies.policy.enabledActions),
+        model: dependencies.policy.model,
+        apiKey,
+        correlationId: envelope.correlationId,
+        maxCostMicros: dependencies.policy.maxCostMicrosPerOperation,
+      });
+    } catch (error) {
+      // Una chiamata fallita non blocca il budget: la prenotazione si chiude.
+      await dependencies.budget.release(
+        scope,
+        budgetKey,
+        dependencies.clock.now(),
+      );
+      throw error;
+    }
+    await dependencies.budget.settle(
+      scope,
+      budgetKey,
+      result.costMicros,
+      dependencies.clock.now(),
+    );
 
     let parsedJson: unknown;
     try {

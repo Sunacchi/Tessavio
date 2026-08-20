@@ -25,6 +25,8 @@ Gli ADR registrano decisioni difficili da ricostruire dal codice. Stato ammesso:
 - [ADR-0021 — Chiusura trasversale della Phase B](0021-phase-b-closure.md)
 - [ADR-0022 — Budget dei moduli e struttura per slice](0022-module-structure-budgets.md)
 - [ADR-0023 — Contratto ActionProposal, validator e confirmation policy (C1)](0023-action-proposal-contract.md)
+- [ADR-0024 — OAuth PKCE e cifratura delle credenziali BYOK (C2)](0024-oauth-and-credential-crypto.md)
+- [ADR-0025 — Budget, privacy e model policy dell'AI (C2)](0025-ai-budget-privacy-model-policy.md)
 
 ## Template
 
