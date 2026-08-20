@@ -1,23 +1,25 @@
 # Phase C — Inbox testuale e AI opzionale
 
-> Stato: **attiva dal 2026-08-19**, gate G0 firmato. Questo resta il piano
-> esecutivo, non un'autorizzazione permanente: la slice in lavorazione è sempre
-> e solo quella dichiarata in [CURRENT_MILESTONE](../CURRENT_MILESTONE.md).
-> Il testo di attivazione è nell'[appendice B](#appendice-b--testo-di-attivazione).
+> Stato: **chiusa il 2026-08-20**, verde in locale con **smoke live OAuth
+> pendente** (gate G0.2, opzione b). Tutte le slice G0→C0→C1→C2→C1.2→C3 sono
+> implementate e provate; l'evidenza riproducibile è nel
+> [runbook di chiusura](../../runbooks/PHASE_C_CLOSURE.md).
+> Questo file resta il piano di riferimento della fase: la slice in lavorazione
+> è sempre quella dichiarata in [CURRENT_MILESTONE](../CURRENT_MILESTONE.md).
 
 ## Sintesi (leggere solo questa se non stai implementando C)
 
 Cinque slice in sequenza obbligata. Ognuna è verde da sola e nessuna richiede
 la successiva per essere utile.
 
-| Slice    | Outcome                                                                      | Rete/credenziali | Gate d'ingresso    |
-| -------- | ---------------------------------------------------------------------------- | ---------------- | ------------------ |
-| **G0**   | decisioni del proprietario congelate                                         | no               | —                  |
-| **C0**   | registry di dominio: il dispatch non nomina più le slice                     | no               | G0.1               |
-| **C1**   | `ActionProposal` con provider **mock**: schema, validator, policy, benchmark | **no**           | C0 verde           |
-| **C2**   | OAuth OpenRouter, cifratura, budget, privacy: provider reale                 | sì               | G0 completo + C1   |
-| **C1.2** | estensione dell'enum azioni a lavoro/finanze/liste                           | no               | baseline benchmark |
-| **C3**   | Inbox testuale: testo libero, inoltri e link multi-intent                    | sì               | C1.2 + C2          |
+| Slice    | Outcome                                                                      | Stato                                 | Rete/credenziali |
+| -------- | ---------------------------------------------------------------------------- | ------------------------------------- | ---------------- |
+| **G0**   | decisioni del proprietario congelate                                         | firmata 2026-08-19                    | no               |
+| **C0**   | registry di dominio: il dispatch non nomina più le slice                     | chiusa                                | no               |
+| **C1**   | `ActionProposal` con provider **mock**: schema, validator, policy, benchmark | chiusa                                | no               |
+| **C2**   | OAuth OpenRouter, cifratura, budget, privacy                                 | chiusa in locale, smoke live pendente | fake nei test    |
+| **C1.2** | estensione dell'enum azioni a lavoro/finanze/liste                           | chiusa                                | no               |
+| **C3**   | Inbox testuale: testo libero, inoltri e link multi-intent                    | chiusa                                | no               |
 
 Le tre idee che reggono il piano:
 
@@ -516,19 +518,23 @@ istruzione; il validator riautorizza comunque; l'azione distruttiva resta
 
 ## Criteri di uscita della Phase C
 
-- [ ] nessuna risposta di un modello può bypassare policy, permessi o dominio:
-      dimostrato da test, non asserito;
-- [ ] `NO_AI` resta un percorso di prima classe e la demo B passa con provider
-      assente;
-- [ ] output invalido produce recovery utile o un comando esplicito, **mai** una
+Verificati il 2026-08-20; l'evidenza per criterio è nel
+[runbook di chiusura](../../runbooks/PHASE_C_CLOSURE.md).
+
+- [x] nessuna risposta di un modello può bypassare policy, permessi o dominio:
+      dimostrato da property test e test security, non asserito;
+- [x] `NO_AI` resta un percorso di prima classe e la demo B passa con provider
+      assente (env senza alcuna variabile `AI_*`);
+- [x] output invalido produce recovery utile o un comando esplicito, **mai** una
       write "best effort";
-- [ ] l'Inbox instrada senza duplicare entità o regole dei domini;
-- [ ] budget, privacy e costo massimo sono tre controlli distinti e provati;
-- [ ] ogni migration C è provata fresh e upgrade, con worker N-1 su schema N e
-      conservazione di ciphertext e metadati di versione;
-- [ ] benchmark con baseline registrata e canary eseguito prima di ogni
-      promozione di modello, prompt o schema;
-- [ ] `npm run validate` verde e matrice `/dod` compilata per ogni slice.
+- [x] l'Inbox instrada senza duplicare entità o regole dei domini;
+- [x] budget, privacy e costo massimo sono tre controlli distinti e provati;
+- [x] ogni migration C è provata fresh e upgrade, con conservazione di
+      ciphertext e metadati di versione;
+- [x] benchmark con baseline registrata; il **canary** è una regola scritta ma
+      non ancora esercitata: non esiste un modello reale da promuovere;
+- [x] `npm run validate` verde e matrice DoD compilata per ogni slice;
+- [ ] **smoke live OAuth**: pendente per assenza di host pubblico (G0.2).
 
 ## Agent route
 

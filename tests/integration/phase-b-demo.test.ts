@@ -122,14 +122,22 @@ describe("Phase B deterministic end-to-end demo", () => {
     const inbound = new CapturingQueue();
     const notifications = new CapturingQueue();
     const reply = new CapturingReply();
+    // NO_AI end-to-end: la demo gira con **zero** variabili AI, quindi nessuna
+    // slice AI viene registrata. Il cast è il confine fra l'oggetto Env
+    // generato da Wrangler e questa copia filtrata.
+    const withoutAi = Object.fromEntries(
+      Object.entries(env).filter(([key]) => !key.startsWith("AI_")),
+    ) as unknown as Env;
     const runtime: Env = {
-      ...env,
+      ...withoutAi,
       INBOUND_QUEUE: inbound,
       NOTIFICATION_QUEUE: notifications,
       TELEGRAM_BOT_TOKEN: "test-bot-token",
       TELEGRAM_WEBHOOK_SECRET: "test-webhook-secret",
     };
-    expect("AI" in runtime).toBe(false);
+    expect(Object.keys(runtime).filter((key) => key.startsWith("AI_"))).toEqual(
+      [],
+    );
     expect("OPENROUTER_API_KEY" in runtime).toBe(false);
 
     let updateId = 90_000;

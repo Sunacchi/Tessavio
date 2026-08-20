@@ -14,9 +14,9 @@ Stato verificato il 2026-08-19:
 - [x] B1-B7 Core deterministico chiuso, gate trasversali inclusi
       ([ADR-0021](../decisions/0021-phase-b-closure.md));
 - [x] requisiti di prodotto estesi assegnati a milestone concrete A-O;
-- [x] Phase C attivata il 2026-08-19 con il gate G0 firmato: la slice in
-      lavorazione è sempre quella dichiarata in
-      [CURRENT_MILESTONE.md](CURRENT_MILESTONE.md);
+- [x] Phase C chiusa il 2026-08-20 (C0, C1, C2, C1.2, C3): verde in locale con
+      **smoke live OAuth pendente** per assenza di host pubblico. Evidenza nel
+      [runbook di chiusura](../runbooks/PHASE_C_CLOSURE.md);
 - [ ] release beta chiusa secondo [RELEASE_CLOSURE.md](RELEASE_CLOSURE.md).
 
 Nessuna risorsa Cloudflare remota è stata creata; non esiste deploy pubblico.
