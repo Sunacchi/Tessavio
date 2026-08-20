@@ -24,10 +24,17 @@ import {
   type FinanceValidationIssue,
 } from "../domains/finance/finance";
 import type { Authorizer } from "../security/authorization";
-import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
+import type {
+  Clock,
+  EntityProvenance,
+  IdGenerator,
+  UserScope,
+} from "../shared/contracts";
 
 export interface ManageFinanceDependencies {
   readonly authorizer: Authorizer;
+  /** Origine dei dati scritti da questo contenitore: comando o proposta AI. */
+  readonly provenance: EntityProvenance;
   readonly clock: Clock;
   readonly finance: FinanceRepository;
   readonly ids: IdGenerator;
@@ -140,6 +147,7 @@ function mutationContext(
     actorUserId: request.actorUserId,
     correlationId: request.correlationId,
     idempotencyKey: request.idempotencyKey,
+    provenance: dependencies.provenance,
     auditId: dependencies.ids.newId(),
     undoToken: `fin_${dependencies.ids.newId()}`,
     now,

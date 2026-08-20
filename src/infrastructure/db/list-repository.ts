@@ -17,6 +17,7 @@ import {
   type NoteValues,
 } from "../../domains/lists/lists";
 import type { UserScope } from "../../shared/contracts";
+import { sourceOf } from "./provenance";
 import { AppError } from "../../shared/errors";
 
 type ListEntity = ListRecord | ListItemRecord | NoteRecord;
@@ -24,7 +25,7 @@ type ListEntity = ListRecord | ListItemRecord | NoteRecord;
 const listRowSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1).max(100),
-  source: z.literal("manual_command"),
+  source: z.enum(["manual_command", "ai_proposal"]),
   status: z.enum(["active", "deleted"]),
   version: z.number().int().positive(),
   created_at: z.number().int(),
@@ -36,7 +37,7 @@ const itemRowSchema = z.object({
   id: z.string().min(1),
   list_id: z.string().min(1),
   text: z.string().min(1).max(300),
-  source: z.literal("manual_command"),
+  source: z.enum(["manual_command", "ai_proposal"]),
   status: z.enum(["open", "completed", "deleted"]),
   version: z.number().int().positive(),
   created_at: z.number().int(),
@@ -49,7 +50,7 @@ const noteRowSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1).max(100),
   body: z.string().min(1).max(4_000),
-  source: z.literal("manual_command"),
+  source: z.enum(["manual_command", "ai_proposal"]),
   status: z.enum(["active", "deleted"]),
   version: z.number().int().positive(),
   created_at: z.number().int(),
@@ -59,7 +60,7 @@ const noteRowSchema = z.object({
 
 const commonJsonFields = {
   id: z.string().min(1),
-  source: z.literal("manual_command"),
+  source: z.enum(["manual_command", "ai_proposal"]),
   version: z.number().int().positive(),
   createdAt: z.iso.datetime({ offset: true }),
   updatedAt: z.iso.datetime({ offset: true }),
@@ -538,7 +539,7 @@ export class D1ListRepository implements ListRepository {
     const entity: ListRecord = {
       id: listId,
       title: values.title,
-      source: "manual_command",
+      source: sourceOf(context.provenance),
       status: "active",
       version: 1,
       createdAt: context.now,
@@ -554,12 +555,13 @@ export class D1ListRepository implements ListRepository {
       this.database
         .prepare(
           `INSERT INTO lists (id, user_id, title, source, status, version, last_mutation_key, created_at, updated_at, deleted_at)
-           VALUES (?, ?, ?, 'manual_command', 'active', 1, ?, ?, ?, NULL)`,
+           VALUES (?, ?, ?, ?, 'active', 1, ?, ?, ?, NULL)`,
         )
         .bind(
           listId,
           scope.userId,
           values.title,
+          sourceOf(context.provenance),
           context.idempotencyKey,
           timestamp,
           timestamp,
@@ -705,7 +707,7 @@ export class D1ListRepository implements ListRepository {
       id: itemId,
       listId,
       text: values.text,
-      source: "manual_command",
+      source: sourceOf(context.provenance),
       status: "open",
       version: 1,
       createdAt: context.now,
@@ -724,13 +726,14 @@ export class D1ListRepository implements ListRepository {
           `INSERT INTO list_items (
              id, user_id, list_id, text, source, status, version,
              last_mutation_key, created_at, updated_at, completed_at, deleted_at
-           ) SELECT ?, ?, id, ?, 'manual_command', 'open', 1, ?, ?, ?, NULL, NULL
+           ) SELECT ?, ?, id, ?, ?, 'open', 1, ?, ?, ?, NULL, NULL
              FROM lists WHERE user_id = ? AND id = ? AND status = 'active'`,
         )
         .bind(
           itemId,
           scope.userId,
           values.text,
+          sourceOf(context.provenance),
           context.idempotencyKey,
           timestamp,
           timestamp,
@@ -868,7 +871,7 @@ export class D1ListRepository implements ListRepository {
     const entity: NoteRecord = {
       id: noteId,
       ...values,
-      source: "manual_command",
+      source: sourceOf(context.provenance),
       status: "active",
       version: 1,
       createdAt: context.now,
@@ -884,13 +887,14 @@ export class D1ListRepository implements ListRepository {
       this.database
         .prepare(
           `INSERT INTO notes (id, user_id, title, body, source, status, version, last_mutation_key, created_at, updated_at, deleted_at)
-           VALUES (?, ?, ?, ?, 'manual_command', 'active', 1, ?, ?, ?, NULL)`,
+           VALUES (?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, NULL)`,
         )
         .bind(
           noteId,
           scope.userId,
           values.title,
           values.body,
+          sourceOf(context.provenance),
           context.idempotencyKey,
           timestamp,
           timestamp,
@@ -1011,7 +1015,10 @@ export class D1ListRepository implements ListRepository {
     kind: ListEntityKind,
     snapshot: ListEntity,
     expectedVersion: number,
-    context: Omit<ListMutationContext, "undoToken" | "undoExpiresAt">,
+    context: Omit<
+      ListMutationContext,
+      "undoToken" | "undoExpiresAt" | "provenance"
+    >,
     token: string,
   ): D1PreparedStatement {
     const commonTail = [
@@ -1081,7 +1088,10 @@ export class D1ListRepository implements ListRepository {
   async undo(
     scope: UserScope,
     token: string,
-    context: Omit<ListMutationContext, "undoToken" | "undoExpiresAt">,
+    context: Omit<
+      ListMutationContext,
+      "undoToken" | "undoExpiresAt" | "provenance"
+    >,
   ): Promise<UndoListResult> {
     const duplicateRow = await this.database
       .prepare(

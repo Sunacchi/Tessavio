@@ -14,6 +14,7 @@ import {
   type CommandRegistration,
 } from "./handler-registry";
 import type { UndoHandler } from "./undo-registry";
+import type { ProposalCandidateContributor } from "./ports/ai";
 import type {
   ListMutationContext,
   ListRepository,
@@ -33,10 +34,17 @@ import {
   type NoteRecord,
 } from "../domains/lists/lists";
 import type { Authorizer } from "../security/authorization";
-import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
+import type {
+  Clock,
+  EntityProvenance,
+  IdGenerator,
+  UserScope,
+} from "../shared/contracts";
 
 export interface ManageListsDependencies {
   readonly authorizer: Authorizer;
+  /** Origine dei dati scritti da questo contenitore: comando o proposta AI. */
+  readonly provenance: EntityProvenance;
   readonly clock: Clock;
   readonly ids: IdGenerator;
   readonly lists: ListRepository;
@@ -92,6 +100,7 @@ function mutationContext(
     actorUserId: request.actorUserId,
     correlationId: request.correlationId,
     idempotencyKey: request.idempotencyKey,
+    provenance: dependencies.provenance,
     auditId: dependencies.ids.newId(),
     undoToken: `lst_${dependencies.ids.newId()}`,
     now,
@@ -487,6 +496,28 @@ export function listsUndoHandler(
         case "not_found":
           return "Undo liste/note non disponibile per questo utente.";
       }
+    },
+  };
+}
+
+/** Candidate per risolvere un riferimento testuale a una lista attiva. */
+export function listCandidateContributor(dependencies: {
+  readonly authorizer: Authorizer;
+  readonly lists: ListRepository;
+}): ProposalCandidateContributor {
+  return {
+    domain: "lists",
+    collect: async (scope, context) => {
+      await dependencies.authorizer.authorize({
+        actorUserId: context.actorUserId,
+        scope,
+        action: "lists:read",
+      });
+      const rows = await dependencies.lists.listLists(
+        scope,
+        Math.min(context.limit, 50),
+      );
+      return rows.map((list) => ({ id: list.id, label: list.title }));
     },
   };
 }

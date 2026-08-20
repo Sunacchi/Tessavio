@@ -21,6 +21,7 @@ describe("B6.1 lists and notes isolation", () => {
   let lists: D1ListRepository;
   const context = (user: string, key: string): ListMutationContext => ({
     actorUserId: user,
+    provenance: "entered",
     correlationId: key,
     idempotencyKey: key,
     auditId: `audit-${key}`,
@@ -116,6 +117,7 @@ describe("B6.1 lists and notes isolation", () => {
           authorizer: new SelfScopeAuthorizer(),
           clock: new FakeClock(now),
           ids: new SequenceIds(),
+          provenance: "entered" as const,
           lists: guarded,
         },
       ),

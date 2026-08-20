@@ -67,10 +67,26 @@ export interface ProcessAiProposalResult {
 }
 
 const candidateLimit = 50;
+
+const emptyPlanSlots = {
+  title: null,
+  text: null,
+  startLocal: null,
+  endLocal: null,
+  localDate: null,
+  due: null,
+  priority: null,
+  entityId: null,
+  amountMinor: null,
+  currency: null,
+  entryKind: null,
+  category: null,
+} as const;
 const referenceActions: ReadonlySet<AiAction> = new Set([
   "events.cancel",
   "reminders.cancel",
   "tasks.complete",
+  "lists.item.create",
 ]);
 
 const budgetExhaustedReply = [
@@ -95,7 +111,12 @@ async function collectCandidates(
   referenceInstant: Date,
   timeZone: string,
 ): Promise<ProposalCandidates> {
-  const empty: ProposalCandidates = { events: [], reminders: [], tasks: [] };
+  const empty: ProposalCandidates = {
+    events: [],
+    reminders: [],
+    tasks: [],
+    lists: [],
+  };
   const collected = await Promise.all(
     dependencies.candidateContributors.map(async (contributor) => ({
       domain: contributor.domain,
@@ -142,16 +163,7 @@ function planItem(
       index,
       action: validation.action,
       decision: "clarify",
-      slots: {
-        title: null,
-        text: null,
-        startLocal: null,
-        endLocal: null,
-        localDate: null,
-        due: null,
-        priority: null,
-        entityId: null,
-      },
+      slots: emptyPlanSlots,
       assumptions: [],
       message: validation.question,
     };
@@ -160,16 +172,7 @@ function planItem(
     index,
     action: validation.action,
     decision: "reject",
-    slots: {
-      title: null,
-      text: null,
-      startLocal: null,
-      endLocal: null,
-      localDate: null,
-      due: null,
-      priority: null,
-      entityId: null,
-    },
+    slots: emptyPlanSlots,
     assumptions: [],
     message: rejectMessage(validation.reason),
   };
@@ -339,12 +342,13 @@ export async function processAiProposal(
           referenceInstant,
           profile.timeZone,
         )
-      : { events: [], reminders: [], tasks: [] };
+      : { events: [], reminders: [], tasks: [], lists: [] };
 
     const validations = validateProposalBatch(parsed.data, {
       enabledActions: dependencies.policy.enabledActions,
       timeZone: profile.timeZone,
       referenceInstant,
+      defaultCurrency: profile.defaultCurrency,
       candidates,
     });
     plan = {

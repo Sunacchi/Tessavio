@@ -61,6 +61,7 @@ const candidates: ProposalCandidates = {
     { id: "tsk-1", label: "Relazione trimestrale" },
     { id: "tsk-2", label: "Relazione annuale" },
   ],
+  lists: [{ id: "lst-1", label: "Spesa" }],
 };
 
 /** Il dataset è JSONL: una riga per caso, nessun dato personale. */
@@ -86,9 +87,10 @@ export async function runBenchmark(
   cases: readonly BenchmarkCase[],
   provider: AiProviderPort = new MockAiProvider(),
   model = "mock/deterministic-v1",
+  enabledActions: readonly AiAction[] = c1Actions,
 ): Promise<BenchmarkReport> {
-  const schema = buildStrictProposalSchema(c1Actions);
-  const envelopeSchema = aiEnvelopeSchema(c1Actions);
+  const schema = buildStrictProposalSchema(enabledActions);
+  const envelopeSchema = aiEnvelopeSchema(enabledActions);
   const latencies: number[] = [];
   const failures: string[] = [];
   let schemaValid = 0;
@@ -109,7 +111,7 @@ export async function runBenchmark(
         messageText: testCase.text,
         timeZone,
         localDate: "2026-08-20",
-        enabledActions: c1Actions,
+        enabledActions,
       },
       schema,
       model,
@@ -133,16 +135,17 @@ export async function runBenchmark(
     schemaValid += 1;
 
     const validations = validateProposalBatch(parsed.data, {
-      enabledActions: c1Actions,
+      enabledActions,
       timeZone,
       referenceInstant,
+      defaultCurrency: "EUR",
       candidates,
     });
     const decisions = validations.map((validation) =>
       validation.outcome === "valid"
         ? decideConfirmation({
             action: validation.action,
-            enabled: true,
+            enabled: enabledActions.includes(validation.action),
             resolution: validation.resolution,
             entityCount: validation.entityCount,
           })

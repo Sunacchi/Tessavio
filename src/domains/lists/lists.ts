@@ -1,3 +1,9 @@
+/**
+ * Origine dell'entità: comando esplicito oppure proposta AI accettata.
+ * È il campo che rende distinguibile un dato inserito da uno estratto.
+ */
+export type EntitySource = "manual_command" | "ai_proposal";
+
 export const listUndoTtlMs = 15 * 60 * 1_000;
 export const listCollectionLimit = 50;
 export const listItemLimit = 100;
@@ -16,14 +22,14 @@ interface VersionedRecord {
 
 export interface ListRecord extends VersionedRecord {
   readonly title: string;
-  readonly source: "manual_command";
+  readonly source: EntitySource;
   readonly status: ListStatus;
 }
 
 export interface ListItemRecord extends VersionedRecord {
   readonly listId: string;
   readonly text: string;
-  readonly source: "manual_command";
+  readonly source: EntitySource;
   readonly status: ListItemStatus;
   readonly completedAt: Date | null;
 }
@@ -31,7 +37,7 @@ export interface ListItemRecord extends VersionedRecord {
 export interface NoteRecord extends VersionedRecord {
   readonly title: string;
   readonly body: string;
-  readonly source: "manual_command";
+  readonly source: EntitySource;
   readonly status: ListStatus;
 }
 

@@ -110,6 +110,33 @@ parte, il core deterministico funziona e `/ai` risponde che non è configurata.
 - Il costo di una proposta ambigua è una domanda in più, non una scrittura
   sbagliata: è la scelta esplicita di questo contratto.
 
+## Aggiornamento C1.2 (2026-08-20)
+
+L'enum passa da sette a **undici azioni** con `finance.create`, `lists.create`,
+`lists.item.create` e `work.shift.create`. Validator, policy e harness non
+cambiano: crescono solo l'enum e i suoi slot (`amount`, `category`,
+`entry_kind`). Il gate della slice non è un numero assoluto ma **l'assenza di
+regressione** sul dataset C1 con l'enum esteso.
+
+Tre conseguenze registrate qui:
+
+- **Denaro.** `domains/ai/money-slot.ts` è il normalizzatore deterministico del
+  testo monetario: `"12,50 euro"` diventa `1250` unità minori intere più la
+  valuta. Il modello non produce mai un importo risolto (invariante 8). La
+  valuta assente viene presa dal default dell'utente e **dichiarata**.
+- **Categoria obbligatoria.** Un movimento senza categoria è `clarify`, non un
+  movimento con categoria inventata: B5 richiede la categoria e la proposta non
+  può fabbricarla.
+- **Nessuna durata assunta per un turno.** Un evento senza fine prende la durata
+  predefinita di un'ora; un turno di lavoro no: senza ora di fine l'esito è
+  `clarify`. Sbagliare la durata di un turno cambia una paga.
+
+**Provenance nelle slice B5/B6.** Quelle tabelle avevano già una colonna
+`source` (`manual_command`): l'enum è esteso con `ai_proposal` e la conversione
+da `provenance` vive in `infrastructure/db/provenance.ts`. Il concetto è uno
+solo con due nomi storici; l'unificazione avverrà quando quelle slice verranno
+toccate per altri motivi, non con una migration dedicata.
+
 ## Alternative considerate
 
 - **`anyOf` di payload per azione (variante B):** schema più preciso, ma cresce

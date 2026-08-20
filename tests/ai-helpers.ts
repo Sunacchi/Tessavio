@@ -17,6 +17,12 @@ import {
   taskCandidateContributor,
   taskCommandRegistration,
 } from "../src/application/manage-tasks";
+import { financeCommandRegistration } from "../src/application/manage-finance";
+import {
+  listCandidateContributor,
+  listsCommandRegistration,
+} from "../src/application/manage-lists";
+import { workCommandRegistration } from "../src/application/manage-work";
 import type {
   AiJobQueuePort,
   AiProviderPort,
@@ -34,7 +40,7 @@ import {
 import type { ProcessInboundDependencies } from "../src/application/process-inbound";
 import type { AiProposalJobEnvelope } from "../src/application/queue-envelope";
 import { modelPolicy } from "../src/ai/model-policy";
-import { c1Actions, type AiAction } from "../src/domains/ai/proposal";
+import { c12Actions, type AiAction } from "../src/domains/ai/proposal";
 import { D1AiProposalRepository } from "../src/infrastructure/db/ai-proposal-repository";
 import {
   D1AiBudgetRepository,
@@ -49,6 +55,9 @@ import { D1InboundRepository } from "../src/infrastructure/db/inbound-repository
 import { D1PreferenceRepository } from "../src/infrastructure/db/preference-repository";
 import { D1ReminderRepository } from "../src/infrastructure/db/reminder-repository";
 import { D1TaskRepository } from "../src/infrastructure/db/task-repository";
+import { D1FinanceRepository } from "../src/infrastructure/db/finance-repository";
+import { D1ListRepository } from "../src/infrastructure/db/list-repository";
+import { D1WorkRepository } from "../src/infrastructure/db/work-repository";
 import { MockAiProvider } from "../src/infrastructure/ai/mock-provider";
 import { SelfScopeAuthorizer } from "../src/security/authorization";
 import type { AiMode } from "../src/shared/config";
@@ -146,6 +155,9 @@ export function createAiTestRuntime(
   const preferences = new D1PreferenceRepository(database);
   const reminders = new D1ReminderRepository(database);
   const tasks = new D1TaskRepository(database);
+  const finance = new D1FinanceRepository(database);
+  const lists = new D1ListRepository(database);
+  const work = new D1WorkRepository(database);
   const proposals = new D1AiProposalRepository(database);
   const queue = new CapturingAiQueue();
   const mode = options.mode ?? "mock";
@@ -196,6 +208,28 @@ export function createAiTestRuntime(
       provenance: "extracted",
       tasks,
     }),
+    financeCommandRegistration({
+      authorizer,
+      clock,
+      finance,
+      ids,
+      provenance: "extracted",
+    }),
+    listsCommandRegistration({
+      authorizer,
+      clock,
+      ids,
+      lists,
+      provenance: "extracted",
+    }),
+    workCommandRegistration({
+      authorizer,
+      clock,
+      ids,
+      preferences,
+      provenance: "extracted",
+      work,
+    }),
   ]);
   const executor = createProposalExecutor({
     clock,
@@ -230,6 +264,28 @@ export function createAiTestRuntime(
       preferences,
       provenance: "entered",
       reminders,
+    }),
+    financeCommandRegistration({
+      authorizer,
+      clock,
+      finance,
+      ids,
+      provenance: "entered",
+    }),
+    listsCommandRegistration({
+      authorizer,
+      clock,
+      ids,
+      lists,
+      provenance: "entered",
+    }),
+    workCommandRegistration({
+      authorizer,
+      clock,
+      ids,
+      preferences,
+      provenance: "entered",
+      work,
     }),
     aiCommandRegistration({
       authorizer,
@@ -267,6 +323,7 @@ export function createAiTestRuntime(
         eventCandidateContributor({ authorizer, events }),
         reminderCandidateContributor({ authorizer, reminders }),
         taskCandidateContributor({ authorizer, tasks }),
+        listCandidateContributor({ authorizer, lists }),
       ],
       clock,
       confirmationTtlMs: options.confirmationTtlMs ?? 15 * 60 * 1_000,
@@ -279,7 +336,7 @@ export function createAiTestRuntime(
         model: "mock/deterministic-v1",
         maxCostMicrosPerOperation: options.maxCostMicros ?? 5_000,
         dailyBudgetMicrosPerUser: options.dailyBudgetMicros ?? 500_000,
-        enabledActions: options.enabledActions ?? c1Actions,
+        enabledActions: options.enabledActions ?? c12Actions,
       }),
       preferences,
       proposals,

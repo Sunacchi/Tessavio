@@ -782,4 +782,84 @@ describe("foundation migration", () => {
       ),
     ).toBe(true);
   });
+  it("estende la provenance a finanze, liste e turni senza perdere dati", async () => {
+    const c12MigrationIndex = env.TEST_MIGRATIONS.findIndex((migration) =>
+      migration.name.startsWith("0011_"),
+    );
+    expect(c12MigrationIndex).toBeGreaterThan(0);
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(0, c12MigrationIndex),
+    );
+    const timestamp = Date.parse("2026-08-20T10:00:00Z");
+    await env.UPGRADE_DB.batch([
+      env.UPGRADE_DB.prepare(
+        "INSERT INTO users (id, status, created_at) VALUES ('c12-upgrade', 'active', ?)",
+      ).bind(timestamp),
+      env.UPGRADE_DB.prepare(
+        `INSERT INTO finance_entries (
+          id,user_id,entry_kind,amount_minor,currency,local_date,category,
+          merchant,payment_method,note,source,status,version,last_mutation_key,
+          created_at,updated_at,deleted_at
+        ) VALUES ('fin-c12','c12-upgrade','expense',1250,'EUR','2026-08-19',
+          'Spesa',NULL,NULL,NULL,'manual_command','active',1,'fixture',?,?,NULL)`,
+      ).bind(timestamp, timestamp),
+      env.UPGRADE_DB.prepare(
+        `INSERT INTO lists (
+          id,user_id,title,source,status,version,last_mutation_key,created_at,
+          updated_at,deleted_at
+        ) VALUES ('lst-c12','c12-upgrade','Spesa','manual_command','active',1,
+          'fixture',?,?,NULL)`,
+      ).bind(timestamp, timestamp),
+      env.UPGRADE_DB.prepare(
+        `INSERT INTO planned_shifts (
+          id,user_id,title,start_at_utc,end_at_utc,original_time_zone,version,
+          last_mutation_key,created_at,updated_at
+        ) VALUES ('shift-c12','c12-upgrade','Turno',?,?,'Europe/Rome',1,
+          'fixture',?,?)`,
+      ).bind(timestamp, timestamp + 3_600_000, timestamp, timestamp),
+    ]);
+
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(c12MigrationIndex),
+    );
+
+    // Il dato preesistente resta e resta dichiarato come inserito a mano.
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT amount_minor, currency, source FROM finance_entries WHERE id = 'fin-c12'",
+      ).first(),
+    ).resolves.toEqual({
+      amount_minor: 1_250,
+      currency: "EUR",
+      source: "manual_command",
+    });
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT title, source FROM lists WHERE id = 'lst-c12'",
+      ).first(),
+    ).resolves.toEqual({ title: "Spesa", source: "manual_command" });
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT title, provenance FROM planned_shifts WHERE id = 'shift-c12'",
+      ).first(),
+    ).resolves.toEqual({ title: "Turno", provenance: "entered" });
+
+    // Il nuovo valore è ammesso solo dopo la migration.
+    await env.UPGRADE_DB.prepare(
+      `INSERT INTO lists (
+        id,user_id,title,source,status,version,last_mutation_key,created_at,
+        updated_at,deleted_at
+      ) VALUES ('lst-ai','c12-upgrade','Da proposta','ai_proposal','active',1,
+        'fixture-ai',?,?,NULL)`,
+    )
+      .bind(timestamp, timestamp)
+      .run();
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT source FROM lists WHERE id = 'lst-ai'",
+      ).first(),
+    ).resolves.toEqual({ source: "ai_proposal" });
+  });
 });

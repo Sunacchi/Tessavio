@@ -4,10 +4,11 @@ import type {
   FinanceEntryRecord,
   FinanceEntryValues,
 } from "../../domains/finance/finance";
-import type { UserScope } from "../../shared/contracts";
+import type { EntityProvenance, UserScope } from "../../shared/contracts";
 
 export interface FinanceMutationContext {
   readonly actorUserId: string;
+  readonly provenance: EntityProvenance;
   readonly correlationId: string;
   readonly idempotencyKey: string;
   readonly auditId: string;
@@ -70,7 +71,10 @@ export interface FinanceRepository {
   undo(
     scope: UserScope,
     token: string,
-    context: Omit<FinanceMutationContext, "undoToken" | "undoExpiresAt">,
+    context: Omit<
+      FinanceMutationContext,
+      "undoToken" | "undoExpiresAt" | "provenance"
+    >,
   ): Promise<UndoFinanceResult>;
   purgeExpiredUndo(
     scope: UserScope,

@@ -94,6 +94,14 @@ describe("C1 flusso ActionProposal con provider mock", () => {
       env.DB.prepare("DELETE FROM reminder_undo_actions"),
       env.DB.prepare("DELETE FROM reminders"),
       env.DB.prepare("DELETE FROM preference_undo_actions"),
+      env.DB.prepare("DELETE FROM finance_undo_actions"),
+      env.DB.prepare("DELETE FROM finance_entries"),
+      env.DB.prepare("DELETE FROM list_undo_actions"),
+      env.DB.prepare("DELETE FROM list_items"),
+      env.DB.prepare("DELETE FROM lists"),
+      env.DB.prepare("DELETE FROM notes"),
+      env.DB.prepare("DELETE FROM work_undo_actions"),
+      env.DB.prepare("DELETE FROM planned_shifts"),
       env.DB.prepare("DELETE FROM audit_log"),
       env.DB.prepare("DELETE FROM user_preferences"),
       env.DB.prepare("DELETE FROM telegram_identities"),
@@ -329,6 +337,76 @@ describe("C1 flusso ActionProposal con provider mock", () => {
     await runtime.inbox.register(status, clock.now());
     await processInboundMessage(status, runtime.inbound);
     expect(reply.texts[2]).toContain("Modalità AI: non configurata.");
+  });
+
+  it("registra un movimento estratto in unità minori e lo marca come tale", async () => {
+    const clock = new FakeClock(new Date("2026-08-20T08:00:00Z"));
+    const reply = new CapturingReply();
+    const runtime = createAiTestRuntime(env.DB, {
+      clock,
+      ids: new SequenceIds(),
+      reply,
+    });
+    await configurePreferences(runtime, 9_701);
+    const request = envelope(
+      9_702,
+      "/ai proponi ho speso 12,50 euro per la spesa",
+    );
+    await runtime.inbox.register(request, clock.now());
+    await processInboundMessage(request, runtime.inbound);
+    await processAiProposal(runtime.queue.envelope(), runtime.aiJob);
+
+    const entry = await env.DB.prepare(
+      "SELECT amount_minor, currency, entry_kind, category, source FROM finance_entries",
+    ).first<{
+      amount_minor: number;
+      currency: string;
+      entry_kind: string;
+      category: string;
+      source: string;
+    }>();
+    expect(entry).toEqual({
+      amount_minor: 1_250,
+      currency: "EUR",
+      entry_kind: "expense",
+      category: "spesa",
+      source: "ai_proposal",
+    });
+  });
+
+  it("aggiunge un elemento alla lista esistente e lo marca come estratto", async () => {
+    const clock = new FakeClock(new Date("2026-08-20T08:00:00Z"));
+    const reply = new CapturingReply();
+    const runtime = createAiTestRuntime(env.DB, {
+      clock,
+      ids: new SequenceIds(),
+      reply,
+    });
+    await configurePreferences(runtime, 9_801);
+    const createList = envelope(9_802, "/liste crea | Spesa");
+    await runtime.inbox.register(createList, clock.now());
+    await processInboundMessage(createList, runtime.inbound);
+
+    const request = envelope(
+      9_803,
+      "/ai proponi aggiungi il latte alla lista spesa",
+    );
+    await runtime.inbox.register(request, clock.now());
+    await processInboundMessage(request, runtime.inbound);
+    await processAiProposal(runtime.queue.envelope(), runtime.aiJob);
+
+    const item = await env.DB.prepare(
+      "SELECT text, source, status FROM list_items",
+    ).first<{ text: string; source: string; status: string }>();
+    expect(item).toEqual({
+      text: "il latte",
+      source: "ai_proposal",
+      status: "open",
+    });
+    const list = await env.DB.prepare("SELECT source FROM lists").first<{
+      source: string;
+    }>();
+    expect(list?.source).toBe("manual_command");
   });
 
   it("registra il piano con la versione di schema e di policy", async () => {

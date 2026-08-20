@@ -70,6 +70,7 @@ describe("B5 finance flow", () => {
   let finance: D1FinanceRepository;
   const context = (key: string): FinanceMutationContext => ({
     actorUserId: scope.userId,
+    provenance: "entered",
     correlationId: `corr-${key}`,
     idempotencyKey: key,
     auditId: `audit-${key}`,

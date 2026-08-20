@@ -30,6 +30,7 @@ describe("B4 work isolation", () => {
   let work: D1WorkRepository;
   const context = (user: string, key: string): WorkMutationContext => ({
     actorUserId: user,
+    provenance: "entered",
     correlationId: key,
     idempotencyKey: key,
     auditId: `audit-${key}`,
@@ -106,6 +107,7 @@ describe("B4 work isolation", () => {
           authorizer: new SelfScopeAuthorizer(),
           clock: new FakeClock(now),
           ids: new SequenceIds(),
+          provenance: "entered" as const,
           preferences: new D1PreferenceRepository(env.DB),
           work,
         },

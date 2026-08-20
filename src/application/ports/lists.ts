@@ -8,10 +8,11 @@ import type {
   NoteRecord,
   NoteValues,
 } from "../../domains/lists/lists";
-import type { UserScope } from "../../shared/contracts";
+import type { EntityProvenance, UserScope } from "../../shared/contracts";
 
 export interface ListMutationContext {
   readonly actorUserId: string;
+  readonly provenance: EntityProvenance;
   readonly correlationId: string;
   readonly idempotencyKey: string;
   readonly auditId: string;
@@ -122,7 +123,10 @@ export interface ListRepository {
   undo(
     scope: UserScope,
     token: string,
-    context: Omit<ListMutationContext, "undoToken" | "undoExpiresAt">,
+    context: Omit<
+      ListMutationContext,
+      "undoToken" | "undoExpiresAt" | "provenance"
+    >,
   ): Promise<UndoListResult>;
   purgeExpiredUndo(
     scope: UserScope,

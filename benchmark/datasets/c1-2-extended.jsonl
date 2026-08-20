@@ -1,0 +1,12 @@
+{"id":"c12-001","text":"ho speso 12,50 euro per la spesa","expect":{"actions":["finance.create"],"decision":"execute_with_undo","slots":{"amountMinor":"1250","currency":"EUR","entryKind":"expense"}}}
+{"id":"c12-002","text":"ho pagato 8 euro al bar","expect":{"actions":["finance.create"],"decision":"execute_with_undo","slots":{"amountMinor":"800","currency":"EUR"}}}
+{"id":"c12-003","text":"ho incassato 1.500,00 euro per consulenza","expect":{"actions":["finance.create"],"decision":"execute_with_undo","slots":{"amountMinor":"150000","entryKind":"income"}}}
+{"id":"c12-004","text":"ho speso 30 euro ieri per benzina","expect":{"actions":["finance.create"],"decision":"execute_with_undo","slots":{"amountMinor":"3000"}}}
+{"id":"c12-005","text":"crea la lista regali di natale","expect":{"actions":["lists.create"],"decision":"execute_with_undo","slots":{"title":"regali di natale"}}}
+{"id":"c12-006","text":"aggiungi il latte alla lista spesa","expect":{"actions":["lists.item.create"],"decision":"execute_with_undo","slots":{"text":"il latte","entityId":"lst-1"}}}
+{"id":"c12-007","text":"aggiungi il pane alla lista inesistente","expect":{"actions":["lists.item.create"],"decision":"clarify","slots":{}}}
+{"id":"c12-008","text":"segna il turno serale domani alle 14 alle 22","expect":{"actions":["work.shift.create"],"decision":"execute_with_undo","slots":{"startLocal":"2026-08-21T14:00","endLocal":"2026-08-21T22:00"}}}
+{"id":"c12-009","text":"segna il turno di domani","expect":{"actions":["work.shift.create"],"decision":"clarify","slots":{}}}
+{"id":"c12-010","text":"ho speso un sacco di soldi","expect":{"actions":[],"decision":"none","slots":{}}}
+{"id":"c12-011","text":"ho speso 20 euro","expect":{"actions":["finance.create"],"decision":"clarify","slots":{}}}
+{"id":"c12-012","text":"che bella giornata oggi","expect":{"actions":[],"decision":"none","slots":{}}}

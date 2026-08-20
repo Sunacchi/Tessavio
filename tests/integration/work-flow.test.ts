@@ -77,6 +77,7 @@ describe("B4 work flow", () => {
   let work: D1WorkRepository;
   const context = (key: string): WorkMutationContext => ({
     actorUserId: scope.userId,
+    provenance: "entered",
     correlationId: `corr-${key}`,
     idempotencyKey: key,
     auditId: `audit-${key}`,

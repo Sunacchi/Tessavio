@@ -11,10 +11,11 @@ import type {
   WorkRuleValues,
   WorkWindow,
 } from "../../domains/work/work";
-import type { UserScope } from "../../shared/contracts";
+import type { EntityProvenance, UserScope } from "../../shared/contracts";
 
 export interface WorkMutationContext {
   readonly actorUserId: string;
+  readonly provenance: EntityProvenance;
   readonly correlationId: string;
   readonly idempotencyKey: string;
   readonly auditId: string;
@@ -94,7 +95,10 @@ export interface WorkRepository {
   undo(
     scope: UserScope,
     token: string,
-    context: Omit<WorkMutationContext, "undoToken" | "undoExpiresAt">,
+    context: Omit<
+      WorkMutationContext,
+      "undoToken" | "undoExpiresAt" | "provenance"
+    >,
   ): Promise<UndoWorkResult>;
   purgeExpiredUndo(
     scope: UserScope,

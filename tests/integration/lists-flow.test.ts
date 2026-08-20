@@ -70,6 +70,7 @@ describe("B6.1 private lists and notes flow", () => {
   let lists: D1ListRepository;
   const context = (key: string): ListMutationContext => ({
     actorUserId: scope.userId,
+    provenance: "entered",
     correlationId: `corr-${key}`,
     idempotencyKey: key,
     auditId: `audit-${key}`,

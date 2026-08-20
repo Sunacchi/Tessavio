@@ -31,7 +31,7 @@ export interface AiProviderPort {
   propose(request: AiProviderRequest): Promise<AiProviderResult>;
 }
 
-export type ProposalDomain = "events" | "reminders" | "tasks";
+export type ProposalDomain = "events" | "reminders" | "tasks" | "lists";
 
 /**
  * Ogni slice raggiungibile dall'enum registra da sé come si cercano le proprie

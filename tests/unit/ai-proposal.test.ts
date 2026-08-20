@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveTimeSlot } from "../../src/domains/ai/time-slot";
 import {
   aiProposalSchemaVersion,
-  c1Actions,
+  c12Actions,
   type AiPayload,
   type AiProposalEnvelope,
 } from "../../src/domains/ai/proposal";
@@ -22,11 +22,14 @@ const emptyPayload: AiPayload = {
   all_day: null,
   priority: null,
   reference: null,
+  amount: null,
+  category: null,
+  entry_kind: null,
 };
 
 function envelope(
   proposals: readonly {
-    action: (typeof c1Actions)[number];
+    action: (typeof c12Actions)[number];
     payload: Partial<AiPayload>;
     assumptions?: readonly string[];
   }[],
@@ -44,9 +47,10 @@ function envelope(
 }
 
 const context: ProposalValidationContext = {
-  enabledActions: c1Actions,
+  enabledActions: c12Actions,
   timeZone,
   referenceInstant: reference,
+  defaultCurrency: "EUR",
   candidates: {
     events: [{ id: "evt-1", label: "Riunione con Marco" }],
     reminders: [{ id: "rem-1", label: "Comprare il latte" }],
@@ -54,6 +58,7 @@ const context: ProposalValidationContext = {
       { id: "tsk-1", label: "Relazione trimestrale" },
       { id: "tsk-2", label: "Relazione annuale" },
     ],
+    lists: [{ id: "lst-1", label: "Spesa" }],
   },
 };
 
@@ -329,6 +334,152 @@ describe("C1 validator semantico", () => {
       resolution: "resolved",
       slots: { priority: "media", due: "nessuna" },
       assumptions: ["priorità predefinita: media"],
+    });
+  });
+});
+
+describe("C1.2 azioni estese a lavoro, finanze e liste", () => {
+  it("risolve un movimento con importo, valuta e categoria", () => {
+    const [result] = validateProposalBatch(
+      envelope([
+        {
+          action: "finance.create",
+          payload: {
+            amount: "12,50 euro",
+            category: "spesa",
+            entry_kind: "spesa",
+            when: "2026-08-20",
+          },
+        },
+      ]),
+      context,
+    );
+    expect(result).toMatchObject({
+      outcome: "valid",
+      resolution: "resolved",
+      slots: {
+        amountMinor: "1250",
+        currency: "EUR",
+        entryKind: "expense",
+        category: "spesa",
+        localDate: "2026-08-20",
+      },
+    });
+  });
+
+  it("usa data e tipo predefiniti dichiarandoli, senza inventare l'importo", () => {
+    const [withDefaults] = validateProposalBatch(
+      envelope([
+        { action: "finance.create", payload: { amount: "8", category: "bar" } },
+      ]),
+      context,
+    );
+    expect(withDefaults).toMatchObject({
+      outcome: "valid",
+      resolution: "resolved",
+      slots: { entryKind: "expense", localDate: "2026-08-20" },
+    });
+    const [withoutAmount] = validateProposalBatch(
+      envelope([{ action: "finance.create", payload: { category: "bar" } }]),
+      context,
+    );
+    expect(withoutAmount).toMatchObject({
+      outcome: "clarify",
+      reason: "missing_slot",
+    });
+  });
+
+  it("chiede la categoria invece di sceglierne una", () => {
+    const [result] = validateProposalBatch(
+      envelope([
+        { action: "finance.create", payload: { amount: "12,50 euro" } },
+      ]),
+      context,
+    );
+    expect(result).toMatchObject({
+      outcome: "clarify",
+      reason: "missing_slot",
+    });
+  });
+
+  it("aggiunge un elemento solo a una lista che esiste", () => {
+    const [found] = validateProposalBatch(
+      envelope([
+        {
+          action: "lists.item.create",
+          payload: { text: "latte", reference: "spesa" },
+        },
+      ]),
+      context,
+    );
+    expect(found).toMatchObject({
+      outcome: "valid",
+      slots: { text: "latte", entityId: "lst-1" },
+    });
+    const [missing] = validateProposalBatch(
+      envelope([
+        {
+          action: "lists.item.create",
+          payload: { text: "latte", reference: "lista che non esiste" },
+        },
+      ]),
+      context,
+    );
+    expect(missing).toMatchObject({
+      outcome: "clarify",
+      reason: "reference_not_found",
+    });
+  });
+
+  it("non assume la durata di un turno di lavoro", () => {
+    const [complete] = validateProposalBatch(
+      envelope([
+        {
+          action: "work.shift.create",
+          payload: {
+            title: "Serale",
+            when: "domani alle 14",
+            when_end: "domani alle 22",
+          },
+        },
+      ]),
+      context,
+    );
+    expect(complete).toMatchObject({
+      outcome: "valid",
+      slots: {
+        startLocal: "2026-08-21T14:00",
+        endLocal: "2026-08-21T22:00",
+      },
+    });
+    const [withoutEnd] = validateProposalBatch(
+      envelope([
+        {
+          action: "work.shift.create",
+          payload: { title: "Serale", when: "domani alle 14" },
+        },
+      ]),
+      context,
+    );
+    expect(withoutEnd).toMatchObject({
+      outcome: "clarify",
+      reason: "time_needs_hour",
+    });
+  });
+
+  it("rifiuta uno slot monetario su un'azione che non lo prevede", () => {
+    const [result] = validateProposalBatch(
+      envelope([
+        {
+          action: "tasks.create",
+          payload: { title: "Spesa", amount: "12,50 euro" },
+        },
+      ]),
+      context,
+    );
+    expect(result).toMatchObject({
+      outcome: "reject",
+      reason: "extraneous_slot",
     });
   });
 });

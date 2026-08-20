@@ -4,7 +4,7 @@ import {
   confirmationPolicyVersion,
   type ConfirmationDecision,
 } from "../domains/ai/confirmation-policy";
-import { c1Actions, type AiAction } from "../domains/ai/proposal";
+import { c12Actions, type AiAction } from "../domains/ai/proposal";
 import type { ResolvedSlots } from "../domains/ai/validate-proposal";
 
 /**
@@ -21,13 +21,17 @@ const slotsSchema = z
     due: z.string().nullable(),
     priority: z.string().nullable(),
     entityId: z.string().nullable(),
+    amountMinor: z.string().nullable(),
+    currency: z.string().nullable(),
+    entryKind: z.string().nullable(),
+    category: z.string().nullable(),
   })
   .strict();
 
 const planItemSchema = z
   .object({
     index: z.number().int().nonnegative(),
-    action: z.enum(c1Actions),
+    action: z.enum(c12Actions),
     decision: z.enum([
       "execute_with_undo",
       "preview_confirm",
@@ -136,6 +140,47 @@ export function commandForProposal(
       return slots.entityId === null
         ? null
         : { kind: "tasks.complete", taskId: slots.entityId };
+    case "finance.create":
+      return slots.amountMinor === null ||
+        slots.currency === null ||
+        slots.entryKind === null ||
+        slots.category === null ||
+        slots.localDate === null
+        ? null
+        : {
+            kind: "finance.create",
+            entryKind: slots.entryKind,
+            amountMinor: slots.amountMinor,
+            currency: slots.currency,
+            localDate: slots.localDate,
+            category: slots.category,
+            merchant: "",
+            paymentMethod: "",
+            note: "",
+          };
+    case "lists.create":
+      return slots.title === null
+        ? null
+        : { kind: "lists.create", title: slots.title };
+    case "lists.item.create":
+      return slots.entityId === null || slots.text === null
+        ? null
+        : {
+            kind: "lists.item.create",
+            listId: slots.entityId,
+            text: slots.text,
+          };
+    case "work.shift.create":
+      return slots.title === null ||
+        slots.startLocal === null ||
+        slots.endLocal === null
+        ? null
+        : {
+            kind: "work.shift.create",
+            startLocal: slots.startLocal,
+            endLocal: slots.endLocal,
+            title: slots.title,
+          };
   }
 }
 
@@ -147,6 +192,10 @@ const actionLabels: Readonly<Record<AiAction, string>> = {
   "tasks.create": "Nuova task",
   "tasks.complete": "Task completata",
   "query.today": "Agenda di oggi",
+  "finance.create": "Nuovo movimento",
+  "lists.create": "Nuova lista",
+  "lists.item.create": "Nuovo elemento in lista",
+  "work.shift.create": "Nuovo turno pianificato",
 };
 
 /** Che cosa verrà modificato, in chiaro, prima di modificarlo. */
@@ -167,11 +216,26 @@ export function describeProposal(item: ProposalPlanItem): string {
   if (item.slots.due !== null && item.slots.due !== "nessuna") {
     parts.push(`scadenza ${item.slots.due}`);
   }
+  if (item.slots.amountMinor !== null && item.slots.currency !== null) {
+    parts.push(
+      `${formatMinor(item.slots.amountMinor)} ${item.slots.currency}${
+        item.slots.entryKind === "income" ? " in entrata" : ""
+      }`,
+    );
+  }
+  if (item.slots.category !== null)
+    parts.push(`categoria ${item.slots.category}`);
   if (item.slots.entityId !== null) parts.push(`ID: ${item.slots.entityId}`);
   const described = parts.join(" — ");
   return item.assumptions.length === 0
     ? described
     : `${described}\n  Assunzioni: ${item.assumptions.join("; ")}`;
+}
+
+/** Rende leggibile un importo senza mai riportarlo in virgola mobile. */
+function formatMinor(amountMinor: string): string {
+  const digits = amountMinor.padStart(3, "0");
+  return `${digits.slice(0, -2)},${digits.slice(-2)}`;
 }
 
 export function decisionOf(item: ProposalPlanItem): ConfirmationDecision {

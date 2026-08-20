@@ -19,6 +19,12 @@ import {
   taskCandidateContributor,
   taskCommandRegistration,
 } from "../application/manage-tasks";
+import { financeCommandRegistration } from "../application/manage-finance";
+import {
+  listCandidateContributor,
+  listsCommandRegistration,
+} from "../application/manage-lists";
+import { workCommandRegistration } from "../application/manage-work";
 import type { CommandRegistration } from "../application/handler-registry";
 import type { AiProviderPort } from "../application/ports/ai";
 import type { TelegramReplyPort } from "../application/ports/telegram";
@@ -151,6 +157,28 @@ export async function buildAiRuntime(input: {
       provenance: "extracted",
       tasks: repositories.tasks,
     }),
+    financeCommandRegistration({
+      authorizer,
+      clock,
+      finance: repositories.finance,
+      ids,
+      provenance: "extracted",
+    }),
+    listsCommandRegistration({
+      authorizer,
+      clock,
+      ids,
+      lists: repositories.lists,
+      provenance: "extracted",
+    }),
+    workCommandRegistration({
+      authorizer,
+      clock,
+      ids,
+      preferences: repositories.preferences,
+      provenance: "extracted",
+      work: repositories.work,
+    }),
   ]);
 
   const executor = createProposalExecutor({
@@ -204,6 +232,7 @@ export async function buildAiRuntime(input: {
           reminders: repositories.reminders,
         }),
         taskCandidateContributor({ authorizer, tasks: repositories.tasks }),
+        listCandidateContributor({ authorizer, lists: repositories.lists }),
       ],
       clock,
       confirmationTtlMs: ai.confirmationTtlMs,

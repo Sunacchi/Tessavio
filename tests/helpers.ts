@@ -231,7 +231,14 @@ export function testInboundDependencies(
   if (parts.work !== undefined) {
     const work = parts.work;
     registrations.push(
-      workCommandRegistration({ authorizer, clock, ids, preferences, work }),
+      workCommandRegistration({
+        authorizer,
+        clock,
+        ids,
+        preferences,
+        provenance: "entered",
+        work,
+      }),
     );
     dayViewContributors.push(workDayViewContributor({ authorizer, work }));
     undoHandlers.push(workUndoHandler({ authorizer, clock, ids, work }));
@@ -255,14 +262,26 @@ export function testInboundDependencies(
   if (parts.finance !== undefined) {
     const finance = parts.finance;
     registrations.push(
-      financeCommandRegistration({ authorizer, clock, finance, ids }),
+      financeCommandRegistration({
+        authorizer,
+        clock,
+        finance,
+        ids,
+        provenance: "entered",
+      }),
     );
     undoHandlers.push(financeUndoHandler({ authorizer, clock, finance, ids }));
   }
   if (parts.lists !== undefined) {
     const lists = parts.lists;
     registrations.push(
-      listsCommandRegistration({ authorizer, clock, ids, lists }),
+      listsCommandRegistration({
+        authorizer,
+        clock,
+        ids,
+        lists,
+        provenance: "entered",
+      }),
     );
     undoHandlers.push(listsUndoHandler({ authorizer, clock, ids, lists }));
   }

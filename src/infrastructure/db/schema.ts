@@ -755,6 +755,9 @@ export const plannedShifts = sqliteTable(
     startAtUtc: integer("start_at_utc", { mode: "timestamp_ms" }).notNull(),
     endAtUtc: integer("end_at_utc", { mode: "timestamp_ms" }).notNull(),
     originalTimeZone: text("original_time_zone").notNull(),
+    provenance: text("provenance", { enum: ["entered", "extracted"] })
+      .notNull()
+      .default("entered"),
     version: integer("version").notNull(),
     lastMutationKey: text("last_mutation_key").notNull(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
@@ -916,7 +919,9 @@ export const financeEntries = sqliteTable(
     merchant: text("merchant"),
     paymentMethod: text("payment_method"),
     note: text("note"),
-    source: text("source", { enum: ["manual_command"] }).notNull(),
+    source: text("source", {
+      enum: ["manual_command", "ai_proposal"],
+    }).notNull(),
     status: text("status", { enum: ["active", "deleted"] }).notNull(),
     version: integer("version").notNull(),
     lastMutationKey: text("last_mutation_key").notNull(),
@@ -968,7 +973,7 @@ export const financeEntries = sqliteTable(
     ),
     check(
       "finance_entries_source_ck",
-      sql`${table.source} IN ('manual_command')`,
+      sql`${table.source} IN ('manual_command', 'ai_proposal')`,
     ),
     check(
       "finance_entries_status_ck",
@@ -1020,7 +1025,9 @@ export const lists = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
-    source: text("source", { enum: ["manual_command"] }).notNull(),
+    source: text("source", {
+      enum: ["manual_command", "ai_proposal"],
+    }).notNull(),
     status: text("status", { enum: ["active", "deleted"] }).notNull(),
     version: integer("version").notNull(),
     lastMutationKey: text("last_mutation_key").notNull(),
@@ -1037,7 +1044,10 @@ export const lists = sqliteTable(
       table.id,
     ),
     check("lists_title_ck", sql`length(${table.title}) BETWEEN 1 AND 100`),
-    check("lists_source_ck", sql`${table.source} IN ('manual_command')`),
+    check(
+      "lists_source_ck",
+      sql`${table.source} IN ('manual_command', 'ai_proposal')`,
+    ),
     check("lists_status_ck", sql`${table.status} IN ('active', 'deleted')`),
     check("lists_version_ck", sql`${table.version} > 0`),
     check(
@@ -1057,7 +1067,9 @@ export const listItems = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     listId: text("list_id").notNull(),
     text: text("text").notNull(),
-    source: text("source", { enum: ["manual_command"] }).notNull(),
+    source: text("source", {
+      enum: ["manual_command", "ai_proposal"],
+    }).notNull(),
     status: text("status", {
       enum: ["open", "completed", "deleted"],
     }).notNull(),
@@ -1083,7 +1095,10 @@ export const listItems = sqliteTable(
       table.id,
     ),
     check("list_items_text_ck", sql`length(${table.text}) BETWEEN 1 AND 300`),
-    check("list_items_source_ck", sql`${table.source} IN ('manual_command')`),
+    check(
+      "list_items_source_ck",
+      sql`${table.source} IN ('manual_command', 'ai_proposal')`,
+    ),
     check(
       "list_items_status_ck",
       sql`${table.status} IN ('open', 'completed', 'deleted')`,
@@ -1107,7 +1122,9 @@ export const notes = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     body: text("body").notNull(),
-    source: text("source", { enum: ["manual_command"] }).notNull(),
+    source: text("source", {
+      enum: ["manual_command", "ai_proposal"],
+    }).notNull(),
     status: text("status", { enum: ["active", "deleted"] }).notNull(),
     version: integer("version").notNull(),
     lastMutationKey: text("last_mutation_key").notNull(),
@@ -1125,7 +1142,10 @@ export const notes = sqliteTable(
     ),
     check("notes_title_ck", sql`length(${table.title}) BETWEEN 1 AND 100`),
     check("notes_body_ck", sql`length(${table.body}) BETWEEN 1 AND 4000`),
-    check("notes_source_ck", sql`${table.source} IN ('manual_command')`),
+    check(
+      "notes_source_ck",
+      sql`${table.source} IN ('manual_command', 'ai_proposal')`,
+    ),
     check("notes_status_ck", sql`${table.status} IN ('active', 'deleted')`),
     check("notes_version_ck", sql`${table.version} > 0`),
     check(

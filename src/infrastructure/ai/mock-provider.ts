@@ -29,6 +29,9 @@ const emptyPayload = {
   all_day: null,
   priority: null,
   reference: null,
+  amount: null,
+  category: null,
+  entry_kind: null,
 } as const;
 
 const timePattern =
@@ -86,7 +89,7 @@ function stripTime(text: string): string {
 }
 
 const leadingArticles =
-  /^(?:di|del|dello|della|dei|degli|delle|il|lo|la|i|le|gli|un|uno|una|l'|un'|dal|dalla|dallo)\s*/iu;
+  /^(?:(?:di|del|dello|della|dei|degli|delle|il|lo|la|i|le|gli|un|uno|una|dal|dalla|dallo)\s+|l'|un'|dell')/iu;
 
 function cleanSubject(text: string, leadings: readonly string[]): string {
   let subject = stripTime(text);
@@ -193,6 +196,96 @@ function draft(intent: string): DraftProposal | null {
         priority: /\b(urgente|alta priorita|alta priorità)\b/u.test(lower)
           ? "alta"
           : null,
+      },
+    };
+  }
+
+  if (
+    /\b(?:crea|nuova|apri|aggiungi|metti)\b[^.]{0,40}\blista\b/u.test(lower)
+  ) {
+    const listReference =
+      /\b(?:alla|nella|in)\s+lista\s+(?:della\s+|dello\s+|dei\s+|delle\s+)?([a-zàèéìòù0-9 ]+)$/iu.exec(
+        text,
+      )?.[1] ?? null;
+    if (listReference !== null || /\baggiungi\b|\bmetti\b/u.test(lower)) {
+      const item =
+        /\b(?:aggiungi|metti)\s+(.+?)\s+(?:alla|nella|in)\s+lista\b/iu.exec(
+          text,
+        )?.[1] ?? null;
+      if (item !== null && listReference !== null) {
+        return {
+          action: "lists.item.create",
+          confidence: "high",
+          assumptions: [],
+          payload: { ...emptyPayload, text: item, reference: listReference },
+        };
+      }
+    }
+    return {
+      action: "lists.create",
+      confidence: "high",
+      assumptions: [],
+      payload: {
+        ...emptyPayload,
+        title: cleanSubject(text, [
+          "crea",
+          "nuova",
+          "apri",
+          "la lista",
+          "lista",
+        ]),
+      },
+    };
+  }
+
+  // Un movimento richiede una cifra: senza importo non è una spesa, è una frase.
+  if (
+    /\d/u.test(lower) &&
+    /\b(spes[oa]|pagat[oa]|incassat[oa]|costat[oa]|euro|eur|dollari|sterline)\b|€|\$|£/u.test(
+      lower,
+    )
+  ) {
+    const amount =
+      /(\d[\d.,]*)\s*(?:euro|eur|€|dollari|usd|\$|sterline|gbp|£)?/iu.exec(
+        text,
+      )?.[0] ?? null;
+    const category =
+      /\b(?:per|al|allo|alla|in|di)\s+(?:il|lo|la|i|gli|le|un|una|l')?\s*([a-zàèéìòù]+)\s*$/iu.exec(
+        stripTime(text),
+      )?.[1] ?? null;
+    return {
+      action: "finance.create",
+      confidence: amount === null ? "low" : "high",
+      assumptions: [],
+      payload: {
+        ...emptyPayload,
+        amount,
+        entry_kind: /\bincassat[oa]|entrata\b/u.test(lower)
+          ? "entrata"
+          : "spesa",
+        category,
+        when: extractTime(text),
+      },
+    };
+  }
+
+  if (/\b(turno)\b/u.test(lower)) {
+    const times = extractTimes(text);
+    return {
+      action: "work.shift.create",
+      confidence: times.whenEnd === null ? "low" : "high",
+      assumptions: [],
+      payload: {
+        ...emptyPayload,
+        title: cleanSubject(text, [
+          "segna",
+          "aggiungi",
+          "crea",
+          "il turno",
+          "turno",
+        ]),
+        when: times.when,
+        when_end: times.whenEnd,
       },
     };
   }

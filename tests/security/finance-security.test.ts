@@ -21,6 +21,7 @@ describe("B5 finance isolation", () => {
   let finance: D1FinanceRepository;
   const context = (user: string, key: string): FinanceMutationContext => ({
     actorUserId: user,
+    provenance: "entered",
     correlationId: key,
     idempotencyKey: key,
     auditId: `audit-${key}`,
@@ -114,6 +115,7 @@ describe("B5 finance isolation", () => {
           clock: new FakeClock(now),
           finance: guarded,
           ids: new SequenceIds(),
+          provenance: "entered" as const,
         },
       ),
     ).rejects.toEqual(new AppError("UNAUTHORIZED", false));

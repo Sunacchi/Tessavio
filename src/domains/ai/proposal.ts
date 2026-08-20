@@ -17,7 +17,19 @@ export const c1Actions = [
   "query.today",
 ] as const;
 
-export type AiAction = (typeof c1Actions)[number];
+/**
+ * Estensione C1.2: lavoro, finanze e liste. Riusa validator, policy e harness
+ * senza modificarli; l'unica cosa che cresce è l'enum e i suoi slot.
+ */
+export const c12Actions = [
+  ...c1Actions,
+  "finance.create",
+  "lists.create",
+  "lists.item.create",
+  "work.shift.create",
+] as const;
+
+export type AiAction = (typeof c12Actions)[number];
 
 /** Classe di rischio: è un dato versionato, non un'inferenza sul nome. */
 export type AiRiskClass = "read" | "create" | "state_change" | "destructive";
@@ -30,6 +42,10 @@ const riskClasses: Readonly<Record<AiAction, AiRiskClass>> = {
   "tasks.create": "create",
   "tasks.complete": "state_change",
   "query.today": "read",
+  "finance.create": "create",
+  "lists.create": "create",
+  "lists.item.create": "create",
+  "work.shift.create": "create",
 };
 
 export function riskClassOf(action: AiAction): AiRiskClass {
@@ -54,6 +70,9 @@ export const aiPayloadSchema = z
     all_day: z.boolean().nullable(),
     priority: z.string().nullable(),
     reference: z.string().nullable(),
+    amount: z.string().nullable(),
+    category: z.string().nullable(),
+    entry_kind: z.string().nullable(),
   })
   .strict();
 
@@ -75,7 +94,7 @@ function proposalSchema(actions: readonly [AiAction, ...AiAction[]]) {
  * `ActionProposal[]` nudo non è rappresentabile.
  */
 export function aiEnvelopeSchema(
-  actions: readonly AiAction[] = c1Actions,
+  actions: readonly AiAction[] = c12Actions,
 ): z.ZodType<AiProposalEnvelope> {
   const enabled = enabledTuple(actions);
   return z
