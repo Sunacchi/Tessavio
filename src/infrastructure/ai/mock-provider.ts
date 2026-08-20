@@ -357,6 +357,7 @@ export class MockAiProvider implements AiProviderPort {
           : null,
     };
     return Promise.resolve({
+      outcome: "completed",
       rawJson: JSON.stringify(envelope),
       model: request.model,
       costMicros: 0,

@@ -17,18 +17,36 @@ export interface AiModelPolicy {
   readonly dataCollection: "deny";
   readonly zeroDataRetention: true;
   readonly requireStructuredOutputs: true;
+  /** Price ceilings in integer micro-USD per one million tokens. */
+  readonly pricing: AiModelPricing | null;
   readonly maxCostMicrosPerOperation: number;
   readonly dailyBudgetMicrosPerUser: number;
   readonly enabledActions: readonly AiAction[];
 }
 
+export interface AiModelPricing {
+  readonly promptMicrosPerMillion: number;
+  readonly completionMicrosPerMillion: number;
+  readonly maxOutputTokens: number;
+}
+
 export const mockModel = "mock/deterministic-v1";
 
-/** Allowlist C2: modelli con structured outputs verificati e privacy strict. */
-export const openRouterAllowlist: readonly string[] = [
-  "openai/gpt-4.1-mini",
-  "anthropic/claude-3.5-haiku",
-];
+/**
+ * Allowlist C2 verificata contro `GET /api/v1/models` il 2026-08-20.
+ * I prezzi sono ceiling, non stime del costo totale: OpenRouter interpreta
+ * `max_price` in USD per milione di token.
+ */
+const openRouterModels: Readonly<Record<string, AiModelPricing>> = {
+  "openai/gpt-4.1-mini": {
+    promptMicrosPerMillion: 400_000,
+    completionMicrosPerMillion: 1_600_000,
+    maxOutputTokens: 512,
+  },
+};
+
+export const openRouterAllowlist: readonly string[] =
+  Object.keys(openRouterModels);
 
 export const defaultMaxCostMicrosPerOperation = 5_000;
 export const defaultDailyBudgetMicrosPerUser = 500_000;
@@ -47,6 +65,10 @@ export function modelPolicy(input: {
     dataCollection: "deny",
     zeroDataRetention: true,
     requireStructuredOutputs: true,
+    pricing:
+      input.provider === "openrouter"
+        ? (openRouterModels[input.model] ?? null)
+        : null,
     maxCostMicrosPerOperation: input.maxCostMicrosPerOperation,
     dailyBudgetMicrosPerUser: input.dailyBudgetMicrosPerUser,
     enabledActions: input.enabledActions ?? c1Actions,

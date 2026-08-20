@@ -120,6 +120,10 @@ export async function runBenchmark(
       maxCostMicros: 5_000,
     });
     latencies.push(Date.now() - startedAt);
+    if (result.outcome === "cost_limit") {
+      failures.push(`${testCase.id}: tetto di costo insufficiente`);
+      continue;
+    }
     costMicros += result.costMicros;
 
     const parsedJson = safeJsonParse(result.rawJson);

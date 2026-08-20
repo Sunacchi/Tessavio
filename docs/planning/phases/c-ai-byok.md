@@ -1,7 +1,7 @@
 # Phase C — Inbox testuale e AI opzionale
 
 > Stato: **chiusa il 2026-08-20**, verde in locale con **smoke live OAuth
-> pendente** (gate G0.2, opzione b). Tutte le slice G0→C0→C1→C2→C1.2→C3 sono
+> interattivo pendente** (gate G0.2, opzione b). Tutte le slice G0→C0→C1→C2→C1.2→C3 sono
 > implementate e provate; l'evidenza riproducibile è nel
 > [runbook di chiusura](../../runbooks/PHASE_C_CLOSURE.md).
 > Questo file resta il piano di riferimento della fase: la slice in lavorazione
@@ -12,14 +12,14 @@
 Cinque slice in sequenza obbligata. Ognuna è verde da sola e nessuna richiede
 la successiva per essere utile.
 
-| Slice    | Outcome                                                                      | Stato                                 | Rete/credenziali |
-| -------- | ---------------------------------------------------------------------------- | ------------------------------------- | ---------------- |
-| **G0**   | decisioni del proprietario congelate                                         | firmata 2026-08-19                    | no               |
-| **C0**   | registry di dominio: il dispatch non nomina più le slice                     | chiusa                                | no               |
-| **C1**   | `ActionProposal` con provider **mock**: schema, validator, policy, benchmark | chiusa                                | no               |
-| **C2**   | OAuth OpenRouter, cifratura, budget, privacy                                 | chiusa in locale, smoke live pendente | fake nei test    |
-| **C1.2** | estensione dell'enum azioni a lavoro/finanze/liste                           | chiusa                                | no               |
-| **C3**   | Inbox testuale: testo libero, inoltri e link multi-intent                    | chiusa                                | no               |
+| Slice    | Outcome                                                                      | Stato                                        | Rete/credenziali |
+| -------- | ---------------------------------------------------------------------------- | -------------------------------------------- | ---------------- |
+| **G0**   | decisioni del proprietario congelate                                         | firmata 2026-08-19                           | no               |
+| **C0**   | registry di dominio: il dispatch non nomina più le slice                     | chiusa                                       | no               |
+| **C1**   | `ActionProposal` con provider **mock**: schema, validator, policy, benchmark | chiusa                                       | no               |
+| **C2**   | OAuth OpenRouter, cifratura, budget, privacy                                 | chiusa in locale, smoke interattivo pendente | fake nei test    |
+| **C1.2** | estensione dell'enum azioni a lavoro/finanze/liste                           | chiusa                                       | no               |
+| **C3**   | Inbox testuale: testo libero, inoltri e link multi-intent                    | chiusa                                       | no               |
 
 Le tre idee che reggono il piano:
 
@@ -63,7 +63,10 @@ ADR [0023](../../decisions/0023-action-proposal-contract.md),
       Cloudflare remota, nessun deploy, nessuna credenziale reale. Lo smoke live
       resta un passo esplicito del proprietario, descritto nel
       [runbook C2](../../runbooks/C2_OAUTH_RECOVERY.md). Conseguenza accettata:
-      la Phase C chiude come **verde in locale con smoke live pendente**.
+      la Phase C chiude come **verde in locale con smoke live pendente**. La
+      riverifica del 2026-08-20 ha aggiunto l'opzione Quick Tunnel effimero di
+      Wrangler, che consente lo smoke senza deploy ma non elimina il passaggio
+      interattivo del proprietario.
 - [x] **OAuth/crypto:** sessione opaca user-bound, TTL 10 minuti, single-use con
       consumo atomico CAS, allowlist di un solo host di callback, `code_verifier`
       PKCE solo server-side; envelope AES-GCM 256 con DEK per credenziale
@@ -418,15 +421,19 @@ Corpo della richiesta, campi verificati (vedi [appendice A](#appendice-a--fatti-
     "require_parameters": true, // instrada solo su endpoint che supportano structured_outputs
     "allow_fallbacks": true,
     "only": ["…"], // allowlist da G0.2
-    "max_price": { "prompt": 0, "completion": 0 },
+    "max_price": { "prompt": 0.4, "completion": 1.6 }, // USD / milione token
   },
+  "max_tokens": 512, // ridotto automaticamente se il budget lo richiede
 }
 ```
 
 `require_parameters: true` è il campo che evita il fallimento "modello non
 supportato": OpenRouter esclude gli endpoint privi di structured outputs invece
 di provarci. Il fallback resta consentito **solo** verso endpoint di privacy
-uguale o migliore e sotto il tetto di costo dell'operazione.
+uguale o migliore e sotto le tariffe ceiling versionate. `max_price` non è il
+costo totale della chiamata: il tetto per operazione è ottenuto insieme a
+`max_tokens`, calcolato prima della rete su un upper bound conservativo
+dell'input.
 
 Inoltre: timeout esplicito, circuit breaker, nessun prompt e nessuna credenziale
 nei log (invariante 5), correlation ID propagato.
@@ -435,8 +442,8 @@ nei log (invariante 5), correlation ID propagato.
 
 Un pre-check semplice non basta: due job concorrenti lo superano entrambi.
 
-1. **Pre-volo:** `GET /api/v1/key` per `limit_remaining`, più il tetto di costo
-   dell'operazione via `max_price`.
+1. **Pre-volo:** `GET /api/v1/key` per `limit_remaining`; `max_price` limita le
+   tariffe per milione di token e `max_tokens` limita il totale per operazione.
 2. **Prenotazione atomica** del costo stimato sul ledger utente, prima della
    chiamata.
 3. **Consuntivo** dal campo `usage.cost` che OpenRouter restituisce ora su ogni
@@ -501,18 +508,18 @@ istruzione; il validator riautorizza comunque; l'azione distruttiva resta
 
 ## Rischi e mitigazioni
 
-| Rischio                                           | Mitigazione                                                                | Prova                             |
-| ------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------- |
-| Nessun host pubblico per il callback OAuth        | decisione G0.2; C2.1-C2.4 con server OAuth fake; smoke live autorizzato    | runbook C2 con esito dello smoke  |
-| Header `Authorization` sull'exchange: doc ambigua | adapter tollerante a entrambe le forme; verifica allo smoke                | test adapter su entrambe le forme |
-| Strict schema non uniforme fra provider           | `require_parameters: true`, allowlist, variante (A), test di conformità    | test di conformità + benchmark    |
-| Lease inbox più corto della latenza AI            | envelope `AI_PROPOSAL` con lease dedicato                                  | test con mock lento               |
-| Retry Queue che raddoppia costo ed effetti        | proposte persistite prima dell'esecuzione + ledger `effects`               | test di idempotenza               |
-| Race sul budget                                   | prenotazione atomica, consuntivo da `usage.cost`                           | test a due job concorrenti        |
-| Prompt injection da inoltri                       | contenuto come dato, nessun tool, riautorizzazione, distruttive in preview | test security C3                  |
-| Deriva di modello, prompt o schema                | benchmark obbligatorio prima della promozione, canary controllato          | confronto con baseline            |
-| C0 rimandato e debito raddoppiato                 | C0 come prerequisito, non come cleanup opzionale                           | `?:` a zero, `ports.ts` re-export |
-| API OpenRouter cambiata dopo il 2026-08-19        | riverificare l'appendice A all'inizio di C2                                | check esplicito nel runbook       |
+| Rischio                                    | Mitigazione                                                                | Prova                             |
+| ------------------------------------------ | -------------------------------------------------------------------------- | --------------------------------- |
+| Callback OAuth live non ancora esercitato  | C2.1-C2.4 con server fake; Quick Tunnel Wrangler senza deploy              | runbook C2 con esito dello smoke  |
+| Deriva del contratto OAuth esterno         | exchange body-only riverificato; nessun codice trasformato in bearer       | test adapter + smoke live         |
+| Strict schema non uniforme fra provider    | `require_parameters: true`, allowlist, variante (A), test di conformità    | test di conformità + benchmark    |
+| Lease inbox più corto della latenza AI     | envelope `AI_PROPOSAL` con lease dedicato                                  | test con mock lento               |
+| Retry Queue che raddoppia costo ed effetti | proposte persistite prima dell'esecuzione + ledger `effects`               | test di idempotenza               |
+| Race sul budget                            | prenotazione atomica, consuntivo da `usage.cost`                           | test a due job concorrenti        |
+| Prompt injection da inoltri                | contenuto come dato, nessun tool, riautorizzazione, distruttive in preview | test security C3                  |
+| Deriva di modello, prompt o schema         | benchmark obbligatorio prima della promozione, canary controllato          | confronto con baseline            |
+| C0 rimandato e debito raddoppiato          | C0 come prerequisito, non come cleanup opzionale                           | `?:` a zero, `ports.ts` re-export |
+| API OpenRouter cambiata dopo il 2026-08-19 | riverificare l'appendice A all'inizio di C2                                | check esplicito nel runbook       |
 
 ---
 
@@ -534,7 +541,8 @@ Verificati il 2026-08-20; l'evidenza per criterio è nel
 - [x] benchmark con baseline registrata; il **canary** è una regola scritta ma
       non ancora esercitata: non esiste un modello reale da promuovere;
 - [x] `npm run validate` verde e matrice DoD compilata per ogni slice;
-- [ ] **smoke live OAuth**: pendente per assenza di host pubblico (G0.2).
+- [ ] **smoke live OAuth**: pendente perché richiede login e credenziale reali
+      del proprietario; il runbook può usare un Quick Tunnel senza deploy.
 
 ## Agent route
 
@@ -559,9 +567,15 @@ privacy e model policy, **0026** confini dell'Inbox testuale se C3 li modifica.
 
 ## Appendice A — Fatti esterni verificati
 
-Verificati il **2026-08-19**. Sono qui perché un agente non debba riscoprirli —
+Riverificati il **2026-08-20**. Sono qui perché un agente non debba riscoprirli —
 e vanno **riverificati all'inizio di C2**, non assunti permanenti (invariante di
 piano: "limiti e dipendenze versionati, non assunti come permanenti").
+
+Fonti primarie: [OAuth PKCE OpenRouter](https://openrouter.ai/docs/guides/overview/auth/oauth),
+[provider routing e max price](https://openrouter.ai/docs/guides/routing/provider-selection),
+[Quick Tunnel di Wrangler](https://developers.cloudflare.com/workers/local-development/local-dev-tunnels/)
+e `GET https://openrouter.ai/api/v1/models` per disponibilità, capability e
+prezzi del modello allowlisted.
 
 **OAuth PKCE OpenRouter**
 
@@ -571,6 +585,9 @@ piano: "limiti e dipendenze versionati, non assunti come permanenti").
 - i codici scadono in **10 minuti** e sono **single-use**;
 - **nessun parametro `state` documentato** → il binding va nel `callback_url`;
 - il `callback_url` non richiede registrazione preventiva.
+- i callback `localhost` sono supportati su qualunque porta; per provare anche
+  webhook e callback su HTTPS senza deploy, Wrangler può aprire un Quick Tunnel
+  effimero dalla sessione `wrangler dev`.
 
 **Chiave e costi**
 
@@ -593,6 +610,8 @@ piano: "limiti e dipendenze versionati, non assunti come permanenti").
 
 `provider: { order, only, ignore, allow_fallbacks, require_parameters,
 data_collection: "allow"|"deny", zdr, sort, max_price, quantizations }`.
+`max_price.prompt` e `.completion` sono prezzi massimi in USD per **milione di
+token**, non limiti monetari totali della richiesta.
 
 **Zod 4**
 

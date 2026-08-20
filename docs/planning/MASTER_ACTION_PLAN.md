@@ -15,7 +15,8 @@ Stato verificato il 2026-08-19:
       ([ADR-0021](../decisions/0021-phase-b-closure.md));
 - [x] requisiti di prodotto estesi assegnati a milestone concrete A-O;
 - [x] Phase C chiusa il 2026-08-20 (C0, C1, C2, C1.2, C3): verde in locale con
-      **smoke live OAuth pendente** per assenza di host pubblico. Evidenza nel
+      **smoke live OAuth interattivo pendente**; può usare un Quick Tunnel senza
+      deploy ma richiede il login OpenRouter del proprietario. Evidenza nel
       [runbook di chiusura](../runbooks/PHASE_C_CLOSURE.md);
 - [ ] release beta chiusa secondo [RELEASE_CLOSURE.md](RELEASE_CLOSURE.md).
 

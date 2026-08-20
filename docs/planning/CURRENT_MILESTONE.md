@@ -25,14 +25,16 @@ comandi espliciti, con audit, Undo e provenance.
   cancella il ciphertext, rotazione KEK con decrypt su N-1;
 - tre controlli di costo distinti e provati, con recovery delle prenotazioni;
 - migration 0009-0011 provate fresh e upgrade;
-- `npm run validate` verde: 61 file Vitest, 290 test.
+- `npm run validate` verde: 61 file Vitest, 294 test e build dry-run.
 
 ## Cosa resta al proprietario
 
-1. `git push origin main` (il bridge non ha rete);
-2. **smoke live OAuth** quando esisterà un host pubblico HTTPS: procedura nel
-   [runbook C2](../runbooks/C2_OAUTH_RECOVERY.md), inclusa la generazione della
-   KEK e la riverifica dell'appendice A del piano di fase;
+1. `git push -u origin phase-c`, poi integrare il ramo in `main` con il normale
+   flusso di review;
+2. **smoke live OAuth interattivo**: la procedura nel
+   [runbook C2](../runbooks/C2_OAUTH_RECOVERY.md) ora può usare un Quick Tunnel
+   effimero di Wrangler senza deploy; richiede comunque il login OpenRouter del
+   proprietario e una chiave reale;
 3. scegliere la prossima fase: D (media), E1 (planner) o G1 (briefing) — le
    ultime due dipendono solo da B e possono procedere in parallelo.
 

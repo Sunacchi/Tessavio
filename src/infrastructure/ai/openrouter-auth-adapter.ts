@@ -43,11 +43,7 @@ async function withTimeout<T>(
   }
 }
 
-/**
- * Adapter OAuth PKCE di OpenRouter. La documentazione è ambigua sull'header
- * `Authorization` allo scambio: l'adapter è tollerante a **entrambe** le forme
- * e la verifica definitiva è lo smoke live (runbook C2).
- */
+/** Adapter OAuth PKCE conforme al flusso body-only documentato da OpenRouter. */
 export class OpenRouterAuthAdapter
   implements AiAuthorizationPort, AiKeyInspectionPort
 {
@@ -69,30 +65,18 @@ export class OpenRouterAuthAdapter
     readonly codeVerifier: string;
     readonly correlationId: string;
   }): Promise<AiAuthorizationExchange> {
-    const first = await this.postKeys(input, false);
-    if (first.outcome !== "rejected") return first;
-    // Seconda forma documentata altrove: stesso corpo, con header di bearer.
-    return this.postKeys(input, true);
+    return this.postKeys(input);
   }
 
-  private async postKeys(
-    input: {
-      readonly code: string;
-      readonly codeVerifier: string;
-      readonly correlationId: string;
-    },
-    withAuthorizationHeader: boolean,
-  ): Promise<AiAuthorizationExchange> {
-    const headers: Record<string, string> = {
-      "content-type": "application/json",
-    };
-    if (withAuthorizationHeader) {
-      headers.authorization = `Bearer ${input.code}`;
-    }
+  private async postKeys(input: {
+    readonly code: string;
+    readonly codeVerifier: string;
+    readonly correlationId: string;
+  }): Promise<AiAuthorizationExchange> {
     const response = await withTimeout(this.timeoutMs, (signal) =>
       fetch(new URL("/api/v1/auth/keys", this.baseUrl), {
         method: "POST",
-        headers,
+        headers: { "content-type": "application/json" },
         signal,
         body: JSON.stringify({
           code: input.code,

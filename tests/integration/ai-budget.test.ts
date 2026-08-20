@@ -36,7 +36,17 @@ class CostingProvider implements AiProviderPort {
     this.calls += 1;
     await new Promise((resolve) => setTimeout(resolve, 5));
     const result = await this.inner.propose(request);
+    if (result.outcome === "cost_limit") return result;
     return { ...result, costMicros: this.costMicros };
+  }
+}
+
+class CostLimitProvider implements AiProviderPort {
+  calls = 0;
+
+  propose(): Promise<AiProviderResult> {
+    this.calls += 1;
+    return Promise.resolve({ outcome: "cost_limit" });
   }
 }
 
@@ -176,6 +186,43 @@ describe("C2.4 budget con prenotazione atomica", () => {
       actual_micros: 1_234,
       local_date: "2026-08-20",
     });
+  });
+
+  it("rilascia la prenotazione e non scrive se il tetto non copre la richiesta", async () => {
+    const clock = new FakeClock(new Date("2026-08-20T08:00:00Z"));
+    const reply = new CapturingReply();
+    const provider = new CostLimitProvider();
+    const runtime = createAiTestRuntime(env.DB, {
+      clock,
+      ids: new SequenceIds(),
+      reply,
+      provider,
+    });
+    const preference = envelope(
+      6_111,
+      "/impostazioni imposta it Europe/Rome 24h EUR",
+    );
+    await runtime.inbox.register(preference, clock.now());
+    await processInboundMessage(preference, runtime.inbound);
+    const request = envelope(
+      6_112,
+      "/ai proponi ricordami di chiamare il dentista domani alle 9",
+    );
+    await runtime.inbox.register(request, clock.now());
+    await processInboundMessage(request, runtime.inbound);
+
+    await processAiProposal(runtime.queue.envelope(), runtime.aiJob);
+
+    expect(provider.calls).toBe(1);
+    expect(reply.texts.at(-1)).toContain("tetto di costo");
+    const reminder = await env.DB.prepare(
+      "SELECT COUNT(*) AS total FROM reminders",
+    ).first<{ total: number }>();
+    expect(reminder?.total).toBe(0);
+    const budget = await env.DB.prepare(
+      "SELECT status FROM ai_budget_entries",
+    ).first<{ status: string }>();
+    expect(budget?.status).toBe("released");
   });
 
   it("rilascia una prenotazione rimasta appesa invece di bloccare il budget", async () => {

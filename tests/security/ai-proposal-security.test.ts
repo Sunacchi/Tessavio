@@ -27,6 +27,7 @@ class ScriptedProvider implements AiProviderPort {
 
   propose(): Promise<AiProviderResult> {
     return Promise.resolve({
+      outcome: "completed",
       rawJson: this.rawJson,
       model: "mock/scripted",
       costMicros: 0,

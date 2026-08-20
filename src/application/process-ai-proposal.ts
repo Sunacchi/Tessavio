@@ -1,9 +1,9 @@
 import {
   describeProposal,
-  parseProposalPlan,
   type ProposalPlan,
   type ProposalPlanItem,
 } from "./ai-plan";
+import { failWith, finish, storedPlan } from "./ai-proposal-delivery";
 import type { CommandContext } from "./handler-registry";
 import type { ProposalExecutor } from "./manage-ai-proposals";
 import type {
@@ -94,14 +94,14 @@ const budgetExhaustedReply = [
   "Puoi usare i comandi espliciti, oppure riprovare domani.",
 ].join("\n");
 
+const operationCostLimitReply = [
+  "La richiesta supera il tetto di costo per una singola operazione: non ho chiamato il modello e non ho scritto nulla.",
+  "Riduci il testo oppure usa un comando esplicito.",
+].join("\n");
+
 const missingCredentialReply = [
   "Nessuna chiave collegata: non posso chiamare il modello.",
   "Usa /ai collega per collegarla, oppure continua con i comandi espliciti.",
-].join("\n");
-
-const invalidOutputReply = [
-  "Non sono riuscito a interpretare la risposta del modello, quindi non ho scritto nulla.",
-  "Puoi riprovare o usare un comando esplicito, per esempio /evento crea ora 2026-08-20T10:00 2026-08-20T11:00 | Titolo.",
 ].join("\n");
 
 async function collectCandidates(
@@ -311,12 +311,24 @@ export async function processAiProposal(
       );
       throw error;
     }
+    if (result.outcome === "cost_limit") {
+      await dependencies.budget.release(
+        scope,
+        budgetKey,
+        dependencies.clock.now(),
+      );
+      return finish(dependencies, scope, envelope, operationCostLimitReply);
+    }
+
     await dependencies.budget.settle(
       scope,
       budgetKey,
       result.costMicros,
       dependencies.clock.now(),
     );
+    if (result.costMicros > dependencies.policy.maxCostMicrosPerOperation) {
+      return failWith(dependencies, scope, envelope, "provider_cost_overrun");
+    }
 
     let parsedJson: unknown;
     try {
@@ -442,110 +454,4 @@ function commandContext(
     jobId: envelope.jobId,
     sentAtUnix: envelope.payload.sentAtUnix,
   };
-}
-
-async function storedPlan(
-  dependencies: ProcessAiProposalDependencies,
-  scope: UserScope,
-  envelope: AiProposalJobEnvelope,
-): Promise<ProposalPlan | null> {
-  const record = await dependencies.proposals.get(scope, envelope.jobId);
-  return record?.planJson == null ? null : parseProposalPlan(record.planJson);
-}
-
-async function failWith(
-  dependencies: ProcessAiProposalDependencies,
-  scope: UserScope,
-  envelope: AiProposalJobEnvelope,
-  failureCode: string,
-): Promise<ProcessAiProposalResult> {
-  // Consegna prima di chiudere: un job chiuso non viene più ripreso, e una
-  // consegna fallita in modo ritentabile lascerebbe l'utente senza esito.
-  await deliver(dependencies, scope, envelope, invalidOutputReply);
-  await dependencies.proposals.fail(
-    scope,
-    envelope.jobId,
-    failureCode,
-    dependencies.clock.now(),
-  );
-  return { outcome: "failed" };
-}
-
-async function finish(
-  dependencies: ProcessAiProposalDependencies,
-  scope: UserScope,
-  envelope: AiProposalJobEnvelope,
-  replyText: string,
-  shouldDeliver = true,
-): Promise<ProcessAiProposalResult> {
-  // Ordine non invertibile: prima si consegna, poi si chiude. Se la consegna
-  // fallisce in modo ritentabile il job resta aperto e il retry rilegge il
-  // piano senza richiamare il modello (il ledger di delivery evita il doppio
-  // invio, quello degli effetti la doppia scrittura).
-  if (shouldDeliver) {
-    await deliver(dependencies, scope, envelope, replyText);
-  }
-  await dependencies.proposals.complete(
-    scope,
-    envelope.jobId,
-    replyText,
-    dependencies.clock.now(),
-  );
-  return { outcome: "completed" };
-}
-
-/** Consegna con lo stesso ledger delle risposte deterministiche. */
-async function deliver(
-  dependencies: ProcessAiProposalDependencies,
-  scope: UserScope,
-  envelope: AiProposalJobEnvelope,
-  replyText: string,
-): Promise<void> {
-  const deliveryKey = `telegram-reply:ai:${envelope.jobId}`;
-  await dependencies.deliveries.prepare(
-    scope,
-    deliveryKey,
-    envelope.jobId,
-    dependencies.clock.now(),
-  );
-  const action = await dependencies.deliveries.begin(
-    scope,
-    deliveryKey,
-    dependencies.clock.now(),
-  );
-  if (action !== "send") return;
-  try {
-    const sent = await dependencies.reply.send(
-      envelope.payload.chatId,
-      replyText,
-    );
-    await dependencies.deliveries.markSent(
-      scope,
-      deliveryKey,
-      sent.messageId,
-      dependencies.clock.now(),
-    );
-  } catch (error) {
-    if (error instanceof AppError && error.code === "RETRYABLE_EXTERNAL") {
-      await dependencies.deliveries.markRetryableFailure(
-        scope,
-        deliveryKey,
-        dependencies.clock.now(),
-      );
-      throw error;
-    }
-    if (error instanceof AppError && error.code === "PERMANENT_EXTERNAL") {
-      await dependencies.deliveries.markPermanentFailure(
-        scope,
-        deliveryKey,
-        dependencies.clock.now(),
-      );
-      return;
-    }
-    await dependencies.deliveries.markAmbiguous(
-      scope,
-      deliveryKey,
-      dependencies.clock.now(),
-    );
-  }
 }

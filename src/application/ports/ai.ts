@@ -20,12 +20,18 @@ export interface AiProviderRequest {
   readonly maxCostMicros: number;
 }
 
-export interface AiProviderResult {
-  readonly rawJson: string;
-  readonly model: string;
-  readonly costMicros: number;
-  readonly latencyMs: number;
-}
+export type AiProviderResult =
+  | {
+      readonly outcome: "completed";
+      readonly rawJson: string;
+      readonly model: string;
+      readonly costMicros: number;
+      readonly latencyMs: number;
+    }
+  | {
+      /** Il tetto non lascia spazio sufficiente per un output JSON valido. */
+      readonly outcome: "cost_limit";
+    };
 
 export interface AiProviderPort {
   propose(request: AiProviderRequest): Promise<AiProviderResult>;

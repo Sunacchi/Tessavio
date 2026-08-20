@@ -3,9 +3,9 @@
 Riproduce il gate trasversale della Phase C. Non crea risorse Cloudflare
 remote, non applica migration remote e non esegue deploy.
 
-**Stato dichiarato: verde in locale, smoke live OAuth pendente.** È la
-conseguenza accettata del gate G0.2 (opzione b): non esiste un host pubblico e
-non è autorizzato alcun deploy. La procedura dello smoke è nel
+**Stato dichiarato: verde in locale, smoke live OAuth interattivo pendente.** È
+la conseguenza accettata del gate G0.2 (opzione b): non è autorizzato alcun
+deploy. La procedura può usare un Quick Tunnel effimero ed è nel
 [runbook C2](C2_OAUTH_RECOVERY.md).
 
 ## Criteri di uscita e dove sono provati
@@ -67,9 +67,10 @@ personale, nessuna rete.
 npm run validate
 ```
 
-Firma del 2026-08-20: format, lint, type generation check, typecheck,
-`drizzle-kit check`, 61 file Vitest e 290 test verdi, build Worker dry-run
-verde. Nessun deploy, provisioning o mutazione remota fa parte del gate.
+Firma del 2026-08-20 dopo l'audit Codex: format, lint, type generation check,
+typecheck, `drizzle-kit check`, 61 file Vitest e 294 test verdi, build Worker
+dry-run verde. Nessun deploy, provisioning o mutazione remota fa parte del
+gate.
 
 ## Review indipendente e difetti chiusi
 
@@ -88,11 +89,20 @@ regressione che fallisce senza la correzione.
 Il quarto ha richiesto un'aggiunta di porta (`EffectRepository.release()`): il
 ledger degli effetti ora distingue "in corso" da "abbandonato".
 
+Un audit successivo ha corretto altri tre difetti prima della consegna:
+
+| Difetto                                                                  | Correzione / regressione                                                                                  |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `max_price` trattato come costo totale anziché USD per milione di token  | ceiling di prezzo versionati + `max_tokens` derivato dal tetto totale; test adapter e integrazione budget |
+| allowlist con un modello non più pubblicato e non applicata dall'adapter | allowlist riverificata via API OpenRouter e rifiuto pre-rete dei modelli non ammessi                      |
+| validator AI nuovo a 801 righe e orchestratore oltre budget              | split per tipi, azioni estese e delivery; tutti i file toccati sotto 500 righe                            |
+
 ## Limiti dichiarati alla chiusura
 
-- **Smoke live OAuth non eseguito**: manca l'host pubblico HTTPS (gate G0.2).
-  Finché non viene eseguito, l'adapter OpenRouter è provato solo contro un
-  server fake e contro le forme documentate dell'API.
+- **Smoke live OAuth non eseguito**: richiede login OpenRouter e credenziale
+  reali del proprietario (gate G0.2). Non serve più un deploy: il runbook usa
+  un Quick Tunnel Wrangler. Finché non viene eseguito, l'adapter è provato solo
+  contro un server fake e il contratto documentato dell'API.
 - **La baseline del benchmark misura l'harness**, non la qualità di un modello:
   il provider è mock e il confronto significativo arriva col primo provider
   reale sullo stesso dataset.

@@ -26,8 +26,12 @@ entrambi.
    bloccato per sempre.
 2. **Hard limit del provider.** Pre-volo `GET /api/v1/key`: se il credito
    residuo è sotto il costo massimo dell'operazione, la chiamata non parte.
-3. **Costo massimo per operazione.** `max_price` nel corpo della richiesta:
-   è il provider a rifiutare l'instradamento oltre il tetto.
+3. **Costo massimo per operazione.** `max_price` limita le tariffe degli
+   endpoint in USD per milione di token; non è un tetto sul totale della
+   chiamata. Il totale è limitato combinando quelle tariffe versionate con un
+   `max_tokens` calcolato sul budget residuo dopo un upper bound conservativo
+   dei token di input. Se restano meno di 128 token di output, la rete non viene
+   chiamata e la prenotazione viene rilasciata.
 
 Al superamento la risposta è un **rifiuto esplicito** con messaggio utile, mai
 un degrado silenzioso verso un modello più economico.
@@ -43,7 +47,7 @@ esclude gli endpoint privi di structured outputs invece di provarci. Il fallback
 resta consentito solo verso endpoint di privacy uguale o migliore e sotto il
 tetto di costo.
 
-**Allowlist e prompt sono configurazione versionata**, non dominio:
+**Allowlist, prezzi ceiling e prompt sono configurazione versionata**, non dominio:
 `src/ai/model-policy.ts` e `src/ai/prompt.ts`, entrambi con una versione
 esplicita. Un modello fuori allowlist non è un fallback: è un rifiuto.
 
@@ -62,7 +66,7 @@ idempotente e bounded.
 ## Conseguenze
 
 - Il costo massimo di un messaggio è noto **prima** della chiamata e verificato
-  da un test a due job concorrenti.
+  da test sul calcolo del limite e da un test a due job concorrenti.
 - Il budget è per utente e per giorno civile della sua timezone: un utente non
   può esaurire il budget di un altro.
 - Con provider mock i tre controlli restano attivi ma il costo è zero: la

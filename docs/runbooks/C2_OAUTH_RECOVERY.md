@@ -14,8 +14,9 @@ esplicito del proprietario ed è descritto qui sotto.
 
 ## Prerequisiti prima dello smoke live
 
-1. un host pubblico HTTPS che serva il Worker, impostato in `AI_PUBLIC_BASE_URL`
-   (senza barra finale);
+1. un URL HTTPS che serva il Worker, impostato in `AI_PUBLIC_BASE_URL` (senza
+   barra finale). Non è più necessario un deploy: Wrangler supporta un Quick
+   Tunnel effimero da `wrangler dev` (`t` nella sessione, oppure `--tunnel`);
 2. `AI_PROVIDER=openrouter` e `AI_MODEL` fra quelli dell'allowlist in
    `src/ai/model-policy.ts`;
 3. il secret `AI_KEK`: **32 byte casuali in base64**, generati fuori dal repo,
@@ -32,8 +33,12 @@ $bytes = New-Object byte[] 32
 
 ## Smoke live (passo del proprietario)
 
-1. `npx wrangler secret put AI_KEK` (o l'equivalente per l'ambiente scelto);
-2. avviare il Worker sull'host pubblico;
+1. per un ambiente remoto, `npx wrangler secret put AI_KEK`; per lo smoke
+   locale, passare la KEK solo al processo e non salvarla nel repository;
+2. avviare `wrangler dev`, aprire un Quick Tunnel con `t`, impostare l'URL
+   mostrato come `AI_PUBLIC_BASE_URL` nell'ambiente locale e lasciare attiva la
+   sessione. Il tunnel espone pubblicamente il dev server: usarlo solo per la
+   durata dello smoke;
 3. da Telegram: `/ai collega` → aprire il link entro 10 minuti → autorizzare su
    OpenRouter → verificare il messaggio di conferma in chat;
 4. `/ai` deve riportare "Chiave: collegata e cifrata sul server";
@@ -73,9 +78,9 @@ inesistente, scaduta o già usata devono essere indistinguibili. Per capire qual
 sia stata, guardare `ai_oauth_sessions.status` e il log
 `ai.oauth_session_rejected`, non la risposta HTTP.
 
-**Lo scambio del codice fallisce.** L'adapter prova entrambe le forme
-documentate (con e senza header `Authorization`). Se falliscono entrambe con 4xx
-l'esito è `rejected`; con 5xx o timeout è `unavailable` e l'utente può riprovare.
+**Lo scambio del codice fallisce.** L'adapter usa la forma documentata:
+`code`, `code_verifier` e `code_challenge_method` nel body, senza trasformare il
+codice in un bearer. Un 4xx è `rejected`; 5xx o timeout sono `unavailable`.
 
 **`ai.credential_unreadable` nei log.** Il ciphertext non si apre con l'anello
 di KEK corrente: quasi sempre significa che `AI_KEK` è stato sostituito senza
@@ -124,12 +129,12 @@ npm run validate
 I test che coprono questa slice: `tests/security/ai-oauth-security.test.ts`
 (replay, scadenza, PKCE, concorrenza, allowlist, rate limit, revoca),
 `tests/security/credential-crypto.test.ts` (cross-tenant, manomissione,
-rotazione, nonce), `tests/unit/ai-openrouter-adapter.test.ts` (entrambe le forme
-dello scambio, privacy strict, costo, interruttore) e
+rotazione, nonce), `tests/unit/ai-openrouter-adapter.test.ts` (exchange
+body-only, privacy strict, costo, allowlist, interruttore) e
 `tests/integration/ai-budget.test.ts` (prenotazione atomica e recovery).
 
 ## Esiti dello smoke live
 
-| Data | Ambiente | Esito               | Residui                                        |
-| ---- | -------- | ------------------- | ---------------------------------------------- |
-| —    | —        | non ancora eseguito | attende l'host pubblico (gate G0.2, opzione b) |
+| Data | Ambiente | Esito               | Residui                                                        |
+| ---- | -------- | ------------------- | -------------------------------------------------------------- |
+| —    | —        | non ancora eseguito | richiede login OpenRouter e smoke interattivo del proprietario |

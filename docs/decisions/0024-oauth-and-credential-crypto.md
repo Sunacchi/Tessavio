@@ -14,10 +14,9 @@ Vincolo esterno verificato: **OpenRouter non documenta un parametro `state`**
 nel flusso PKCE. Il binding CSRF deve quindi viaggiare nel `callback_url`, e da
 lì discende tutto il resto del disegno.
 
-Vincolo di ambiente (gate G0.2, firmato il 2026-08-19): non esiste alcuna
-risorsa Cloudflare remota e non è autorizzato alcun deploy. C2 si chiude in
-locale con un **server OAuth fake** nei test; lo smoke live resta un passo
-esplicito del proprietario descritto nel
+Vincolo di ambiente (gate G0.2, firmato il 2026-08-19): non è autorizzato alcun
+deploy. C2 si chiude in locale con un **server OAuth fake** nei test; lo smoke
+live resta un passo esplicito del proprietario descritto nel
 [runbook C2](../runbooks/C2_OAUTH_RECOVERY.md).
 
 ## Decisione
@@ -71,9 +70,8 @@ ottenerla. La credenziale durevole, quella sì, è sempre cifrata.
 - Il flusso è provabile per intero senza rete: il server fake verifica il PKCE
   come farebbe il provider e i test coprono replay, scadenza, PKCE errato,
   callback concorrente, host fuori allowlist e rate limit.
-- L'adapter tollera **entrambe le forme** documentate dello scambio (con e
-  senza header `Authorization`): la doc è ambigua e la verifica definitiva è lo
-  smoke live.
+- L'adapter usa la forma body-only documentata da OpenRouter: il codice non
+  viene mai riutilizzato come bearer. La riverifica è del 2026-08-20.
 - La Phase C chiude come _verde in locale con smoke live pendente_: è una
   conseguenza accettata del gate G0.2, non un difetto.
 - Ruotare la KEK richiede un ciclo di re-wrap: fino al completamento convivono
@@ -82,5 +80,5 @@ ottenerla. La credenziale durevole, quella sì, è sempre cifrata.
 ## Condizioni di riesame
 
 Riesaminare se OpenRouter documenta un parametro `state` (il binding potrebbe
-tornare standard), se il flusso PKCE cambia, o quando esiste un host pubblico
-stabile e lo smoke live viene eseguito.
+tornare standard), se il flusso PKCE cambia, o quando lo smoke live viene
+eseguito su un host stabile.

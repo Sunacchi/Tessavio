@@ -81,20 +81,20 @@ graph LR
 
 ### Cosa blocca cosa
 
-| Se vuoi partire con… | Devi avere chiuso          | Perché                                                    |
-| -------------------- | -------------------------- | --------------------------------------------------------- |
-| C1                   | C0                         | l'executor ha bisogno del registry di dispatch            |
-| C2                   | C1 e le decisioni G0.2     | l'host pubblico del callback è una decisione, non un task |
-| **E1**               | **solo B**                 | l'allocatore è deterministico e non chiama alcun modello  |
-| E2                   | E1 e C1                    | i vincoli a parole passano dal validator                  |
-| **G1 e G2**          | **solo B**                 | il briefing compone domini già chiusi                     |
-| D                    | C1 e C2                    | la trascrizione entra nella pipeline e consuma budget     |
-| H                    | il router pubblico di C2.1 | i callback Google richiedono HTTPS raggiungibile          |
-| L                    | F                          | senza spazi non esiste il destinatario familiare          |
-| J                    | D3                         | l'estrazione da documenti arriva da lì                    |
-| M                    | J (e F se condiviso)       | le prenotazioni acquisite seguono il ciclo di vita di J   |
-| I                    | C, D, E, F, G, H           | è il gate che li dimostra insieme                         |
-| O                    | I e J-N                    | è il gate del prodotto esteso                             |
+| Se vuoi partire con… | Devi avere chiuso          | Perché                                                       |
+| -------------------- | -------------------------- | ------------------------------------------------------------ |
+| C1                   | C0                         | l'executor ha bisogno del registry di dispatch               |
+| C2                   | C1 e le decisioni G0.2     | callback live e credenziali restano un gate del proprietario |
+| **E1**               | **solo B**                 | l'allocatore è deterministico e non chiama alcun modello     |
+| E2                   | E1 e C1                    | i vincoli a parole passano dal validator                     |
+| **G1 e G2**          | **solo B**                 | il briefing compone domini già chiusi                        |
+| D                    | C1 e C2                    | la trascrizione entra nella pipeline e consuma budget        |
+| H                    | il router pubblico di C2.1 | i callback Google richiedono HTTPS raggiungibile             |
+| L                    | F                          | senza spazi non esiste il destinatario familiare             |
+| J                    | D3                         | l'estrazione da documenti arriva da lì                       |
+| M                    | J (e F se condiviso)       | le prenotazioni acquisite seguono il ciclo di vita di J      |
+| I                    | C, D, E, F, G, H           | è il gate che li dimostra insieme                            |
+| O                    | I e J-N                    | è il gate del prodotto esteso                                |
 
 ### Le due correzioni
 
