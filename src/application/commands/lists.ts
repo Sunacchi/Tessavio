@@ -1,4 +1,5 @@
 import {
+  commandKindGuard,
   commandParts,
   entityIdPattern,
   parsePositiveVersion,
@@ -127,3 +128,18 @@ export function parseListsCommand(text: string): ListsCommand {
 export const listsCommandRoutes: readonly CommandRoute<ListsCommand>[] = [
   ["/liste", parseListsCommand],
 ];
+
+export const listsCommandKinds = [
+  "lists.create",
+  "lists.read",
+  "lists.list",
+  "lists.rename",
+  "lists.delete",
+  "lists.item.create",
+  "lists.item.complete",
+  "lists.item.reopen",
+  "lists.item.delete",
+  "lists.invalid",
+] as const;
+
+export const isListsCommand = commandKindGuard<ListsCommand>(listsCommandKinds);

@@ -1,5 +1,19 @@
-import type { ListsCommand } from "./commands/lists";
-import type { NotesCommand } from "./commands/notes";
+import {
+  isListsCommand,
+  listsCommandKinds,
+  type ListsCommand,
+} from "./commands/lists";
+import {
+  isNotesCommand,
+  notesCommandKinds,
+  type NotesCommand,
+} from "./commands/notes";
+import {
+  commandRegistration,
+  type CommandContext,
+  type CommandRegistration,
+} from "./handler-registry";
+import type { UndoHandler } from "./undo-registry";
 import type {
   ListMutationContext,
   ListRepository,
@@ -400,4 +414,79 @@ export async function manageLists(
       );
     }
   }
+}
+
+export interface ManageListsUndoDependencies {
+  readonly authorizer: Authorizer;
+  readonly clock: Clock;
+  readonly ids: IdGenerator;
+  readonly lists: ListRepository;
+}
+
+const listsAndNotesCommandKinds = [
+  ...listsCommandKinds,
+  ...notesCommandKinds,
+] as const;
+
+function isListsOrNotesCommand(command: {
+  readonly kind: string;
+}): command is ListsCommand | NotesCommand {
+  return isListsCommand(command) || isNotesCommand(command);
+}
+
+export function listsCommandRegistration(
+  dependencies: ManageListsDependencies,
+): CommandRegistration {
+  return commandRegistration<ListsCommand | NotesCommand>(
+    listsAndNotesCommandKinds,
+    isListsOrNotesCommand,
+    (command, context) =>
+      manageLists(
+        {
+          actorUserId: context.actorUserId,
+          scope: context.scope,
+          correlationId: context.correlationId,
+          idempotencyKey: context.idempotencyKey,
+          command,
+        },
+        dependencies,
+      ),
+  );
+}
+
+/** La slice liste/note possiede il prefisso `lst_` dei token di Undo. */
+export function listsUndoHandler(
+  dependencies: ManageListsUndoDependencies,
+): UndoHandler {
+  return {
+    prefix: "lst_",
+    handle: async (token: string, context: CommandContext) => {
+      await dependencies.authorizer.authorize({
+        actorUserId: context.actorUserId,
+        scope: context.scope,
+        action: "lists:undo",
+      });
+      const result = await dependencies.lists.undo(context.scope, token, {
+        actorUserId: context.actorUserId,
+        correlationId: context.correlationId,
+        idempotencyKey: context.idempotencyKey,
+        auditId: dependencies.ids.newId(),
+        now: dependencies.clock.now(),
+      });
+      switch (result.outcome) {
+        case "reverted":
+          return `Modifica ${result.entityKind} annullata. ID: ${result.entityId}`;
+        case "duplicate":
+          return `Undo liste/note già applicato (${result.entityKind}). ID: ${result.entityId}`;
+        case "expired":
+          return "Undo liste/note scaduto: nessuna modifica applicata.";
+        case "used":
+          return "Undo liste/note già usato: nessuna modifica applicata.";
+        case "stale":
+          return "Undo liste/note non applicabile: l'elemento è cambiato o ha dati collegati.";
+        case "not_found":
+          return "Undo liste/note non disponibile per questo utente.";
+      }
+    },
+  };
 }

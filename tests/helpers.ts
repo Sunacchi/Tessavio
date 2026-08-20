@@ -1,5 +1,90 @@
+import type { DayViewContributor } from "../src/application/day-view";
+import {
+  createCommandRegistry,
+  type CommandRegistration,
+} from "../src/application/handler-registry";
+import {
+  eventCommandRegistration,
+  eventUndoHandler,
+} from "../src/application/manage-events";
+import {
+  financeCommandRegistration,
+  financeUndoHandler,
+} from "../src/application/manage-finance";
+import {
+  listsCommandRegistration,
+  listsUndoHandler,
+} from "../src/application/manage-lists";
+import { onboardingCommandRegistration } from "../src/application/manage-onboarding";
+import {
+  preferenceCommandRegistration,
+  preferenceUndoHandler,
+} from "../src/application/manage-preferences";
+import {
+  reminderRecurrenceCommandRegistration,
+  reminderRecurrenceUndoHandler,
+} from "../src/application/manage-reminder-recurrences";
+import {
+  reminderCommandRegistration,
+  reminderDayViewContributor,
+  reminderUndoHandler,
+} from "../src/application/manage-reminders";
+import { reportCommandRegistration } from "../src/application/manage-reports";
+import {
+  taskCommandRegistration,
+  taskDayViewContributor,
+  taskUndoHandler,
+} from "../src/application/manage-tasks";
+import { undoCommandRegistration } from "../src/application/manage-undo";
+import {
+  workCommandRegistration,
+  workDayViewContributor,
+  workUndoHandler,
+} from "../src/application/manage-work";
+import type {
+  DeliveryRepository,
+  EffectRepository,
+  EventRepository,
+  FinanceRepository,
+  IdentityRepository,
+  InboundRepository,
+  ListRepository,
+  PreferenceRepository,
+  ReminderRecurrenceRepository,
+  ReminderRepository,
+  TaskRepository,
+  TelegramReplyPort,
+  WorkRepository,
+} from "../src/application/ports";
+import type { ProcessInboundDependencies } from "../src/application/process-inbound";
+import type { UndoHandler } from "../src/application/undo-registry";
+import type { Authorizer } from "../src/security/authorization";
 import type { AppConfig } from "../src/shared/config";
 import type { Clock, IdGenerator } from "../src/shared/contracts";
+
+/**
+ * Le dipendenze che un test può fornire. Le slice opzionali qui sono
+ * volutamente opzionali: servono a provare un registry parziale.
+ */
+export interface TestRuntimeParts {
+  readonly authorizer: Authorizer;
+  readonly clock: Clock;
+  readonly deliveries: DeliveryRepository;
+  readonly identities: IdentityRepository;
+  readonly ids: IdGenerator;
+  readonly inbox: InboundRepository;
+  readonly preferences: PreferenceRepository;
+  readonly reply: TelegramReplyPort;
+  readonly leaseSeconds: number;
+  readonly effects?: EffectRepository;
+  readonly events?: EventRepository;
+  readonly finance?: FinanceRepository;
+  readonly lists?: ListRepository;
+  readonly recurrences?: ReminderRecurrenceRepository;
+  readonly reminders?: ReminderRepository;
+  readonly tasks?: TaskRepository;
+  readonly work?: WorkRepository;
+}
 
 export const testConfig: AppConfig = {
   APP_ENV: "development",
@@ -85,4 +170,139 @@ export function webhookRequest(
     },
     body: payload,
   });
+}
+
+/**
+ * Compone il registry dei comandi per un test registrando **soltanto** le
+ * slice di cui il test fornisce il repository: una slice assente non è
+ * registrata e il registry risponde che non è disponibile.
+ */
+export function testInboundDependencies(
+  parts: TestRuntimeParts,
+): ProcessInboundDependencies {
+  const { authorizer, clock, ids, preferences } = parts;
+  const registrations: CommandRegistration[] = [
+    preferenceCommandRegistration({ authorizer, clock, ids, preferences }),
+  ];
+  const undoHandlers: UndoHandler[] = [];
+  const dayViewContributors: DayViewContributor[] = [];
+
+  if (parts.effects !== undefined) {
+    registrations.push(
+      onboardingCommandRegistration({
+        authorizer,
+        clock,
+        effects: parts.effects,
+      }),
+    );
+  }
+  if (parts.tasks !== undefined) {
+    const tasks = parts.tasks;
+    registrations.push(
+      taskCommandRegistration({ authorizer, clock, ids, preferences, tasks }),
+    );
+    dayViewContributors.push(taskDayViewContributor({ authorizer, tasks }));
+    undoHandlers.push(taskUndoHandler({ authorizer, clock, ids, tasks }));
+  }
+  if (parts.reminders !== undefined) {
+    const reminders = parts.reminders;
+    registrations.push(
+      reminderCommandRegistration({
+        authorizer,
+        clock,
+        ids,
+        preferences,
+        reminders,
+      }),
+    );
+    dayViewContributors.push(
+      reminderDayViewContributor({ authorizer, reminders }),
+    );
+    undoHandlers.push(
+      reminderUndoHandler({ authorizer, clock, ids, reminders }),
+    );
+  }
+  if (parts.work !== undefined) {
+    const work = parts.work;
+    registrations.push(
+      workCommandRegistration({ authorizer, clock, ids, preferences, work }),
+    );
+    dayViewContributors.push(workDayViewContributor({ authorizer, work }));
+    undoHandlers.push(workUndoHandler({ authorizer, clock, ids, work }));
+  }
+  if (parts.recurrences !== undefined) {
+    const recurrences = parts.recurrences;
+    registrations.push(
+      reminderRecurrenceCommandRegistration({
+        authorizer,
+        clock,
+        ids,
+        preferences,
+        recurrences,
+      }),
+    );
+    undoHandlers.push(
+      reminderRecurrenceUndoHandler({ authorizer, clock, ids, recurrences }),
+    );
+  }
+  if (parts.finance !== undefined) {
+    const finance = parts.finance;
+    registrations.push(
+      financeCommandRegistration({ authorizer, clock, finance, ids }),
+    );
+    undoHandlers.push(financeUndoHandler({ authorizer, clock, finance, ids }));
+  }
+  if (parts.lists !== undefined) {
+    const lists = parts.lists;
+    registrations.push(
+      listsCommandRegistration({ authorizer, clock, ids, lists }),
+    );
+    undoHandlers.push(listsUndoHandler({ authorizer, clock, ids, lists }));
+  }
+  if (parts.events !== undefined) {
+    const events = parts.events;
+    registrations.push(
+      eventCommandRegistration({
+        authorizer,
+        clock,
+        events,
+        ids,
+        preferences,
+        dayViewContributors,
+      }),
+    );
+    undoHandlers.push(eventUndoHandler({ authorizer, clock, events, ids }));
+  }
+  if (
+    parts.events !== undefined &&
+    parts.finance !== undefined &&
+    parts.tasks !== undefined &&
+    parts.work !== undefined
+  ) {
+    registrations.push(
+      reportCommandRegistration({
+        authorizer,
+        events: parts.events,
+        finance: parts.finance,
+        preferences,
+        tasks: parts.tasks,
+        work: parts.work,
+      }),
+    );
+  }
+  undoHandlers.push(
+    preferenceUndoHandler({ authorizer, clock, ids, preferences }),
+  );
+  registrations.push(undoCommandRegistration({ authorizer, undoHandlers }));
+
+  return {
+    clock,
+    commands: createCommandRegistry(registrations),
+    deliveries: parts.deliveries,
+    identities: parts.identities,
+    ids,
+    inbox: parts.inbox,
+    reply: parts.reply,
+    leaseSeconds: parts.leaseSeconds,
+  };
 }

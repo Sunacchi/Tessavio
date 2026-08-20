@@ -1,51 +1,22 @@
 import type {
   DeliveryRepository,
-  EffectRepository,
-  EventRepository,
-  FinanceRepository,
   IdentityRepository,
   InboundRepository,
-  ListRepository,
-  PreferenceRepository,
-  ReminderRecurrenceRepository,
-  ReminderRepository,
-  TaskRepository,
-  WorkRepository,
   TelegramReplyPort,
 } from "./ports";
 import type { InboundMessageEnvelope } from "./queue-envelope";
 import { parseDeterministicCommand } from "./deterministic-command";
-import { managePreferences } from "./manage-preferences";
-import { manageEvents } from "./manage-events";
-import { manageUndo } from "./manage-undo";
-import { manageReminders } from "./manage-reminders";
-import { manageReminderRecurrences } from "./manage-reminder-recurrences";
-import { manageTasks } from "./manage-tasks";
-import { manageWork } from "./manage-work";
-import { manageFinance } from "./manage-finance";
-import { manageLists } from "./manage-lists";
-import { manageReports, type ManageReportsResult } from "./manage-reports";
-import { startOnboarding } from "../domains/onboarding/start";
-import type { Authorizer } from "../security/authorization";
+import type { CommandRegistry, CommandReply } from "./handler-registry";
 import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
 import { AppError } from "../shared/errors";
 
 export interface ProcessInboundDependencies {
-  readonly authorizer: Authorizer;
   readonly clock: Clock;
+  readonly commands: CommandRegistry;
   readonly deliveries: DeliveryRepository;
-  readonly effects: EffectRepository;
-  readonly events: EventRepository;
-  readonly finance?: FinanceRepository;
   readonly identities: IdentityRepository;
   readonly ids: IdGenerator;
   readonly inbox: InboundRepository;
-  readonly lists?: ListRepository;
-  readonly preferences: PreferenceRepository;
-  readonly recurrences?: ReminderRecurrenceRepository;
-  readonly reminders: ReminderRepository;
-  readonly tasks: TaskRepository;
-  readonly work?: WorkRepository;
   readonly reply: TelegramReplyPort;
   readonly leaseSeconds: number;
 }
@@ -106,221 +77,14 @@ export async function processInboundMessage(
     dependencies.clock.now(),
   );
   const scope: UserScope = { userId: identity.userId };
-  let replyText: ManageReportsResult;
-  if (command.kind === "start") {
-    await dependencies.authorizer.authorize({
-      actorUserId: identity.userId,
-      scope,
-      action: "onboarding:start",
-    });
-
-    const effectKey = `onboarding-start:${envelope.jobId}`;
-    await dependencies.effects.claim(
-      scope,
-      effectKey,
-      envelope.jobId,
-      dependencies.clock.now(),
-    );
-    replyText = startOnboarding().text;
-    await dependencies.effects.complete(
-      scope,
-      effectKey,
-      dependencies.clock.now(),
-    );
-  } else if (
-    command.kind === "preferences.read" ||
-    command.kind === "preferences.set" ||
-    command.kind === "preferences.undo" ||
-    command.kind === "preferences.quiet_hours.set" ||
-    command.kind === "preferences.quiet_hours.disable" ||
-    command.kind === "preferences.invalid"
-  ) {
-    replyText = await managePreferences(
-      {
-        actorUserId: identity.userId,
-        scope,
-        correlationId: envelope.correlationId,
-        idempotencyKey: envelope.idempotencyKey,
-        command,
-      },
-      dependencies,
-    );
-  } else if (command.kind === "undo" || command.kind === "undo.invalid") {
-    replyText = await manageUndo(
-      {
-        actorUserId: identity.userId,
-        scope,
-        correlationId: envelope.correlationId,
-        idempotencyKey: envelope.idempotencyKey,
-        command,
-      },
-      dependencies,
-    );
-  } else if (
-    command.kind === "reminders.recurrence.create" ||
-    command.kind === "reminders.recurrence.read" ||
-    command.kind === "reminders.recurrence.list" ||
-    command.kind === "reminders.recurrence.cancel"
-  ) {
-    const recurrences = dependencies.recurrences;
-    if (recurrences === undefined) {
-      throw new AppError("INTERNAL_REDACTED", false);
-    }
-    replyText = await manageReminderRecurrences(
-      {
-        actorUserId: identity.userId,
-        scope,
-        correlationId: envelope.correlationId,
-        idempotencyKey: envelope.idempotencyKey,
-        sentAtUnix: message.sentAtUnix,
-        command,
-      },
-      { ...dependencies, recurrences },
-    );
-  } else if (
-    command.kind === "reminders.create" ||
-    command.kind === "reminders.read" ||
-    command.kind === "reminders.list" ||
-    command.kind === "reminders.cancel" ||
-    command.kind === "reminders.invalid"
-  ) {
-    replyText = await manageReminders(
-      {
-        actorUserId: identity.userId,
-        scope,
-        correlationId: envelope.correlationId,
-        idempotencyKey: envelope.idempotencyKey,
-        sentAtUnix: message.sentAtUnix,
-        command,
-      },
-      dependencies,
-    );
-  } else if (
-    command.kind === "tasks.create" ||
-    command.kind === "tasks.read" ||
-    command.kind === "tasks.list" ||
-    command.kind === "tasks.complete" ||
-    command.kind === "tasks.reopen" ||
-    command.kind === "tasks.invalid"
-  ) {
-    replyText = await manageTasks(
-      {
-        actorUserId: identity.userId,
-        scope,
-        correlationId: envelope.correlationId,
-        idempotencyKey: envelope.idempotencyKey,
-        command,
-      },
-      dependencies,
-    );
-  } else if (
-    command.kind === "work.rule.create" ||
-    command.kind === "work.rule.read" ||
-    command.kind === "work.rule.list" ||
-    command.kind === "work.shift.create" ||
-    command.kind === "work.shift.read" ||
-    command.kind === "work.log.create" ||
-    command.kind === "work.log.read" ||
-    command.kind === "work.break.create" ||
-    command.kind === "work.break.read" ||
-    command.kind === "work.day" ||
-    command.kind === "work.report" ||
-    command.kind === "work.invalid"
-  ) {
-    const work = dependencies.work;
-    if (work === undefined) throw new AppError("INTERNAL_REDACTED", false);
-    replyText = await manageWork(
-      {
-        actorUserId: identity.userId,
-        scope,
-        correlationId: envelope.correlationId,
-        idempotencyKey: envelope.idempotencyKey,
-        command,
-      },
-      { ...dependencies, work },
-    );
-  } else if (
-    command.kind === "finance.create" ||
-    command.kind === "finance.update" ||
-    command.kind === "finance.read" ||
-    command.kind === "finance.list" ||
-    command.kind === "finance.totals" ||
-    command.kind === "finance.delete" ||
-    command.kind === "finance.invalid"
-  ) {
-    const finance = dependencies.finance;
-    if (finance === undefined) throw new AppError("INTERNAL_REDACTED", false);
-    replyText = await manageFinance(
-      {
-        actorUserId: identity.userId,
-        scope,
-        correlationId: envelope.correlationId,
-        idempotencyKey: envelope.idempotencyKey,
-        command,
-      },
-      { ...dependencies, finance },
-    );
-  } else if (
-    command.kind === "reports.summary" ||
-    command.kind === "reports.csv" ||
-    command.kind === "reports.invalid"
-  ) {
-    const finance = dependencies.finance;
-    const work = dependencies.work;
-    if (finance === undefined || work === undefined) {
-      throw new AppError("INTERNAL_REDACTED", false);
-    }
-    replyText = await manageReports(
-      {
-        actorUserId: identity.userId,
-        scope,
-        command,
-      },
-      { ...dependencies, finance, work },
-    );
-  } else if (
-    command.kind === "lists.create" ||
-    command.kind === "lists.read" ||
-    command.kind === "lists.list" ||
-    command.kind === "lists.rename" ||
-    command.kind === "lists.delete" ||
-    command.kind === "lists.item.create" ||
-    command.kind === "lists.item.complete" ||
-    command.kind === "lists.item.reopen" ||
-    command.kind === "lists.item.delete" ||
-    command.kind === "lists.invalid" ||
-    command.kind === "notes.create" ||
-    command.kind === "notes.read" ||
-    command.kind === "notes.list" ||
-    command.kind === "notes.update" ||
-    command.kind === "notes.delete" ||
-    command.kind === "notes.invalid"
-  ) {
-    const lists = dependencies.lists;
-    if (lists === undefined) throw new AppError("INTERNAL_REDACTED", false);
-    replyText = await manageLists(
-      {
-        actorUserId: identity.userId,
-        scope,
-        correlationId: envelope.correlationId,
-        idempotencyKey: envelope.idempotencyKey,
-        command,
-      },
-      { ...dependencies, lists },
-    );
-  } else {
-    replyText = await manageEvents(
-      {
-        actorUserId: identity.userId,
-        scope,
-        correlationId: envelope.correlationId,
-        idempotencyKey: envelope.idempotencyKey,
-        sentAtUnix: message.sentAtUnix,
-        command,
-      },
-      dependencies,
-    );
-  }
+  const replyText: CommandReply = await dependencies.commands.handle(command, {
+    actorUserId: identity.userId,
+    scope,
+    correlationId: envelope.correlationId,
+    idempotencyKey: envelope.idempotencyKey,
+    jobId: envelope.jobId,
+    sentAtUnix: message.sentAtUnix,
+  });
 
   const deliveryKey = `telegram-reply:${envelope.jobId}`;
   const currentDelivery = await dependencies.deliveries.prepare(

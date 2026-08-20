@@ -1,4 +1,15 @@
-import type { ReminderCommand } from "./commands/reminders";
+import {
+  isOneOffReminderCommand,
+  oneOffReminderCommandKinds,
+  type OneOffReminderCommand,
+} from "./commands/reminders";
+import type { DayViewContributor } from "./day-view";
+import {
+  commandRegistration,
+  type CommandContext,
+  type CommandRegistration,
+} from "./handler-registry";
+import type { UndoHandler } from "./undo-registry";
 import type {
   MutateReminderResult,
   PreferenceRepository,
@@ -13,11 +24,6 @@ import {
 import type { PreferenceProfile } from "../domains/preferences/preferences";
 import type { Authorizer } from "../security/authorization";
 import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
-
-type OneOffReminderCommand = Exclude<
-  ReminderCommand,
-  { readonly kind: `reminders.recurrence.${string}` }
->;
 
 export interface ManageRemindersDependencies {
   readonly authorizer: Authorizer;
@@ -195,4 +201,101 @@ export async function manageReminders(
       ? "Creazione promemoria già applicata."
       : "Promemoria creato.";
   return `${heading}\n${renderReminder(result.reminder, profile)}\n${undoMessage(result, now)}`;
+}
+
+export interface ManageRemindersUndoDependencies {
+  readonly authorizer: Authorizer;
+  readonly clock: Clock;
+  readonly ids: IdGenerator;
+  readonly reminders: ReminderRepository;
+}
+
+export function reminderCommandRegistration(
+  dependencies: ManageRemindersDependencies,
+): CommandRegistration {
+  return commandRegistration<OneOffReminderCommand>(
+    oneOffReminderCommandKinds,
+    isOneOffReminderCommand,
+    (command, context) =>
+      manageReminders(
+        {
+          actorUserId: context.actorUserId,
+          scope: context.scope,
+          correlationId: context.correlationId,
+          idempotencyKey: context.idempotencyKey,
+          sentAtUnix: context.sentAtUnix,
+          command,
+        },
+        dependencies,
+      ),
+  );
+}
+
+/** Contributo della slice promemoria alla vista di giornata. */
+export function reminderDayViewContributor(dependencies: {
+  readonly authorizer: Authorizer;
+  readonly reminders: ReminderRepository;
+}): DayViewContributor {
+  return {
+    collect: async (request) => {
+      await dependencies.authorizer.authorize({
+        actorUserId: request.actorUserId,
+        scope: request.scope,
+        action: "reminders:read",
+      });
+      const rows = await dependencies.reminders.listForDay(
+        request.scope,
+        request.window,
+        request.limit + 1,
+      );
+      return {
+        heading: "Promemoria:",
+        entries: rows
+          .slice(0, request.limit)
+          .map((reminder) => renderReminder(reminder, request.profile)),
+        truncated: rows.length > request.limit,
+      };
+    },
+  };
+}
+
+/** La slice promemoria possiede il prefisso `rem_` dei token di Undo. */
+export function reminderUndoHandler(
+  dependencies: ManageRemindersUndoDependencies,
+): UndoHandler {
+  return {
+    prefix: "rem_",
+    handle: async (token: string, context: CommandContext) => {
+      await dependencies.authorizer.authorize({
+        actorUserId: context.actorUserId,
+        scope: context.scope,
+        action: "reminders:undo",
+      });
+      const result = await dependencies.reminders.undo(context.scope, token, {
+        actorUserId: context.actorUserId,
+        correlationId: context.correlationId,
+        idempotencyKey: context.idempotencyKey,
+        auditId: dependencies.ids.newId(),
+        now: dependencies.clock.now(),
+      });
+      switch (result.outcome) {
+        case "reverted":
+          return result.reminder === null
+            ? "Creazione promemoria annullata."
+            : `Annullamento promemoria revocato. ID: ${result.reminder.id}`;
+        case "duplicate":
+          return result.reminder === null
+            ? "Undo promemoria già applicato: il promemoria non esiste."
+            : `Undo promemoria già applicato. ID: ${result.reminder.id}`;
+        case "expired":
+          return "Undo promemoria scaduto: nessuna modifica applicata.";
+        case "used":
+          return "Undo promemoria già usato: nessuna modifica applicata.";
+        case "stale":
+          return "Undo promemoria non applicabile: il promemoria è cambiato nel frattempo.";
+        case "not_found":
+          return "Undo promemoria non disponibile per questo utente.";
+      }
+    },
+  };
 }

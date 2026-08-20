@@ -15,7 +15,7 @@ import { D1TaskRepository } from "../../src/infrastructure/db/task-repository";
 import { D1ReminderRepository } from "../../src/infrastructure/db/reminder-repository";
 import { D1WorkRepository } from "../../src/infrastructure/db/work-repository";
 import { SelfScopeAuthorizer } from "../../src/security/authorization";
-import { FakeClock, SequenceIds } from "../helpers";
+import { FakeClock, SequenceIds, testInboundDependencies } from "../helpers";
 
 const now = new Date("2026-08-19T12:00:00.000Z").getTime();
 
@@ -240,46 +240,52 @@ describe("B7 report flow", () => {
     await inbox.markEnqueued(input.jobId, new Date(now));
     const reply = new CapturingReply();
     await expect(
-      processInboundMessage(input, {
-        authorizer: new SelfScopeAuthorizer(),
-        clock: new FakeClock(new Date(now)),
-        deliveries: new D1DeliveryRepository(env.DB),
-        effects: new D1EffectRepository(env.DB),
-        events: new D1EventRepository(env.DB),
-        finance: new D1FinanceRepository(env.DB),
-        identities: new D1IdentityRepository(env.DB),
-        ids: new SequenceIds(),
-        inbox,
-        preferences: new D1PreferenceRepository(env.DB),
-        reminders: new D1ReminderRepository(env.DB),
-        tasks: new D1TaskRepository(env.DB),
-        work: new D1WorkRepository(env.DB),
-        reply,
-        leaseSeconds: 60,
-      }),
+      processInboundMessage(
+        input,
+        testInboundDependencies({
+          authorizer: new SelfScopeAuthorizer(),
+          clock: new FakeClock(new Date(now)),
+          deliveries: new D1DeliveryRepository(env.DB),
+          effects: new D1EffectRepository(env.DB),
+          events: new D1EventRepository(env.DB),
+          finance: new D1FinanceRepository(env.DB),
+          identities: new D1IdentityRepository(env.DB),
+          ids: new SequenceIds(),
+          inbox,
+          preferences: new D1PreferenceRepository(env.DB),
+          reminders: new D1ReminderRepository(env.DB),
+          tasks: new D1TaskRepository(env.DB),
+          work: new D1WorkRepository(env.DB),
+          reply,
+          leaseSeconds: 60,
+        }),
+      ),
     ).resolves.toEqual({ outcome: "completed" });
     expect(reply.documents).toHaveLength(1);
     expect(reply.documents[0]?.fileName).toBe(
       "tessavio-report-2026-08-19-2026-08-20.csv",
     );
     await expect(
-      processInboundMessage(input, {
-        authorizer: new SelfScopeAuthorizer(),
-        clock: new FakeClock(new Date(now)),
-        deliveries: new D1DeliveryRepository(env.DB),
-        effects: new D1EffectRepository(env.DB),
-        events: new D1EventRepository(env.DB),
-        finance: new D1FinanceRepository(env.DB),
-        identities: new D1IdentityRepository(env.DB),
-        ids: new SequenceIds(),
-        inbox,
-        preferences: new D1PreferenceRepository(env.DB),
-        reminders: new D1ReminderRepository(env.DB),
-        tasks: new D1TaskRepository(env.DB),
-        work: new D1WorkRepository(env.DB),
-        reply,
-        leaseSeconds: 60,
-      }),
+      processInboundMessage(
+        input,
+        testInboundDependencies({
+          authorizer: new SelfScopeAuthorizer(),
+          clock: new FakeClock(new Date(now)),
+          deliveries: new D1DeliveryRepository(env.DB),
+          effects: new D1EffectRepository(env.DB),
+          events: new D1EventRepository(env.DB),
+          finance: new D1FinanceRepository(env.DB),
+          identities: new D1IdentityRepository(env.DB),
+          ids: new SequenceIds(),
+          inbox,
+          preferences: new D1PreferenceRepository(env.DB),
+          reminders: new D1ReminderRepository(env.DB),
+          tasks: new D1TaskRepository(env.DB),
+          work: new D1WorkRepository(env.DB),
+          reply,
+          leaseSeconds: 60,
+        }),
+      ),
     ).resolves.toEqual({ outcome: "duplicate" });
     expect(reply.documents).toHaveLength(1);
   });

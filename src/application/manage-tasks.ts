@@ -1,4 +1,15 @@
-import type { TaskCommand } from "./commands/tasks";
+import {
+  isTaskCommand,
+  taskCommandKinds,
+  type TaskCommand,
+} from "./commands/tasks";
+import type { DayViewContributor } from "./day-view";
+import {
+  commandRegistration,
+  type CommandContext,
+  type CommandRegistration,
+} from "./handler-registry";
+import type { UndoHandler } from "./undo-registry";
 import type {
   MutateTaskResult,
   PreferenceRepository,
@@ -220,4 +231,100 @@ export async function manageTasks(
         ? "Task completata."
         : "Task riaperta.";
   return `${heading}\n${renderTask(result.task, profile)}\n${undoMessage(result, now)}`;
+}
+
+export interface ManageTasksUndoDependencies {
+  readonly authorizer: Authorizer;
+  readonly clock: Clock;
+  readonly ids: IdGenerator;
+  readonly tasks: TaskRepository;
+}
+
+export function taskCommandRegistration(
+  dependencies: ManageTasksDependencies,
+): CommandRegistration {
+  return commandRegistration<TaskCommand>(
+    taskCommandKinds,
+    isTaskCommand,
+    (command, context) =>
+      manageTasks(
+        {
+          actorUserId: context.actorUserId,
+          scope: context.scope,
+          correlationId: context.correlationId,
+          idempotencyKey: context.idempotencyKey,
+          command,
+        },
+        dependencies,
+      ),
+  );
+}
+
+/** Contributo della slice task alla vista di giornata. */
+export function taskDayViewContributor(dependencies: {
+  readonly authorizer: Authorizer;
+  readonly tasks: TaskRepository;
+}): DayViewContributor {
+  return {
+    collect: async (request) => {
+      await dependencies.authorizer.authorize({
+        actorUserId: request.actorUserId,
+        scope: request.scope,
+        action: "tasks:read",
+      });
+      const rows = await dependencies.tasks.listForDay(
+        request.scope,
+        request.window,
+        request.limit + 1,
+      );
+      return {
+        heading: "Task:",
+        entries: rows
+          .slice(0, request.limit)
+          .map((task) => renderTask(task, request.profile)),
+        truncated: rows.length > request.limit,
+      };
+    },
+  };
+}
+
+/** La slice task possiede il prefisso `tsk_` dei token di Undo. */
+export function taskUndoHandler(
+  dependencies: ManageTasksUndoDependencies,
+): UndoHandler {
+  return {
+    prefix: "tsk_",
+    handle: async (token: string, context: CommandContext) => {
+      await dependencies.authorizer.authorize({
+        actorUserId: context.actorUserId,
+        scope: context.scope,
+        action: "tasks:undo",
+      });
+      const result = await dependencies.tasks.undo(context.scope, token, {
+        actorUserId: context.actorUserId,
+        correlationId: context.correlationId,
+        idempotencyKey: context.idempotencyKey,
+        auditId: dependencies.ids.newId(),
+        now: dependencies.clock.now(),
+      });
+      switch (result.outcome) {
+        case "reverted":
+          return result.task === null
+            ? "Creazione task annullata."
+            : `Modifica task annullata. ID: ${result.task.id}`;
+        case "duplicate":
+          return result.task === null
+            ? "Undo task già applicato: la task non esiste."
+            : `Undo task già applicato. ID: ${result.task.id}`;
+        case "expired":
+          return "Undo task scaduto: nessuna modifica applicata.";
+        case "used":
+          return "Undo task già usato: nessuna modifica applicata.";
+        case "stale":
+          return "Undo task non applicabile: la task è cambiata nel frattempo.";
+        case "not_found":
+          return "Undo task non disponibile per questo utente.";
+      }
+    },
+  };
 }

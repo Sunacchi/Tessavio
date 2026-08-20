@@ -1,16 +1,23 @@
-import type { EventCommand, EventDraftCommand } from "./commands/events";
+import {
+  eventCommandKinds,
+  isEventCommand,
+  type EventCommand,
+  type EventDraftCommand,
+} from "./commands/events";
 import type {
   EventMutationContext,
   EventRepository,
   MutateEventResult,
   PreferenceRepository,
-  ReminderRepository,
-  TaskRepository,
-  WorkRepository,
 } from "./ports";
-import { renderReminder } from "./manage-reminders";
-import { renderTask } from "./manage-tasks";
-import { renderBoundedSections, renderPlannedShift } from "./manage-work";
+import { collectDayView, type DayViewContributor } from "./day-view";
+import {
+  commandRegistration,
+  type CommandContext,
+  type CommandRegistration,
+} from "./handler-registry";
+import { renderBoundedSections } from "./rendering";
+import type { UndoHandler } from "./undo-registry";
 import {
   eventDayWindow,
   eventUndoTtlMs,
@@ -30,9 +37,8 @@ export interface ManageEventsDependencies {
   readonly events: EventRepository;
   readonly ids: IdGenerator;
   readonly preferences: PreferenceRepository;
-  readonly reminders?: ReminderRepository;
-  readonly tasks?: TaskRepository;
-  readonly work?: WorkRepository;
+  /** Le altre slice della giornata, registrate: nessuna è nominata qui. */
+  readonly dayViewContributors: readonly DayViewContributor[];
 }
 
 export interface ManageEventsRequest {
@@ -197,97 +203,51 @@ export async function manageEvents(
     request.command.kind === "events.today" ||
     request.command.kind === "events.tomorrow"
   ) {
-    if (dependencies.tasks !== undefined) {
-      await dependencies.authorizer.authorize({
-        actorUserId: request.actorUserId,
-        scope: request.scope,
-        action: "tasks:read",
-      });
-    }
-    if (dependencies.reminders !== undefined) {
-      await dependencies.authorizer.authorize({
-        actorUserId: request.actorUserId,
-        scope: request.scope,
-        action: "reminders:read",
-      });
-    }
-    if (dependencies.work !== undefined) {
-      await dependencies.authorizer.authorize({
-        actorUserId: request.actorUserId,
-        scope: request.scope,
-        action: "work:read",
-      });
-    }
     const window = eventDayWindow(
       request.sentAtUnix,
       profile.timeZone,
       request.command.kind === "events.today" ? 0 : 1,
     );
-    const [eventRows, taskRows, reminderRows, workDay] = await Promise.all([
-      dependencies.events.listForDay(request.scope, window, dayViewLimit + 1),
-      dependencies.tasks?.listForDay(request.scope, window, dayViewLimit + 1) ??
-        Promise.resolve([]),
-      dependencies.reminders?.listForDay(
-        request.scope,
+    const eventSection: DayViewContributor = {
+      collect: async (dayRequest) => {
+        const rows = await dependencies.events.listForDay(
+          dayRequest.scope,
+          dayRequest.window,
+          dayRequest.limit + 1,
+        );
+        return {
+          heading: "Eventi:",
+          entries: rows
+            .slice(0, dayRequest.limit)
+            .map((event) => renderEvent(event, dayRequest.profile)),
+          truncated: rows.length > dayRequest.limit,
+        };
+      },
+    };
+    const sections = await collectDayView(
+      [eventSection, ...dependencies.dayViewContributors],
+      {
+        actorUserId: request.actorUserId,
+        scope: request.scope,
         window,
-        dayViewLimit + 1,
-      ) ?? Promise.resolve([]),
-      dependencies.work?.listForDay(request.scope, {
-        startAtUtc: window.startAtUtc,
-        endAtUtc: window.endAtUtc,
-        timeZone: profile.timeZone,
-      }) ??
-        Promise.resolve({
-          plannedShifts: [],
-          workLogs: [],
-          breaks: [],
-          truncated: false,
-          plannedShiftsTruncated: false,
-        }),
-    ]);
-    const events = eventRows.slice(0, dayViewLimit);
-    const tasks = taskRows.slice(0, dayViewLimit);
-    const reminders = reminderRows.slice(0, dayViewLimit);
+        profile,
+        limit: dayViewLimit,
+      },
+    );
     const heading = request.command.kind === "events.today" ? "Oggi" : "Domani";
-    if (
-      events.length === 0 &&
-      tasks.length === 0 &&
-      reminders.length === 0 &&
-      workDay.plannedShifts.length === 0
-    ) {
+    if (sections.every((section) => section.entries.length === 0)) {
       return `${heading} (${window.localDate}): nessun evento, task in scadenza, promemoria o turno pianificato.`;
     }
-    const sections: string[] = [];
-    if (events.length > 0) {
-      sections.push(
-        "Eventi:",
-        ...events.map((event) => renderEvent(event, profile)),
-      );
-    }
-    if (tasks.length > 0) {
-      sections.push("Task:", ...tasks.map((task) => renderTask(task, profile)));
-    }
-    if (reminders.length > 0) {
-      sections.push(
-        "Promemoria:",
-        ...reminders.map((reminder) => renderReminder(reminder, profile)),
-      );
-    }
-    if (workDay.plannedShifts.length > 0) {
-      sections.push(
-        "Turni pianificati:",
-        ...workDay.plannedShifts.map((shift) =>
-          renderPlannedShift(shift, profile),
-        ),
-      );
+    const lines: string[] = [];
+    for (const section of sections) {
+      if (section.entries.length > 0) {
+        lines.push(section.heading, ...section.entries);
+      }
     }
     return renderBoundedSections(
       `${heading} (${window.localDate}):`,
-      sections,
-      eventRows.length > dayViewLimit ||
-        taskRows.length > dayViewLimit ||
-        reminderRows.length > dayViewLimit ||
-        workDay.plannedShiftsTruncated,
+      lines,
+      sections.some((section) => section.truncated),
     );
   }
 
@@ -343,4 +303,74 @@ export async function manageEvents(
         ? "Evento creato."
         : "Evento aggiornato.";
   return `${heading}\n${renderEvent(result.event, profile)}\n${undoMessage(result, now)}`;
+}
+
+export interface ManageEventsUndoDependencies {
+  readonly authorizer: Authorizer;
+  readonly clock: Clock;
+  readonly events: EventRepository;
+  readonly ids: IdGenerator;
+}
+
+/** Registrazione della slice eventi: comandi propri più la vista di giornata. */
+export function eventCommandRegistration(
+  dependencies: ManageEventsDependencies,
+): CommandRegistration {
+  return commandRegistration<EventCommand>(
+    eventCommandKinds,
+    isEventCommand,
+    (command, context) =>
+      manageEvents(
+        {
+          actorUserId: context.actorUserId,
+          scope: context.scope,
+          correlationId: context.correlationId,
+          idempotencyKey: context.idempotencyKey,
+          sentAtUnix: context.sentAtUnix,
+          command,
+        },
+        dependencies,
+      ),
+  );
+}
+
+/** La slice eventi possiede il prefisso `evt_` dei token di Undo. */
+export function eventUndoHandler(
+  dependencies: ManageEventsUndoDependencies,
+): UndoHandler {
+  return {
+    prefix: "evt_",
+    handle: async (token: string, context: CommandContext) => {
+      await dependencies.authorizer.authorize({
+        actorUserId: context.actorUserId,
+        scope: context.scope,
+        action: "events:undo",
+      });
+      const result = await dependencies.events.undo(context.scope, token, {
+        actorUserId: context.actorUserId,
+        correlationId: context.correlationId,
+        idempotencyKey: context.idempotencyKey,
+        auditId: dependencies.ids.newId(),
+        now: dependencies.clock.now(),
+      });
+      switch (result.outcome) {
+        case "reverted":
+          return result.event === null
+            ? "Creazione evento annullata."
+            : `Modifica evento annullata. ID: ${result.event.id}`;
+        case "duplicate":
+          return result.event === null
+            ? "Undo evento già applicato: l'evento non esiste."
+            : `Undo evento già applicato. ID: ${result.event.id}`;
+        case "expired":
+          return "Undo evento scaduto: nessuna modifica applicata.";
+        case "used":
+          return "Undo evento già usato: nessuna modifica applicata.";
+        case "stale":
+          return "Undo evento non applicabile: l'evento è cambiato nel frattempo.";
+        case "not_found":
+          return "Undo evento non disponibile per questo utente.";
+      }
+    },
+  };
 }

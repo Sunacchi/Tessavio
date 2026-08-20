@@ -2,7 +2,10 @@ import { env } from "cloudflare:workers";
 import { createMessageBatch } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import { manageEvents } from "../../src/application/manage-events";
-import { manageWork } from "../../src/application/manage-work";
+import {
+  manageWork,
+  workDayViewContributor,
+} from "../../src/application/manage-work";
 import type {
   TelegramReplyPort,
   WorkMutationContext,
@@ -22,7 +25,7 @@ import { D1TaskRepository } from "../../src/infrastructure/db/task-repository";
 import { D1WorkRepository } from "../../src/infrastructure/db/work-repository";
 import { SelfScopeAuthorizer } from "../../src/security/authorization";
 import { AppError } from "../../src/shared/errors";
-import { FakeClock, SequenceIds } from "../helpers";
+import { FakeClock, SequenceIds, testInboundDependencies } from "../helpers";
 
 class CapturingReply implements TelegramReplyPort {
   readonly texts: string[] = [];
@@ -430,7 +433,12 @@ describe("B4 work flow", () => {
         events: new D1EventRepository(env.DB),
         ids: new SequenceIds(),
         preferences: new D1PreferenceRepository(env.DB),
-        work,
+        dayViewContributors: [
+          workDayViewContributor({
+            authorizer: new SelfScopeAuthorizer(),
+            work,
+          }),
+        ],
       },
     );
     expect(today).toContain("Unico turno visibile");
@@ -528,6 +536,12 @@ describe("B4 work flow", () => {
       {
         ...dependencies,
         events: new D1EventRepository(env.DB),
+        dayViewContributors: [
+          workDayViewContributor({
+            authorizer: dependencies.authorizer,
+            work,
+          }),
+        ],
       },
     );
     expect(today).toContain("Turni pianificati:");
@@ -577,7 +591,16 @@ describe("B4 work flow", () => {
         sentAtUnix: Date.parse("2026-08-10T10:00:00Z") / 1_000,
         command: { kind: "events.today" },
       },
-      { ...dependencies, events: new D1EventRepository(env.DB) },
+      {
+        ...dependencies,
+        events: new D1EventRepository(env.DB),
+        dayViewContributors: [
+          workDayViewContributor({
+            authorizer: dependencies.authorizer,
+            work,
+          }),
+        ],
+      },
     );
     expect(boundedToday.length).toBeLessThanOrEqual(3_500);
     expect(boundedToday).toContain("dettagli non mostrati");
@@ -608,7 +631,7 @@ describe("B4 work flow", () => {
     const clock = new FakeClock(now);
     const reply = new CapturingReply();
     const inbox = new D1InboundRepository(env.DB);
-    const dependencies = {
+    const dependencies = testInboundDependencies({
       authorizer: new SelfScopeAuthorizer(),
       clock,
       deliveries: new D1DeliveryRepository(env.DB),
@@ -623,7 +646,7 @@ describe("B4 work flow", () => {
       work: new D1WorkRepository(env.DB),
       reply,
       leaseSeconds: 60,
-    };
+    });
     const preference = envelope(
       8_401,
       "/impostazioni imposta it Europe/Rome 24h EUR",
@@ -675,7 +698,7 @@ describe("B4 work flow", () => {
     const ids = new SequenceIds();
     const setupReply = new CapturingReply();
     const inbox = new D1InboundRepository(env.DB);
-    const dependencies = {
+    const dependencies = testInboundDependencies({
       authorizer: new SelfScopeAuthorizer(),
       clock,
       deliveries: new D1DeliveryRepository(env.DB),
@@ -690,7 +713,7 @@ describe("B4 work flow", () => {
       work: new D1WorkRepository(env.DB),
       reply: setupReply,
       leaseSeconds: 60,
-    };
+    });
     for (const message of [
       envelope(8_501, "/impostazioni imposta it Europe/Rome 24h EUR"),
       envelope(8_502, "/lavoro regola crea non_retribuita | Standard"),

@@ -1,4 +1,5 @@
 import {
+  commandKindGuard,
   commandParts,
   entityIdPattern,
   unsupported,
@@ -121,3 +122,15 @@ export const eventCommandRoutes: readonly CommandRoute<
   ["/oggi", (text) => parseDayView(text, "events.today")],
   ["/domani", (text) => parseDayView(text, "events.tomorrow")],
 ];
+
+export const eventCommandKinds = [
+  "events.create",
+  "events.read",
+  "events.update",
+  "events.cancel",
+  "events.today",
+  "events.tomorrow",
+  "events.invalid",
+] as const;
+
+export const isEventCommand = commandKindGuard<EventCommand>(eventCommandKinds);

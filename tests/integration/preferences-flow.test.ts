@@ -19,7 +19,7 @@ import { D1TaskRepository } from "../../src/infrastructure/db/task-repository";
 import { SelfScopeAuthorizer } from "../../src/security/authorization";
 import type { UserScope } from "../../src/shared/contracts";
 import { AppError } from "../../src/shared/errors";
-import { FakeClock, SequenceIds } from "../helpers";
+import { FakeClock, SequenceIds, testInboundDependencies } from "../helpers";
 
 const values = {
   language: "it" as const,
@@ -343,7 +343,7 @@ describe("B1.1 deterministic Telegram flow", () => {
     const ids = new SequenceIds();
     const reply = new CapturingReply();
     const inbox = new D1InboundRepository(env.DB);
-    const dependencies = {
+    const dependencies = testInboundDependencies({
       authorizer: new SelfScopeAuthorizer(),
       clock,
       deliveries: new D1DeliveryRepository(env.DB),
@@ -357,7 +357,7 @@ describe("B1.1 deterministic Telegram flow", () => {
       tasks: new D1TaskRepository(env.DB),
       reply,
       leaseSeconds: 60,
-    };
+    });
     const setEnvelope = envelope(
       801,
       "/impostazioni imposta it Europe/Rome 24h EUR",
@@ -417,7 +417,7 @@ describe("B1.1 deterministic Telegram flow", () => {
     const ids = new SequenceIds();
     const reply = new CapturingReply();
     const inbox = new D1InboundRepository(env.DB);
-    const dependencies = {
+    const dependencies = testInboundDependencies({
       authorizer: new SelfScopeAuthorizer(),
       clock,
       deliveries: new D1DeliveryRepository(env.DB),
@@ -431,7 +431,7 @@ describe("B1.1 deterministic Telegram flow", () => {
       tasks: new D1TaskRepository(env.DB),
       reply,
       leaseSeconds: 60,
-    };
+    });
 
     for (const [updateId, text] of [
       [803, "/impostazioni imposta it"],

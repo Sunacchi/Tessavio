@@ -1,4 +1,16 @@
-import type { WorkCommand } from "./commands/work";
+import {
+  isWorkCommand,
+  workCommandKinds,
+  type WorkCommand,
+} from "./commands/work";
+import type { DayViewContributor } from "./day-view";
+import {
+  commandRegistration,
+  type CommandContext,
+  type CommandRegistration,
+} from "./handler-registry";
+import type { UndoHandler } from "./undo-registry";
+import { renderBoundedSections } from "./rendering";
 import type {
   MutateWorkResult,
   PreferenceRepository,
@@ -56,8 +68,6 @@ const usage = [
 
 const missingPreferences =
   "Configura prima la timezone con /impostazioni imposta it Europe/Rome 24h EUR.";
-const workReplyMaxCharacters = 3_500;
-const workReplyContentCharacters = 3_250;
 
 function validationMessage(issue: WorkValidationIssue): string {
   switch (issue) {
@@ -174,28 +184,6 @@ function renderReport(report: WorkReport): string {
     ...provenance.map((line) => `Provenienza calcolo: ${line}`),
     ...report.breaks.map((entry) => `Pausa contributrice: ${entry.id}`),
   ]);
-}
-
-export function renderBoundedSections(
-  heading: string,
-  sections: readonly string[],
-  sourceTruncated = false,
-): string {
-  let rendered = heading;
-  let included = 0;
-  for (const section of sections) {
-    const candidate = `${rendered}\n\n${section}`;
-    if (candidate.length > workReplyContentCharacters) break;
-    rendered = candidate;
-    included += 1;
-  }
-  const omitted = sections.length - included;
-  if (omitted === 0 && !sourceTruncated) return rendered;
-  const suffix = sourceTruncated
-    ? "Dettaglio parziale: altri elementi non mostrati. Restringi il periodo o la data."
-    : `${String(omitted)} dettagli non mostrati. Restringi il periodo o la data.`;
-  const bounded = `${rendered}\n\n${suffix}`;
-  return bounded.slice(0, workReplyMaxCharacters);
 }
 
 function mutationContext(
@@ -423,4 +411,96 @@ export async function manageWork(
       );
     }
   }
+}
+
+export interface ManageWorkUndoDependencies {
+  readonly authorizer: Authorizer;
+  readonly clock: Clock;
+  readonly ids: IdGenerator;
+  readonly work: WorkRepository;
+}
+
+export function workCommandRegistration(
+  dependencies: ManageWorkDependencies,
+): CommandRegistration {
+  return commandRegistration<WorkCommand>(
+    workCommandKinds,
+    isWorkCommand,
+    (command, context) =>
+      manageWork(
+        {
+          actorUserId: context.actorUserId,
+          scope: context.scope,
+          correlationId: context.correlationId,
+          idempotencyKey: context.idempotencyKey,
+          command,
+        },
+        dependencies,
+      ),
+  );
+}
+
+/** Contributo della slice lavoro alla vista di giornata: solo il pianificato. */
+export function workDayViewContributor(dependencies: {
+  readonly authorizer: Authorizer;
+  readonly work: WorkRepository;
+}): DayViewContributor {
+  return {
+    collect: async (request) => {
+      await dependencies.authorizer.authorize({
+        actorUserId: request.actorUserId,
+        scope: request.scope,
+        action: "work:read",
+      });
+      const day = await dependencies.work.listForDay(request.scope, {
+        startAtUtc: request.window.startAtUtc,
+        endAtUtc: request.window.endAtUtc,
+        timeZone: request.profile.timeZone,
+      });
+      return {
+        heading: "Turni pianificati:",
+        entries: day.plannedShifts.map((shift) =>
+          renderPlannedShift(shift, request.profile),
+        ),
+        truncated: day.plannedShiftsTruncated,
+      };
+    },
+  };
+}
+
+/** La slice lavoro possiede il prefisso `wrk_` dei token di Undo. */
+export function workUndoHandler(
+  dependencies: ManageWorkUndoDependencies,
+): UndoHandler {
+  return {
+    prefix: "wrk_",
+    handle: async (token: string, context: CommandContext) => {
+      await dependencies.authorizer.authorize({
+        actorUserId: context.actorUserId,
+        scope: context.scope,
+        action: "work:undo",
+      });
+      const result = await dependencies.work.undo(context.scope, token, {
+        actorUserId: context.actorUserId,
+        correlationId: context.correlationId,
+        idempotencyKey: context.idempotencyKey,
+        auditId: dependencies.ids.newId(),
+        now: dependencies.clock.now(),
+      });
+      switch (result.outcome) {
+        case "reverted":
+          return `Creazione lavoro annullata (${result.entityKind}). ID: ${result.entityId}`;
+        case "duplicate":
+          return `Undo lavoro già applicato (${result.entityKind}). ID: ${result.entityId}`;
+        case "expired":
+          return "Undo lavoro scaduto: nessuna modifica applicata.";
+        case "used":
+          return "Undo lavoro già usato: nessuna modifica applicata.";
+        case "stale":
+          return "Undo lavoro non applicabile: l'entità è cambiata o ha dati collegati.";
+        case "not_found":
+          return "Undo lavoro non disponibile per questo utente.";
+      }
+    },
+  };
 }

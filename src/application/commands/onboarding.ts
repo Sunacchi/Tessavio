@@ -1,4 +1,5 @@
 import {
+  commandKindGuard,
   commandParts,
   unsupported,
   type CommandRoute,
@@ -18,3 +19,9 @@ export function parseOnboardingCommand(
 export const onboardingCommandRoutes: readonly CommandRoute<
   OnboardingCommand | UnsupportedCommand
 >[] = [["/start", parseOnboardingCommand]];
+
+export const onboardingCommandKinds = ["start"] as const;
+
+export const isOnboardingCommand = commandKindGuard<OnboardingCommand>(
+  onboardingCommandKinds,
+);

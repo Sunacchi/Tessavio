@@ -21,7 +21,7 @@ import { D1TaskRepository } from "../../src/infrastructure/db/task-repository";
 import { D1WorkRepository } from "../../src/infrastructure/db/work-repository";
 import { SelfScopeAuthorizer } from "../../src/security/authorization";
 import { AppError } from "../../src/shared/errors";
-import { FakeClock, SequenceIds } from "../helpers";
+import { FakeClock, SequenceIds, testInboundDependencies } from "../helpers";
 
 class CapturingReply implements TelegramReplyPort {
   readonly texts: string[] = [];
@@ -260,7 +260,7 @@ describe("B5 finance flow", () => {
     const ids = new SequenceIds();
     const inbox = new D1InboundRepository(env.DB);
     const reply = new CapturingReply();
-    const dependencies = {
+    const dependencies = testInboundDependencies({
       authorizer: new SelfScopeAuthorizer(),
       clock,
       deliveries: new D1DeliveryRepository(env.DB),
@@ -276,7 +276,7 @@ describe("B5 finance flow", () => {
       work: new D1WorkRepository(env.DB),
       reply,
       leaseSeconds: 60,
-    };
+    });
     const createMessage = envelope(
       8_501,
       "/finanze crea spesa 1299 EUR 2026-08-08 | Alimentari | Mercato | carta | -",

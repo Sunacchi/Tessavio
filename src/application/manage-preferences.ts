@@ -1,4 +1,14 @@
-import type { PreferenceCommand } from "./commands/preferences";
+import {
+  isPreferenceCommand,
+  preferenceCommandKinds,
+  type PreferenceCommand,
+} from "./commands/preferences";
+import {
+  commandRegistration,
+  type CommandContext,
+  type CommandRegistration,
+} from "./handler-registry";
+import type { UndoHandler } from "./undo-registry";
 import type { PreferenceRepository } from "./ports";
 import {
   preferenceUndoTtlMs,
@@ -210,4 +220,47 @@ export async function managePreferences(
     case "not_found":
       return "Undo non disponibile per questo utente.";
   }
+}
+
+export function preferenceCommandRegistration(
+  dependencies: ManagePreferencesDependencies,
+): CommandRegistration {
+  return commandRegistration<PreferenceCommand>(
+    preferenceCommandKinds,
+    isPreferenceCommand,
+    (command, context) =>
+      managePreferences(
+        {
+          actorUserId: context.actorUserId,
+          scope: context.scope,
+          correlationId: context.correlationId,
+          idempotencyKey: context.idempotencyKey,
+          command,
+        },
+        dependencies,
+      ),
+  );
+}
+
+/**
+ * Undo delle preferenze: è il fallback del dispatcher perché i suoi token non
+ * hanno prefisso di dominio.
+ */
+export function preferenceUndoHandler(
+  dependencies: ManagePreferencesDependencies,
+): UndoHandler {
+  return {
+    prefix: "",
+    handle: (token: string, context: CommandContext) =>
+      managePreferences(
+        {
+          actorUserId: context.actorUserId,
+          scope: context.scope,
+          correlationId: context.correlationId,
+          idempotencyKey: context.idempotencyKey,
+          command: { kind: "preferences.undo", token },
+        },
+        dependencies,
+      ),
+  };
 }

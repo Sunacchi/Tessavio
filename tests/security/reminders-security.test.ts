@@ -1,3 +1,5 @@
+import { type Authorizer } from "../../src/security/authorization";
+import { reminderDayViewContributor } from "../../src/application/manage-reminders";
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { manageEvents } from "../../src/application/manage-events";
@@ -120,6 +122,13 @@ describe("B2 cross-tenant reminder isolation", () => {
       .bind(userA.userId, now.getTime(), now.getTime())
       .run();
     const guarded = new GuardedReminderRepository(env.DB);
+    const authorizer: Authorizer = {
+      authorize(request) {
+        return request.action === "reminders:read"
+          ? Promise.reject(new AppError("UNAUTHORIZED", false))
+          : Promise.resolve();
+      },
+    };
     await expect(
       manageEvents(
         {
@@ -131,18 +140,14 @@ describe("B2 cross-tenant reminder isolation", () => {
           command: { kind: "events.today" },
         },
         {
-          authorizer: {
-            authorize(request) {
-              return request.action === "reminders:read"
-                ? Promise.reject(new AppError("UNAUTHORIZED", false))
-                : Promise.resolve();
-            },
-          },
+          authorizer,
           clock: new FakeClock(now),
           events: new D1EventRepository(env.DB),
           ids: new SequenceIds(),
           preferences: new D1PreferenceRepository(env.DB),
-          reminders: guarded,
+          dayViewContributors: [
+            reminderDayViewContributor({ authorizer, reminders: guarded }),
+          ],
         },
       ),
     ).rejects.toEqual(new AppError("UNAUTHORIZED", false));

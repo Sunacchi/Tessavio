@@ -1,4 +1,14 @@
-import type { ReminderCommand } from "./commands/reminders";
+import {
+  isReminderRecurrenceCommand,
+  reminderRecurrenceCommandKinds,
+  type ReminderRecurrenceCommand,
+} from "./commands/reminders";
+import {
+  commandRegistration,
+  type CommandContext,
+  type CommandRegistration,
+} from "./handler-registry";
+import type { UndoHandler } from "./undo-registry";
 import type {
   MutateReminderRecurrenceResult,
   PreferenceRepository,
@@ -14,11 +24,6 @@ import type { PreferenceProfile } from "../domains/preferences/preferences";
 import type { Authorizer } from "../security/authorization";
 import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
 
-type RecurrenceCommand = Extract<
-  ReminderCommand,
-  { readonly kind: `reminders.recurrence.${string}` }
->;
-
 export interface ManageReminderRecurrencesDependencies {
   readonly authorizer: Authorizer;
   readonly clock: Clock;
@@ -33,7 +38,7 @@ export interface ManageReminderRecurrencesRequest {
   readonly correlationId: string;
   readonly idempotencyKey: string;
   readonly sentAtUnix: number;
-  readonly command: RecurrenceCommand;
+  readonly command: ReminderRecurrenceCommand;
 }
 
 const usage = [
@@ -192,4 +197,73 @@ export async function manageReminderRecurrences(
       ? "Creazione ricorrenza già applicata."
       : "Ricorrenza creata.";
   return `${heading}\n${renderRecurrence(result.recurrence, profile)}\n${undoMessage(result, now)}`;
+}
+
+export interface ManageReminderRecurrencesUndoDependencies {
+  readonly authorizer: Authorizer;
+  readonly clock: Clock;
+  readonly ids: IdGenerator;
+  readonly recurrences: ReminderRecurrenceRepository;
+}
+
+export function reminderRecurrenceCommandRegistration(
+  dependencies: ManageReminderRecurrencesDependencies,
+): CommandRegistration {
+  return commandRegistration<ReminderRecurrenceCommand>(
+    reminderRecurrenceCommandKinds,
+    isReminderRecurrenceCommand,
+    (command, context) =>
+      manageReminderRecurrences(
+        {
+          actorUserId: context.actorUserId,
+          scope: context.scope,
+          correlationId: context.correlationId,
+          idempotencyKey: context.idempotencyKey,
+          sentAtUnix: context.sentAtUnix,
+          command,
+        },
+        dependencies,
+      ),
+  );
+}
+
+/** La slice ricorrenze possiede il prefisso `rec_` dei token di Undo. */
+export function reminderRecurrenceUndoHandler(
+  dependencies: ManageReminderRecurrencesUndoDependencies,
+): UndoHandler {
+  return {
+    prefix: "rec_",
+    handle: async (token: string, context: CommandContext) => {
+      await dependencies.authorizer.authorize({
+        actorUserId: context.actorUserId,
+        scope: context.scope,
+        action: "reminders:undo",
+      });
+      const result = await dependencies.recurrences.undo(context.scope, token, {
+        actorUserId: context.actorUserId,
+        correlationId: context.correlationId,
+        idempotencyKey: context.idempotencyKey,
+        auditId: dependencies.ids.newId(),
+        now: dependencies.clock.now(),
+      });
+      switch (result.outcome) {
+        case "reverted":
+          return result.recurrence === null
+            ? "Creazione ricorrenza annullata."
+            : `Arresto ricorrenza revocato. ID: ${result.recurrence.id}`;
+        case "duplicate":
+          return result.recurrence === null
+            ? "Undo ricorrenza già applicato: la regola non esiste."
+            : `Undo ricorrenza già applicato. ID: ${result.recurrence.id}`;
+        case "expired":
+          return "Undo ricorrenza scaduto: nessuna modifica applicata.";
+        case "used":
+          return "Undo ricorrenza già usato: nessuna modifica applicata.";
+        case "stale":
+          return "Undo ricorrenza non applicabile: la regola è cambiata o ha già generato occorrenze.";
+        case "not_found":
+          return "Undo ricorrenza non disponibile per questo utente.";
+      }
+    },
+  };
 }

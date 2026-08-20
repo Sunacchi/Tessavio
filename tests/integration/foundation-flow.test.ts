@@ -22,6 +22,7 @@ import {
   SequenceIds,
   telegramStartUpdate,
   testConfig,
+  testInboundDependencies,
   webhookRequest,
 } from "../helpers";
 
@@ -98,7 +99,7 @@ function processDependencies(
   ids: SequenceIds,
   reply: FakeReply,
 ) {
-  return {
+  return testInboundDependencies({
     authorizer: new SelfScopeAuthorizer(),
     clock,
     deliveries: new D1DeliveryRepository(env.DB),
@@ -112,7 +113,7 @@ function processDependencies(
     tasks: new D1TaskRepository(env.DB),
     reply,
     leaseSeconds: 60,
-  };
+  });
 }
 
 async function count(table: string): Promise<number> {

@@ -1,4 +1,4 @@
-import { commandParts, type CommandRoute } from "./shared";
+import { commandKindGuard, commandParts, type CommandRoute } from "./shared";
 
 export type PreferenceCommand =
   | { readonly kind: "preferences.read" }
@@ -49,3 +49,16 @@ export function parsePreferenceCommand(text: string): PreferenceCommand {
 
 export const preferenceCommandRoutes: readonly CommandRoute<PreferenceCommand>[] =
   [["/impostazioni", parsePreferenceCommand]];
+
+export const preferenceCommandKinds = [
+  "preferences.read",
+  "preferences.set",
+  "preferences.undo",
+  "preferences.quiet_hours.set",
+  "preferences.quiet_hours.disable",
+  "preferences.invalid",
+] as const;
+
+export const isPreferenceCommand = commandKindGuard<PreferenceCommand>(
+  preferenceCommandKinds,
+);

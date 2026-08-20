@@ -1,4 +1,5 @@
 import {
+  commandKindGuard,
   commandParts,
   entityIdPattern,
   parsePositiveVersion,
@@ -86,3 +87,14 @@ export function parseNotesCommand(text: string): NotesCommand {
 export const notesCommandRoutes: readonly CommandRoute<NotesCommand>[] = [
   ["/note", parseNotesCommand],
 ];
+
+export const notesCommandKinds = [
+  "notes.create",
+  "notes.read",
+  "notes.list",
+  "notes.update",
+  "notes.delete",
+  "notes.invalid",
+] as const;
+
+export const isNotesCommand = commandKindGuard<NotesCommand>(notesCommandKinds);

@@ -1,4 +1,14 @@
-import type { ReportCommand } from "./commands/reports";
+import {
+  isReportCommand,
+  reportCommandKinds,
+  type ReportCommand,
+} from "./commands/reports";
+import {
+  commandRegistration,
+  type CommandDocumentReply,
+  type CommandRegistration,
+  type CommandReply,
+} from "./handler-registry";
 import type {
   EventRepository,
   FinanceRepository,
@@ -40,15 +50,9 @@ export interface ManageReportsRequest {
   readonly command: ReportCommand;
 }
 
-export interface CsvReportReply {
-  readonly kind: "document";
-  readonly fileName: string;
-  readonly mimeType: "text/csv";
-  readonly content: string;
-  readonly caption: string;
-}
+export type CsvReportReply = CommandDocumentReply;
 
-export type ManageReportsResult = string | CsvReportReply;
+export type ManageReportsResult = CommandReply;
 
 interface ReportContributors {
   readonly events: readonly EventRecord[];
@@ -394,4 +398,22 @@ export async function manageReports(
     content,
     caption: `Report Tessavio ${window.value.startDate} → ${window.value.endDate} (${window.value.timeZone}, ${baseReportPolicyVersion}).`,
   };
+}
+
+export function reportCommandRegistration(
+  dependencies: ManageReportsDependencies,
+): CommandRegistration {
+  return commandRegistration<ReportCommand>(
+    reportCommandKinds,
+    isReportCommand,
+    (command, context) =>
+      manageReports(
+        {
+          actorUserId: context.actorUserId,
+          scope: context.scope,
+          command,
+        },
+        dependencies,
+      ),
+  );
 }

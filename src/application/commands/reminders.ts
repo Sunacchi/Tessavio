@@ -1,4 +1,5 @@
 import {
+  commandKindGuard,
   commandParts,
   entityIdPattern,
   parsePositiveVersion,
@@ -123,3 +124,35 @@ export function parseReminderCommand(text: string): ReminderCommand {
 export const reminderCommandRoutes: readonly CommandRoute<ReminderCommand>[] = [
   ["/promemoria", parseReminderCommand],
 ];
+
+export type OneOffReminderCommand = Exclude<
+  ReminderCommand,
+  { readonly kind: `reminders.recurrence.${string}` }
+>;
+
+export type ReminderRecurrenceCommand = Extract<
+  ReminderCommand,
+  { readonly kind: `reminders.recurrence.${string}` }
+>;
+
+export const oneOffReminderCommandKinds = [
+  "reminders.create",
+  "reminders.read",
+  "reminders.list",
+  "reminders.cancel",
+  "reminders.invalid",
+] as const;
+
+export const reminderRecurrenceCommandKinds = [
+  "reminders.recurrence.create",
+  "reminders.recurrence.read",
+  "reminders.recurrence.list",
+  "reminders.recurrence.cancel",
+] as const;
+
+export const isOneOffReminderCommand = commandKindGuard<OneOffReminderCommand>(
+  oneOffReminderCommandKinds,
+);
+
+export const isReminderRecurrenceCommand =
+  commandKindGuard<ReminderRecurrenceCommand>(reminderRecurrenceCommandKinds);

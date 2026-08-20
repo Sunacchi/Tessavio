@@ -1,4 +1,9 @@
-import { commandParts, entityIdPattern, type CommandRoute } from "./shared";
+import {
+  commandKindGuard,
+  commandParts,
+  entityIdPattern,
+  type CommandRoute,
+} from "./shared";
 
 export type TaskCommand =
   | {
@@ -56,3 +61,14 @@ export function parseTaskCommand(text: string): TaskCommand {
 export const taskCommandRoutes: readonly CommandRoute<TaskCommand>[] = [
   ["/task", parseTaskCommand],
 ];
+
+export const taskCommandKinds = [
+  "tasks.create",
+  "tasks.read",
+  "tasks.list",
+  "tasks.complete",
+  "tasks.reopen",
+  "tasks.invalid",
+] as const;
+
+export const isTaskCommand = commandKindGuard<TaskCommand>(taskCommandKinds);

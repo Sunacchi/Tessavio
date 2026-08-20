@@ -1,4 +1,4 @@
-import { commandParts, type CommandRoute } from "./shared";
+import { commandKindGuard, commandParts, type CommandRoute } from "./shared";
 
 export type ReportCommand =
   | {
@@ -35,3 +35,12 @@ export function parseReportCommand(text: string): ReportCommand {
 export const reportCommandRoutes: readonly CommandRoute<ReportCommand>[] = [
   ["/report", parseReportCommand],
 ];
+
+export const reportCommandKinds = [
+  "reports.summary",
+  "reports.csv",
+  "reports.invalid",
+] as const;
+
+export const isReportCommand =
+  commandKindGuard<ReportCommand>(reportCommandKinds);

@@ -107,6 +107,7 @@ describe("B1.2 cross-tenant event isolation", () => {
           events,
           ids: new SequenceIds(),
           preferences: new D1PreferenceRepository(env.DB),
+          dayViewContributors: [],
         },
       ),
     ).rejects.toMatchObject({ code: "UNAUTHORIZED" });

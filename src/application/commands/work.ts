@@ -1,4 +1,9 @@
-import { commandParts, entityIdPattern, type CommandRoute } from "./shared";
+import {
+  commandKindGuard,
+  commandParts,
+  entityIdPattern,
+  type CommandRoute,
+} from "./shared";
 
 export type WorkCommand =
   | {
@@ -169,3 +174,20 @@ export function parseWorkCommand(text: string): WorkCommand {
 export const workCommandRoutes: readonly CommandRoute<WorkCommand>[] = [
   ["/lavoro", parseWorkCommand],
 ];
+
+export const workCommandKinds = [
+  "work.rule.create",
+  "work.rule.read",
+  "work.rule.list",
+  "work.shift.create",
+  "work.shift.read",
+  "work.log.create",
+  "work.log.read",
+  "work.break.create",
+  "work.break.read",
+  "work.day",
+  "work.report",
+  "work.invalid",
+] as const;
+
+export const isWorkCommand = commandKindGuard<WorkCommand>(workCommandKinds);

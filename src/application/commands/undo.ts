@@ -1,4 +1,9 @@
-import { commandParts, opaqueTokenPattern, type CommandRoute } from "./shared";
+import {
+  commandKindGuard,
+  commandParts,
+  opaqueTokenPattern,
+  type CommandRoute,
+} from "./shared";
 
 export type UndoCommand =
   | { readonly kind: "undo"; readonly token: string }
@@ -20,3 +25,7 @@ export function parseUndoCommand(text: string): UndoCommand {
 export const undoCommandRoutes: readonly CommandRoute<UndoCommand>[] = [
   ["/annulla", parseUndoCommand],
 ];
+
+export const undoCommandKinds = ["undo", "undo.invalid"] as const;
+
+export const isUndoCommand = commandKindGuard<UndoCommand>(undoCommandKinds);

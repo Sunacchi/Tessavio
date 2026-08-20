@@ -1,4 +1,5 @@
 import {
+  commandKindGuard,
   commandParts,
   entityIdPattern,
   parsePositiveVersion,
@@ -149,3 +150,16 @@ export const financeCommandRoutes: readonly CommandRoute<FinanceCommand>[] = [
   ["/finanze", parseFinanceCommand],
   ["/spese", parseFinanceCommand],
 ];
+
+export const financeCommandKinds = [
+  "finance.create",
+  "finance.update",
+  "finance.read",
+  "finance.list",
+  "finance.totals",
+  "finance.delete",
+  "finance.invalid",
+] as const;
+
+export const isFinanceCommand =
+  commandKindGuard<FinanceCommand>(financeCommandKinds);
