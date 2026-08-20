@@ -1,5 +1,8 @@
 # Data and privacy policy baseline
 
+> Retention, classificazione e diritti per categoria di dato. Aprire **prima**
+> di persistere una categoria nuova: senza una riga qui, la migration non parte.
+
 ## Retention proposta
 
 | Dato                     | Default                                   |
@@ -11,18 +14,30 @@
 | estratto/provenance      | con l'entità utile; policy di dominio     |
 | prompt raw nei log       | disabilitato                              |
 | testo normalizzato inbox | 7 giorni per A1                           |
-| ActionProposal           | 30-90 giorni, da approvare prima di C     |
+| ActionProposal C1        | 30 giorni; purge idempotente e bounded    |
+| token conferma proposta  | TTL 15 minuti; purge alla scadenza        |
+| sessione OAuth C2        | TTL 10 minuti; purge dopo la scadenza     |
+| credenziale BYOK C2      | cifrata; fino a `/ai scollega` o delete   |
+| ledger budget AI C2      | 90 giorni; prenotazioni appese rilasciate |
 | effect/delivery A1       | 30 giorni                                 |
 | audit identità A1        | minimo 90 giorni; approvazione produzione |
 | preferenze temporali B1  | fino a cancellazione utente               |
 | token Undo preferenze    | TTL 15 minuti; purge bounded user-scoped  |
+| eventi B1                | fino a cancellazione utente               |
+| token Undo eventi        | TTL 15 minuti; purge bounded user-scoped  |
 | reminder B2              | fino a cancellazione utente               |
 | token Undo reminder      | TTL 15 minuti; purge bounded user-scoped  |
-| delivery notification B2 | 30 giorni; purge da attivare pre-pilot    |
+| delivery notification B2 | 30 giorni; purge terminale user-scoped    |
+| task B3                  | fino a cancellazione utente               |
+| token Undo task          | TTL 15 minuti; purge bounded user-scoped  |
 | lavoro B4                | fino a cancellazione utente               |
 | token Undo lavoro        | TTL 15 minuti; purge bounded user-scoped  |
 | movimenti finanza B5     | fino a cancellazione utente               |
 | token Undo finanze       | TTL 15 minuti; purge bounded user-scoped  |
+| liste/note B6.1          | fino a cancellazione utente               |
+| token Undo liste/note    | TTL 15 minuti; purge bounded user-scoped  |
+| ricorrenze reminder B6.2 | fino a cancellazione utente               |
+| token Undo ricorrenze    | TTL 15 minuti; purge bounded user-scoped  |
 | dati core                | fino a cancellazione utente               |
 | metadata AI usage        | quanto necessario a budget e report       |
 | OAuth Google             | fino a revoca/disconnessione              |
@@ -58,8 +73,13 @@ richiesto/effettivo, timezone IANA originale, stato/versione e metadati minimi d
 claim/delivery. Lo snapshot per quiet hours contiene soltanto versione profilo e
 minuti locali, non una copia del profilo. Il testo viene letto per l'invio ma non
 entra in log, delivery ledger o DLQ diagnostica. I token `rem_…` scadono dopo 15
-minuti; reminder e audit restano fino alla cancellazione account, mentre la purge
-del ledger notification a 30 giorni è un gate pre-pilot.
+minuti; reminder e audit restano fino alla cancellazione account. Il ledger di
+delivery elimina in modo bounded e user-scoped soltanto righe terminali create
+da almeno 30 giorni; tentativi `pending|sending` non vengono rimossi.
+
+In B3 le task private restano fino alla cancellazione account, inclusi stato e
+scadenza tipizzata necessari a complete/reopen. I token Undo `tsk_…` scadono
+dopo 15 minuti e hanno purge bounded user-scoped.
 
 In B4 regole, turni pianificati, consuntivi e pause sono privati. Conservano
 soltanto etichette inserite, intervalli UTC con timezone originale, versioni e lo
@@ -75,6 +95,18 @@ sono soft per consentire Undo; record attivi/eliminati e audit restano fino alla
 cancellazione account. I token `fin_…` scadono dopo 15 minuti, non entrano nei
 log e hanno purge bounded user-scoped. Diagnostica e metriche non includono
 categoria, esercente, metodo, note o snapshot audit.
+
+In B6.1 liste, item e note sono private e restano fino alla cancellazione
+account; le eliminazioni ordinarie sono soft e non implicano delete bulk. In
+B6.2 regole reminder e mapping delle occorrenze restano per audit, dedupe e
+riproducibilità fino alla cancellazione account. I rispettivi token `lst_…` e
+`rec_…` scadono dopo 15 minuti e hanno purge bounded user-scoped.
+
+In B7 riepiloghi e CSV sono viste calcolate sui dati B1-B5 autorizzati. Il CSV è
+generato in memoria, inviato come documento Telegram e non viene persistito in
+D1, storage, audit o log. Formula, timezone e ID contributor rendono il calcolo
+riproducibile; il file resta comunque una copia esportata sotto il controllo
+dell'utente e il contenuto non deve comparire nella diagnostica.
 
 ## Diritti e operazioni
 

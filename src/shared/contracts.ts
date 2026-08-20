@@ -4,6 +4,13 @@ export interface UserScope {
   readonly userId: UserId;
 }
 
+/**
+ * Origine del dato persistito: inserito da un comando esplicito oppure
+ * estratto da una proposta AI. La Definition of Done richiede che i due casi
+ * siano distinguibili; è un campo, non un'inferenza.
+ */
+export type EntityProvenance = "entered" | "extracted";
+
 export interface Clock {
   now(): Date;
 }

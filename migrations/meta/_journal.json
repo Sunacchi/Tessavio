@@ -50,6 +50,41 @@
       "when": 1786210188057,
       "tag": "0006_puzzling_vanisher",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1787166714075,
+      "tag": "0007_wide_phalanx",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1787168449029,
+      "tag": "0008_redundant_morlun",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1787203841585,
+      "tag": "0009_blue_kingpin",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1787206564799,
+      "tag": "0010_daffy_old_lace",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1787223066735,
+      "tag": "0011_nostalgic_kitty_pryde",
+      "breakpoints": true
     }
   ]
 }

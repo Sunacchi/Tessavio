@@ -2,10 +2,8 @@ import { env } from "cloudflare:workers";
 import { createMessageBatch } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { InboundMessageEnvelope } from "../../src/application/queue-envelope";
-import type {
-  PreferenceMutationContext,
-  TelegramReplyPort,
-} from "../../src/application/ports";
+import type { PreferenceMutationContext } from "../../src/application/ports/preferences";
+import type { TelegramReplyPort } from "../../src/application/ports/telegram";
 import { processInboundMessage } from "../../src/application/process-inbound";
 import { handleInboundQueue } from "../../src/entrypoints/queue";
 import { D1DeliveryRepository } from "../../src/infrastructure/db/delivery-repository";
@@ -19,7 +17,7 @@ import { D1TaskRepository } from "../../src/infrastructure/db/task-repository";
 import { SelfScopeAuthorizer } from "../../src/security/authorization";
 import type { UserScope } from "../../src/shared/contracts";
 import { AppError } from "../../src/shared/errors";
-import { FakeClock, SequenceIds } from "../helpers";
+import { FakeClock, SequenceIds, testInboundDependencies } from "../helpers";
 
 const values = {
   language: "it" as const,
@@ -75,6 +73,7 @@ function envelope(updateId: number, text: string): InboundMessageEnvelope {
         sender: { id: 7001, isBot: false },
         chat: { id: 7001, type: "private" },
         text,
+        forwarded: false,
       },
     },
   };
@@ -343,7 +342,7 @@ describe("B1.1 deterministic Telegram flow", () => {
     const ids = new SequenceIds();
     const reply = new CapturingReply();
     const inbox = new D1InboundRepository(env.DB);
-    const dependencies = {
+    const dependencies = testInboundDependencies({
       authorizer: new SelfScopeAuthorizer(),
       clock,
       deliveries: new D1DeliveryRepository(env.DB),
@@ -357,7 +356,7 @@ describe("B1.1 deterministic Telegram flow", () => {
       tasks: new D1TaskRepository(env.DB),
       reply,
       leaseSeconds: 60,
-    };
+    });
     const setEnvelope = envelope(
       801,
       "/impostazioni imposta it Europe/Rome 24h EUR",
@@ -417,7 +416,7 @@ describe("B1.1 deterministic Telegram flow", () => {
     const ids = new SequenceIds();
     const reply = new CapturingReply();
     const inbox = new D1InboundRepository(env.DB);
-    const dependencies = {
+    const dependencies = testInboundDependencies({
       authorizer: new SelfScopeAuthorizer(),
       clock,
       deliveries: new D1DeliveryRepository(env.DB),
@@ -431,7 +430,7 @@ describe("B1.1 deterministic Telegram flow", () => {
       tasks: new D1TaskRepository(env.DB),
       reply,
       leaseSeconds: 60,
-    };
+    });
 
     for (const [updateId, text] of [
       [803, "/impostazioni imposta it"],

@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { manageEvents } from "../../src/application/manage-events";
-import type { EventMutationContext } from "../../src/application/ports";
+import type { EventMutationContext } from "../../src/application/ports/events";
 import { D1EventRepository } from "../../src/infrastructure/db/event-repository";
 import { D1PreferenceRepository } from "../../src/infrastructure/db/preference-repository";
 import { SelfScopeAuthorizer } from "../../src/security/authorization";
@@ -39,6 +39,7 @@ describe("B1.2 cross-tenant event isolation", () => {
   it("does not read, list, update, cancel or undo another user's event", async () => {
     const context: EventMutationContext = {
       actorUserId: "user-a",
+      provenance: "entered",
       correlationId: "correlation-a",
       idempotencyKey: "create-a",
       auditId: "audit-a",
@@ -106,7 +107,9 @@ describe("B1.2 cross-tenant event isolation", () => {
           clock,
           events,
           ids: new SequenceIds(),
+          provenance: "entered",
           preferences: new D1PreferenceRepository(env.DB),
+          dayViewContributors: [],
         },
       ),
     ).rejects.toMatchObject({ code: "UNAUTHORIZED" });

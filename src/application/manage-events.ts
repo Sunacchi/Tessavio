@@ -1,14 +1,25 @@
-import type { EventCommand, EventDraftCommand } from "./deterministic-command";
+import {
+  eventCommandKinds,
+  isEventCommand,
+  type EventCommand,
+  type EventDraftCommand,
+} from "./commands/events";
 import type {
   EventMutationContext,
   EventRepository,
   MutateEventResult,
-  PreferenceRepository,
-  TaskRepository,
-  WorkRepository,
-} from "./ports";
-import { renderTask } from "./manage-tasks";
-import { renderBoundedSections, renderPlannedShift } from "./manage-work";
+} from "./ports/events";
+import type { PreferenceRepository } from "./ports/preferences";
+import { collectDayView, type DayViewContributor } from "./day-view";
+import {
+  commandRegistration,
+  type CommandContext,
+  type CommandRegistration,
+} from "./handler-registry";
+import { renderBoundedSections } from "./rendering";
+import type { UndoHandler } from "./undo-registry";
+import type { ProposalCandidateContributor } from "./ports/ai";
+import { candidateWindow } from "../domains/ai/lookup-window";
 import {
   eventDayWindow,
   eventUndoTtlMs,
@@ -20,16 +31,23 @@ import {
 } from "../domains/events/events";
 import type { PreferenceProfile } from "../domains/preferences/preferences";
 import type { Authorizer } from "../security/authorization";
-import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
+import type {
+  Clock,
+  EntityProvenance,
+  IdGenerator,
+  UserScope,
+} from "../shared/contracts";
 
 export interface ManageEventsDependencies {
   readonly authorizer: Authorizer;
+  /** Origine dei dati scritti da questo contenitore: comando o proposta AI. */
+  readonly provenance: EntityProvenance;
   readonly clock: Clock;
   readonly events: EventRepository;
   readonly ids: IdGenerator;
   readonly preferences: PreferenceRepository;
-  readonly tasks?: TaskRepository;
-  readonly work?: WorkRepository;
+  /** Le altre slice della giornata, registrate: nessuna è nominata qui. */
+  readonly dayViewContributors: readonly DayViewContributor[];
 }
 
 export interface ManageEventsRequest {
@@ -145,6 +163,7 @@ function mutationContext(
     actorUserId: request.actorUserId,
     correlationId: request.correlationId,
     idempotencyKey: request.idempotencyKey,
+    provenance: dependencies.provenance,
     auditId: dependencies.ids.newId(),
     undoToken: `evt_${dependencies.ids.newId()}`,
     now,
@@ -194,71 +213,51 @@ export async function manageEvents(
     request.command.kind === "events.today" ||
     request.command.kind === "events.tomorrow"
   ) {
-    if (dependencies.work !== undefined) {
-      await dependencies.authorizer.authorize({
-        actorUserId: request.actorUserId,
-        scope: request.scope,
-        action: "work:read",
-      });
-    }
     const window = eventDayWindow(
       request.sentAtUnix,
       profile.timeZone,
       request.command.kind === "events.today" ? 0 : 1,
     );
-    const [eventRows, taskRows, workDay] = await Promise.all([
-      dependencies.events.listForDay(request.scope, window, dayViewLimit + 1),
-      dependencies.tasks?.listForDay(request.scope, window, dayViewLimit + 1) ??
-        Promise.resolve([]),
-      dependencies.work?.listForDay(request.scope, {
-        startAtUtc: window.startAtUtc,
-        endAtUtc: window.endAtUtc,
-        timeZone: profile.timeZone,
-      }) ??
-        Promise.resolve({
-          plannedShifts: [],
-          workLogs: [],
-          breaks: [],
-          truncated: false,
-          plannedShiftsTruncated: false,
-        }),
-    ]);
-    const events = eventRows.slice(0, dayViewLimit);
-    const tasks = taskRows.slice(0, dayViewLimit);
+    const eventSection: DayViewContributor = {
+      collect: async (dayRequest) => {
+        const rows = await dependencies.events.listForDay(
+          dayRequest.scope,
+          dayRequest.window,
+          dayRequest.limit + 1,
+        );
+        return {
+          heading: "Eventi:",
+          entries: rows
+            .slice(0, dayRequest.limit)
+            .map((event) => renderEvent(event, dayRequest.profile)),
+          truncated: rows.length > dayRequest.limit,
+        };
+      },
+    };
+    const sections = await collectDayView(
+      [eventSection, ...dependencies.dayViewContributors],
+      {
+        actorUserId: request.actorUserId,
+        scope: request.scope,
+        window,
+        profile,
+        limit: dayViewLimit,
+      },
+    );
     const heading = request.command.kind === "events.today" ? "Oggi" : "Domani";
-    if (
-      events.length === 0 &&
-      tasks.length === 0 &&
-      workDay.plannedShifts.length === 0
-    ) {
-      return dependencies.work === undefined
-        ? `${heading} (${window.localDate}): nessun evento o task in scadenza.`
-        : `${heading} (${window.localDate}): nessun evento, task in scadenza o turno pianificato.`;
+    if (sections.every((section) => section.entries.length === 0)) {
+      return `${heading} (${window.localDate}): nessun evento, task in scadenza, promemoria o turno pianificato.`;
     }
-    const sections: string[] = [];
-    if (events.length > 0) {
-      sections.push(
-        "Eventi:",
-        ...events.map((event) => renderEvent(event, profile)),
-      );
-    }
-    if (tasks.length > 0) {
-      sections.push("Task:", ...tasks.map((task) => renderTask(task, profile)));
-    }
-    if (workDay.plannedShifts.length > 0) {
-      sections.push(
-        "Turni pianificati:",
-        ...workDay.plannedShifts.map((shift) =>
-          renderPlannedShift(shift, profile),
-        ),
-      );
+    const lines: string[] = [];
+    for (const section of sections) {
+      if (section.entries.length > 0) {
+        lines.push(section.heading, ...section.entries);
+      }
     }
     return renderBoundedSections(
       `${heading} (${window.localDate}):`,
-      sections,
-      eventRows.length > dayViewLimit ||
-        taskRows.length > dayViewLimit ||
-        workDay.plannedShiftsTruncated,
+      lines,
+      sections.some((section) => section.truncated),
     );
   }
 
@@ -314,4 +313,104 @@ export async function manageEvents(
         ? "Evento creato."
         : "Evento aggiornato.";
   return `${heading}\n${renderEvent(result.event, profile)}\n${undoMessage(result, now)}`;
+}
+
+export interface ManageEventsUndoDependencies {
+  readonly authorizer: Authorizer;
+  readonly clock: Clock;
+  readonly events: EventRepository;
+  readonly ids: IdGenerator;
+}
+
+/** Registrazione della slice eventi: comandi propri più la vista di giornata. */
+export function eventCommandRegistration(
+  dependencies: ManageEventsDependencies,
+): CommandRegistration {
+  return commandRegistration<EventCommand>(
+    eventCommandKinds,
+    isEventCommand,
+    (command, context) =>
+      manageEvents(
+        {
+          actorUserId: context.actorUserId,
+          scope: context.scope,
+          correlationId: context.correlationId,
+          idempotencyKey: context.idempotencyKey,
+          sentAtUnix: context.sentAtUnix,
+          command,
+        },
+        dependencies,
+      ),
+  );
+}
+
+/** La slice eventi possiede il prefisso `evt_` dei token di Undo. */
+export function eventUndoHandler(
+  dependencies: ManageEventsUndoDependencies,
+): UndoHandler {
+  return {
+    prefix: "evt_",
+    handle: async (token: string, context: CommandContext) => {
+      await dependencies.authorizer.authorize({
+        actorUserId: context.actorUserId,
+        scope: context.scope,
+        action: "events:undo",
+      });
+      const result = await dependencies.events.undo(context.scope, token, {
+        actorUserId: context.actorUserId,
+        correlationId: context.correlationId,
+        idempotencyKey: context.idempotencyKey,
+        auditId: dependencies.ids.newId(),
+        now: dependencies.clock.now(),
+      });
+      switch (result.outcome) {
+        case "reverted":
+          return result.event === null
+            ? "Creazione evento annullata."
+            : `Modifica evento annullata. ID: ${result.event.id}`;
+        case "duplicate":
+          return result.event === null
+            ? "Undo evento già applicato: l'evento non esiste."
+            : `Undo evento già applicato. ID: ${result.event.id}`;
+        case "expired":
+          return "Undo evento scaduto: nessuna modifica applicata.";
+        case "used":
+          return "Undo evento già usato: nessuna modifica applicata.";
+        case "stale":
+          return "Undo evento non applicabile: l'evento è cambiato nel frattempo.";
+        case "not_found":
+          return "Undo evento non disponibile per questo utente.";
+      }
+    },
+  };
+}
+
+/**
+ * Candidate per risolvere un riferimento testuale a un evento: lookup
+ * tenant-scoped e bounded, eseguita dal codice e mai dal modello.
+ */
+export function eventCandidateContributor(dependencies: {
+  readonly authorizer: Authorizer;
+  readonly events: EventRepository;
+}): ProposalCandidateContributor {
+  return {
+    domain: "events",
+    collect: async (scope, context) => {
+      await dependencies.authorizer.authorize({
+        actorUserId: context.actorUserId,
+        scope,
+        action: "events:read",
+      });
+      const window = candidateWindow(
+        context.referenceInstant,
+        context.timeZone,
+      );
+      const rows = await dependencies.events.listForRange(
+        scope,
+        window,
+        context.limit,
+      );
+      return rows.map((event) => ({ id: event.id, label: event.title }));
+    },
+  };
 }

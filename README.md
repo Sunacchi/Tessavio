@@ -8,8 +8,8 @@ deterministiche, autorizzate e verificabili su agenda, reminder, task, lavoro e
 finanze personali.
 
 > [!IMPORTANT]
-> Tessavio è in sviluppo iniziale. Foundation e milestone B1-B5 sono completate
-> e validate localmente; B6 è la prossima milestone prevista ma non è attiva.
+> Tessavio è in sviluppo iniziale. Foundation e Phase B sono completate e
+> validate localmente; C1 non è ancora attiva.
 > Non esiste ancora un deploy Cloudflare pubblico e il progetto non è pronto per
 > dati o utenti di produzione.
 
@@ -36,15 +36,17 @@ autorizzato per l'implementazione.
 | ---------- | ------------------------------------------------------------------------------------------- |
 | Fondazione | Webhook Telegram, Queue, identità interna, rate limit, idempotenza, audit e logging redatto |
 | Preferenze | Lingua, timezone IANA, formato ora, valuta, privacy e quiet hours                           |
-| Agenda     | Eventi privati one-off, date-only o temporali, con viste `/oggi` e `/domani`                |
-| Reminder   | Creazione, claim atomico via Cron, Queue, retry, deduplica e delivery Telegram              |
+| Agenda     | `/oggi` e `/domani` con eventi, task, reminder e turni privati nella timezone utente        |
+| Reminder   | One-off e ricorrenti daily/weekly, Cron, Queue, retry, deduplica e delivery Telegram        |
 | Task       | Priorità, scadenze, completamento, riapertura e Undo                                        |
 | Lavoro     | Regole, turni pianificati, consuntivi, pause e report per periodo                           |
 | Finanze    | Spese ed entrate manuali, correzione, soft delete, Undo e totali esatti per valuta          |
+| Liste/note | Liste private, item, note standalone, versioning, soft delete e Undo                        |
+| Report     | Riepilogo e CSV per periodo di agenda, task, lavoro e finanze                               |
 
-Non sono ancora implementati AI/BYOK, input multimediali, liste e ricorrenze,
-Google Calendar, Mini App o deploy di produzione. Open Banking e pagamenti sono
-esclusi dal prodotto.
+Non sono ancora implementati AI/BYOK, input multimediali, ricorrenze diverse dai
+reminder daily/weekly, Google Calendar, Mini App o deploy di produzione. Open
+Banking e pagamenti sono esclusi dal prodotto.
 
 ## Architettura
 
@@ -116,11 +118,14 @@ La superficie deterministica attuale comprende:
 | `/start`             | Onboarding e identificazione utente         |
 | `/impostazioni`      | Lettura e modifica delle preferenze         |
 | `/evento`            | Gestione degli eventi one-off               |
-| `/oggi`, `/domani`   | Agenda ed elementi in scadenza              |
+| `/oggi`, `/domani`   | Eventi, task, reminder e turni del giorno   |
 | `/promemoria`        | Gestione dei reminder                       |
 | `/task`              | Gestione delle task                         |
 | `/lavoro`            | Turni, consuntivi, pause e report           |
 | `/finanze`, `/spese` | Movimenti e totali per valuta               |
+| `/liste`             | Liste private e relativi item               |
+| `/note`              | Note testuali private                       |
+| `/report`            | Riepilogo o CSV trasversale per periodo     |
 | `/annulla`           | Undo single-use delle operazioni supportate |
 
 I contratti esatti sono versionati negli
@@ -165,13 +170,14 @@ property test monetari e recovery.
 | `migrations`         | Migration D1 versionate                   |
 | `tests`              | Test unitari, integration e security      |
 | `docs`               | Specifiche, ADR, pianificazione e runbook |
+| `.claude`, `.codex`  | Profili agente, skill e permessi          |
 
 Per i vincoli tra layer vedere la
 [struttura architetturale](docs/architecture/REPOSITORY_STRUCTURE.md).
 
 ## Documentazione
 
-- [Indice completo](docs/README.md)
+- [Indice completo con costi di lettura](docs/README.md)
 - [Visione e requisiti](docs/PROJECT.md)
 - [Architettura](docs/architecture/ARCHITECTURE.md)
 - [Roadmap](docs/planning/ROADMAP.md)
@@ -184,7 +190,9 @@ Per i vincoli tra layer vedere la
 
 Prima di proporre modifiche leggere [AGENTS.md](AGENTS.md), la
 [milestone corrente](docs/planning/CURRENT_MILESTONE.md) e la
-[Definition of Done](docs/planning/DEFINITION_OF_DONE.md). Il progetto accetta
+[Definition of Done](docs/planning/DEFINITION_OF_DONE.md). `AGENTS.md` è la
+fonte unica delle regole per persone e agenti: `CLAUDE.md` lo importa e i file
+`AGENTS.md` annidati lo specializzano per directory. Il progetto accetta
 solo lavoro coerente con la vertical slice attiva; niente scaffold speculativo
 per milestone future.
 

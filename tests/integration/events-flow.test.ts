@@ -2,10 +2,8 @@ import { env } from "cloudflare:workers";
 import { createMessageBatch } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { InboundMessageEnvelope } from "../../src/application/queue-envelope";
-import type {
-  EventMutationContext,
-  TelegramReplyPort,
-} from "../../src/application/ports";
+import type { EventMutationContext } from "../../src/application/ports/events";
+import type { TelegramReplyPort } from "../../src/application/ports/telegram";
 import { processInboundMessage } from "../../src/application/process-inbound";
 import {
   eventDayWindow,
@@ -24,7 +22,7 @@ import { D1TaskRepository } from "../../src/infrastructure/db/task-repository";
 import { SelfScopeAuthorizer } from "../../src/security/authorization";
 import type { UserScope } from "../../src/shared/contracts";
 import { AppError } from "../../src/shared/errors";
-import { FakeClock, SequenceIds } from "../helpers";
+import { FakeClock, SequenceIds, testInboundDependencies } from "../helpers";
 
 class CapturingReply implements TelegramReplyPort {
   readonly texts: string[] = [];
@@ -61,6 +59,7 @@ function envelope(
         sender: { id: 7101, isBot: false },
         chat: { id: 7101, type: "private" },
         text,
+        forwarded: false,
       },
     },
   };
@@ -73,6 +72,7 @@ function mutationContext(
 ): EventMutationContext {
   return {
     actorUserId: "user-a",
+    provenance: "entered",
     correlationId: `correlation-${key}`,
     idempotencyKey: key,
     auditId: `audit-${key}`,
@@ -362,7 +362,7 @@ describe("B1.2 deterministic Telegram flow", () => {
     const ids = new SequenceIds();
     const reply = new CapturingReply();
     const inbox = new D1InboundRepository(env.DB);
-    const dependencies = {
+    const dependencies = testInboundDependencies({
       authorizer: new SelfScopeAuthorizer(),
       clock,
       deliveries: new D1DeliveryRepository(env.DB),
@@ -376,7 +376,7 @@ describe("B1.2 deterministic Telegram flow", () => {
       tasks: new D1TaskRepository(env.DB),
       reply,
       leaseSeconds: 60,
-    };
+    });
 
     for (const command of [
       envelope(901, "/impostazioni imposta it Europe/Rome 24h EUR"),
@@ -441,21 +441,24 @@ describe("B1.2 deterministic Telegram flow", () => {
       "/impostazioni imposta it Europe/Rome 24h EUR",
     );
     await inbox.register(preferencesEnvelope, clock.now());
-    await processInboundMessage(preferencesEnvelope, {
-      authorizer: new SelfScopeAuthorizer(),
-      clock,
-      deliveries: new D1DeliveryRepository(env.DB),
-      effects: new D1EffectRepository(env.DB),
-      events: new D1EventRepository(env.DB),
-      identities: new D1IdentityRepository(env.DB),
-      ids,
-      inbox,
-      preferences: new D1PreferenceRepository(env.DB),
-      reminders: new D1ReminderRepository(env.DB),
-      tasks: new D1TaskRepository(env.DB),
-      reply: setupReply,
-      leaseSeconds: 60,
-    });
+    await processInboundMessage(
+      preferencesEnvelope,
+      testInboundDependencies({
+        authorizer: new SelfScopeAuthorizer(),
+        clock,
+        deliveries: new D1DeliveryRepository(env.DB),
+        effects: new D1EffectRepository(env.DB),
+        events: new D1EventRepository(env.DB),
+        identities: new D1IdentityRepository(env.DB),
+        ids,
+        inbox,
+        preferences: new D1PreferenceRepository(env.DB),
+        reminders: new D1ReminderRepository(env.DB),
+        tasks: new D1TaskRepository(env.DB),
+        reply: setupReply,
+        leaseSeconds: 60,
+      }),
+    );
 
     const reply = new CapturingReply();
     reply.retryableFailures = 1;
@@ -502,7 +505,7 @@ describe("B1.2 deterministic Telegram flow", () => {
     const ids = new SequenceIds();
     const reply = new CapturingReply();
     const inbox = new D1InboundRepository(env.DB);
-    const dependencies = {
+    const dependencies = testInboundDependencies({
       authorizer: new SelfScopeAuthorizer(),
       clock,
       deliveries: new D1DeliveryRepository(env.DB),
@@ -516,7 +519,7 @@ describe("B1.2 deterministic Telegram flow", () => {
       tasks: new D1TaskRepository(env.DB),
       reply,
       leaseSeconds: 60,
-    };
+    });
     for (const command of [
       envelope(930, "/evento crea data 2026-08-08 | Senza profilo"),
       envelope(931, "/impostazioni imposta it Europe/Rome 24h EUR"),

@@ -5,7 +5,7 @@ import type {
   WorkEntityKind,
   WorkMutationContext,
   WorkRepository,
-} from "../../application/ports";
+} from "../../application/ports/work";
 import {
   calculateWorkReport,
   workListLimit,
@@ -610,7 +610,7 @@ export class D1WorkRepository implements WorkRepository {
       shiftId,
       this.database
         .prepare(
-          `INSERT INTO planned_shifts (id, user_id, title, start_at_utc, end_at_utc, original_time_zone, version, last_mutation_key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+          `INSERT INTO planned_shifts (id, user_id, title, start_at_utc, end_at_utc, original_time_zone, provenance, version, last_mutation_key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
         )
         .bind(
           shiftId,
@@ -619,6 +619,7 @@ export class D1WorkRepository implements WorkRepository {
           values.startAtUtc.getTime(),
           values.endAtUtc.getTime(),
           values.originalTimeZone,
+          context.provenance,
           context.idempotencyKey,
           timestamp,
           timestamp,
@@ -761,7 +762,10 @@ export class D1WorkRepository implements WorkRepository {
   async undo(
     scope: UserScope,
     token: string,
-    context: Omit<WorkMutationContext, "undoToken" | "undoExpiresAt">,
+    context: Omit<
+      WorkMutationContext,
+      "undoToken" | "undoExpiresAt" | "provenance"
+    >,
   ): Promise<UndoWorkResult> {
     const duplicate = await this.database
       .prepare(

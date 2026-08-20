@@ -1,5 +1,9 @@
 # Definition of Done
 
+> I gate che rendono completa una feature. Applicare **tutti** quelli
+> pertinenti e motivare ogni `N/A`. Con Claude Code la compilazione è
+> automatizzata dalla skill `/dod`.
+
 Una feature non è completa solo perché passa il caso felice. Applicare tutti i gate pertinenti.
 
 ## Funzionalità

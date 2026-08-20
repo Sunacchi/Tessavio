@@ -24,6 +24,7 @@ describe("A1 deterministic boundaries", () => {
         sender: { id: 2001, isBot: false },
         chat: { id: 2001, type: "private" },
         text: "/start",
+        forwarded: false,
       },
     });
     expect(JSON.stringify(normalized)).not.toContain("never_persist_this");

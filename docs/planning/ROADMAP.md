@@ -1,12 +1,31 @@
 # Roadmap
 
-Le fasi sono gate di prodotto ordinati per dipendenza. Una fase futura definisce
-un impegno di prodotto, non autorizza scaffold: si implementa soltanto la
-vertical slice dichiarata in `CURRENT_MILESTONE.md`.
+> Le fasi sono gate ordinati per dipendenza. Una fase futura è un impegno di
+> prodotto, **non** un'autorizzazione a implementare: si lavora solo sulla
+> vertical slice dichiarata in [CURRENT_MILESTONE.md](CURRENT_MILESTONE.md).
+
+| Fase | Titolo                        | Stato                     | Piano esecutivo                                  |
+| ---- | ----------------------------- | ------------------------- | ------------------------------------------------ |
+| A    | Foundation                    | **completata** 2026-08-08 | [a-foundation](phases/a-foundation.md)           |
+| B    | Core deterministico           | **completata** 2026-08-19 | [b-core](phases/b-core.md)                       |
+| C    | Inbox testuale + AI opzionale | prossima, non attiva      | [c-ai-byok](phases/c-ai-byok.md)                 |
+| D    | Voce, vision e allegati       | non attiva                | [d-media](phases/d-media.md)                     |
+| E    | Pianificazione deterministica | non attiva                | [e-planner](phases/e-planner.md)                 |
+| F    | Spazi condivisi               | non attiva                | [f-sharing](phases/f-sharing.md)                 |
+| G    | Briefing e proattività        | non attiva                | [g-proactive](phases/g-proactive.md)             |
+| H    | Google Calendar               | non attiva                | [h-google-calendar](phases/h-google-calendar.md) |
+| I    | Mini App, diritti, core beta  | non attiva                | [i-beta](phases/i-beta.md)                       |
+| J    | Documenti e persone           | non attiva                | [j-documenti](phases/j-documenti.md)             |
+| K    | Finanze avanzate              | non attiva                | [k-finanze](phases/k-finanze.md)                 |
+| L    | Casa, famiglia e pasti        | non attiva                | [l-casa](phases/l-casa.md)                       |
+| M    | Viaggi                        | non attiva                | [m-viaggi](phases/m-viaggi.md)                   |
+| N    | Routine e benessere           | non attiva                | [n-benessere](phases/n-benessere.md)             |
+| O    | Convergenza                   | non attiva                | [o-convergenza](phases/o-convergenza.md)         |
 
 La [matrice di copertura](REQUIREMENTS_COVERAGE.md) collega ogni requisito a una
-milestone; il [master action plan](MASTER_ACTION_PLAN.md) esplicita verifiche e
-failure mode.
+milestone; il [master action plan](MASTER_ACTION_PLAN.md) tiene stato, decision
+register e invarianti di piano. Le sezioni sotto descrivono outcome e criteri di
+uscita di ciascuna fase.
 
 ## Regole di sequenza
 
@@ -28,8 +47,11 @@ deterministico con test. L'infrastruttura reminder è stata assorbita in B2.
 
 ## Phase B — Core deterministico
 
-Stato: **B1-B5 completate localmente il 2026-08-08; B6 è la prossima milestone
-prevista ma non è attivata**.
+Stato: **completata e validata localmente il 2026-08-19**. `/oggi` compone
+eventi, task, reminder e turni con authorization separata; retention e purge B
+sono bounded, user-scoped e provate con fake clock; la demo B1-B7 attraversa
+Telegram, Queue e D1 senza provider AI. B6.2 usa soltanto reminder daily/weekly
+e il Cron esistente; non introduce un motore di ricorrenza generico.
 
 | Milestone                          | Outcome                                                                                             | Criteri di uscita essenziali                                                                                             |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -38,15 +60,22 @@ prevista ma non è attivata**.
 | **B3 Task**                        | task, priorità, scadenze, completamento/riapertura                                                  | date-only distinte dagli instant; mutation e Undo idempotenti; viste deterministiche                                     |
 | **B4 Lavoro**                      | turni pianificati, consuntivi e pause separati                                                      | attraversamento mezzanotte/DST e report verificabili; regole data-driven                                                 |
 | **B5 Finanze base**                | spese/entrate da comando, valuta, data, categoria, esercente/note/metodo facoltativi                | minor unit intere; correzione/delete/Undo; totali deterministici; isolamento economico cross-tenant                      |
-| **B6 Liste e ricorrenze minime**   | liste/note private, item e ricorrenze necessarie                                                    | idempotenza; ora locale/timezone preservate; property test recurrence                                                    |
+| **B6.1 Liste e note private**      | liste private, item e note standalone da comandi espliciti                                          | CRUD/state change idempotenti, audit/Undo, delete non bulk e isolamento cross-tenant                                     |
+| **B6.2 Ricorrenza minima**         | reminder privati giornalieri/settimanali materializzati come occorrenze one-off                     | ora locale/timezone preservate, CAS/dedupe, coalescing e property test recurrence                                        |
 | **B7 Report base**                 | riepiloghi agenda/task/lavoro/finanze per periodo                                                   | provenance dei totali, timezone esplicita, CSV export base e zero dipendenza AI                                          |
 
 ## Phase C — Tessavio Inbox testuale + AI opzionale
 
+Stato: **non attiva**. Il gate Phase B è chiuso; C1 ActionProposal resta la
+prossima milestone di prodotto e ha C0 come prerequisito strutturale.
+Ogni slice richiede un'attivazione esplicita di `CURRENT_MILESTONE.md`.
+
 | Milestone             | Outcome                                                                         | Criteri di uscita essenziali                                                                                  |
 | --------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| **C0 Registry**       | registry di dominio per il dispatch dei comandi, senza comportamento nuovo      | zero dipendenze opzionali nei contenitori; porte e parser per slice; test invariati                           |
 | **C1 ActionProposal** | union strict/versionata per le azioni B, validator e policy                     | schema -> Zod -> scope/permission/policy -> domain; output invalido non scrive; benchmark smoke               |
 | **C2 OAuth e router** | key OpenRouter user-controlled via OAuth PKCE, cifratura, capability/budget     | distinto dal provider-BYOK interno a OpenRouter; replay/ciphertext swap negati; `NO_AI` sempre operativo      |
+| **C1.2 Estensione**   | l'enum azioni copre anche lavoro, finanze e liste                               | nessuna regressione del tasso di azioni false rispetto alla baseline C1                                       |
 | **C3 Inbox testuale** | testo, messaggi inoltrati e link producono proposte multi-intent verso i domini | nessun modello dati duplicato; domanda mirata se ambiguo; execute+Undo solo per low-risk; provenance e dedupe |
 
 ## Phase D — Voce, vision e allegati transitori

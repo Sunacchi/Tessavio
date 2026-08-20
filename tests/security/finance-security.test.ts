@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { manageFinance } from "../../src/application/manage-finance";
-import type { FinanceMutationContext } from "../../src/application/ports";
+import type { FinanceMutationContext } from "../../src/application/ports/finance";
 import { D1FinanceRepository } from "../../src/infrastructure/db/finance-repository";
 import { SelfScopeAuthorizer } from "../../src/security/authorization";
 import { AppError } from "../../src/shared/errors";
@@ -21,6 +21,7 @@ describe("B5 finance isolation", () => {
   let finance: D1FinanceRepository;
   const context = (user: string, key: string): FinanceMutationContext => ({
     actorUserId: user,
+    provenance: "entered",
     correlationId: key,
     idempotencyKey: key,
     auditId: `audit-${key}`,
@@ -114,6 +115,7 @@ describe("B5 finance isolation", () => {
           clock: new FakeClock(now),
           finance: guarded,
           ids: new SequenceIds(),
+          provenance: "entered" as const,
         },
       ),
     ).rejects.toEqual(new AppError("UNAUTHORIZED", false));

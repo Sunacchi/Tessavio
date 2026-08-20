@@ -2,11 +2,9 @@ import { env } from "cloudflare:workers";
 import { createMessageBatch } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { SendNotificationEnvelope } from "../../src/application/queue-envelope";
-import type {
-  PreferenceMutationContext,
-  ReminderMutationContext,
-  TelegramReplyPort,
-} from "../../src/application/ports";
+import type { PreferenceMutationContext } from "../../src/application/ports/preferences";
+import type { ReminderMutationContext } from "../../src/application/ports/reminders";
+import type { TelegramReplyPort } from "../../src/application/ports/telegram";
 import { handleInboundQueue } from "../../src/entrypoints/queue";
 import { dispatchDueReminders } from "../../src/entrypoints/scheduled";
 import { handleTelegramWebhook } from "../../src/entrypoints/webhook";
@@ -99,6 +97,7 @@ function preferenceContext(key: string, now: Date): PreferenceMutationContext {
 function reminderContext(key: string, now: Date): ReminderMutationContext {
   return {
     actorUserId: scope.userId,
+    provenance: "entered",
     correlationId: `correlation-${key}`,
     idempotencyKey: key,
     auditId: `audit-${key}`,
@@ -233,6 +232,7 @@ describe("B2 reminder Cron, Queue and delivery", () => {
       [1203, "/impostazioni quiete disattiva"],
       [1204, "/promemoria crea 2026-08-08T10:05 | Chiama il dentista"],
       [1205, "/promemoria lista"],
+      [1206, "/oggi"],
     ] as const) {
       await handleTelegramWebhook(
         webhookRequest(telegramTextUpdate(command, updateId, 7101)),
@@ -261,6 +261,8 @@ describe("B2 reminder Cron, Queue and delivery", () => {
     expect(reply.texts[3]).toContain("Chiama il dentista");
     expect(reply.texts[4]).toContain("Promemoria in attesa:");
     expect(reply.texts[4]).toContain("Chiama il dentista");
+    expect(reply.texts[5]).toContain("Promemoria:");
+    expect(reply.texts[5]).toContain("Chiama il dentista");
     const identity = await env.DB.prepare(
       "SELECT user_id FROM telegram_identities WHERE telegram_user_id = '7101'",
     ).first<{ user_id: string }>();

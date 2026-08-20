@@ -4,15 +4,17 @@ import type {
   FinanceRepository,
   MutateFinanceResult,
   UndoFinanceResult,
-} from "../../application/ports";
+} from "../../application/ports/finance";
 import {
   financeMaximumAmountMinor,
+  type EntitySource,
   type FinanceCurrencyTotal,
   type FinanceDateRange,
   type FinanceEntryRecord,
   type FinanceEntryValues,
 } from "../../domains/finance/finance";
 import type { UserScope } from "../../shared/contracts";
+import { sourceOf } from "./provenance";
 import { AppError } from "../../shared/errors";
 
 /*
@@ -29,7 +31,7 @@ const storedEntrySchema = z.object({
   merchant: z.string().min(1).max(200).nullable(),
   payment_method: z.string().min(1).max(100).nullable(),
   note: z.string().min(1).max(500).nullable(),
-  source: z.literal("manual_command"),
+  source: z.enum(["manual_command", "ai_proposal"]),
   status: z.enum(["active", "deleted"]),
   version: z.number().int().positive(),
   created_at: z.number().int(),
@@ -48,7 +50,7 @@ const entryJsonSchema = z
     merchant: z.string().min(1).max(200).nullable(),
     paymentMethod: z.string().min(1).max(100).nullable(),
     note: z.string().min(1).max(500).nullable(),
-    source: z.literal("manual_command"),
+    source: z.enum(["manual_command", "ai_proposal"]),
     status: z.enum(["active", "deleted"]),
     version: z.number().int().positive(),
     createdAt: z.iso.datetime({ offset: true }),
@@ -137,11 +139,12 @@ function newEntry(
   entryId: string,
   values: FinanceEntryValues,
   now: Date,
+  source: EntitySource,
 ): FinanceEntryRecord {
   return {
     id: entryId,
     ...values,
-    source: "manual_command",
+    source,
     status: "active",
     version: 1,
     createdAt: now,
@@ -194,6 +197,28 @@ export class D1FinanceRepository implements FinanceRepository {
          WHERE user_id = ? AND status = 'active'
            AND local_date >= ? AND local_date <= ?
          ORDER BY local_date DESC, created_at DESC, id
+         LIMIT ?`,
+      )
+      .bind(scope.userId, range.startDate, range.endDate, limit)
+      .all();
+    return rows.results.map(fromStoredRow);
+  }
+
+  async listForReport(
+    scope: UserScope,
+    range: FinanceDateRange,
+    limit: number,
+  ): Promise<FinanceEntryRecord[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 501) {
+      throw new AppError("INVALID_INPUT", false);
+    }
+    const rows = await this.database
+      .prepare(
+        `SELECT ${selectColumns}
+         FROM finance_entries
+         WHERE user_id = ? AND status = 'active'
+           AND local_date >= ? AND local_date <= ?
+         ORDER BY local_date, created_at, id
          LIMIT ?`,
       )
       .bind(scope.userId, range.startDate, range.endDate, limit)
@@ -278,7 +303,12 @@ export class D1FinanceRepository implements FinanceRepository {
       context.idempotencyKey,
     );
     if (duplicate !== null) return duplicate;
-    const entry = newEntry(entryId, values, context.now);
+    const entry = newEntry(
+      entryId,
+      values,
+      context.now,
+      sourceOf(context.provenance),
+    );
     const timestamp = context.now.getTime();
     const afterJson = serializeEntry(entry);
     const results = await this.database.batch([
@@ -288,8 +318,7 @@ export class D1FinanceRepository implements FinanceRepository {
              id, user_id, entry_kind, amount_minor, currency, local_date,
              category, merchant, payment_method, note, source, status,
              version, last_mutation_key, created_at, updated_at, deleted_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual_command',
-             'active', 1, ?, ?, ?, NULL)`,
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, NULL)`,
         )
         .bind(
           entry.id,
@@ -302,6 +331,7 @@ export class D1FinanceRepository implements FinanceRepository {
           entry.merchant,
           entry.paymentMethod,
           entry.note,
+          entry.source,
           context.idempotencyKey,
           timestamp,
           timestamp,
@@ -518,7 +548,10 @@ export class D1FinanceRepository implements FinanceRepository {
   async undo(
     scope: UserScope,
     token: string,
-    context: Omit<FinanceMutationContext, "undoToken" | "undoExpiresAt">,
+    context: Omit<
+      FinanceMutationContext,
+      "undoToken" | "undoExpiresAt" | "provenance"
+    >,
   ): Promise<UndoFinanceResult> {
     const duplicateRow = await this.database
       .prepare(

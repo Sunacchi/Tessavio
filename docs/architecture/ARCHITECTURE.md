@@ -1,5 +1,9 @@
 # Architettura
 
+> Confini, flussi critici ed evoluzione dello schema. Aprire quando una
+> modifica attraversa un layer. Per sapere **dove va un file** basta
+> [REPOSITORY_STRUCTURE](REPOSITORY_STRUCTURE.md), che è molto più corto.
+
 ## Vista d'insieme
 
 ```mermaid
@@ -171,26 +175,34 @@ cifratura, authorization e retention; non è un effetto automatico dell'Inbox.
 
 ## Dati e schema evolutivo
 
-Lo schema arriva per vertical slice. A1 contiene identità, inbox, rate/lease,
-effect, delivery e audit; B1.1 aggiunge preferenze utente e record Undo
-temporanei user-scoped. B1.2 aggiunge eventi privati `date_only|instant` e Undo
-eventi user-scoped. B2 aggiunge reminder one-off privati, Undo, snapshot delle
-quiet hours, claim leased e ledger delivery dedicato; non introduce ricorrenze.
-B3 aggiunge task private `none|date_only|instant`, priorità, state machine
-open/completed e Undo user-scoped. B4 aggiunge regole lavoro private versionate,
-turni pianificati, consuntivi con snapshot della regola, pause figlie e Undo
-user-scoped; piano, consuntivo e pause restano in tabelle distinte e i report
-usano intervalli UTC clamped a finestre civili IANA. B5 aggiunge un registro
-privato di movimenti `expense|income`, importi positivi in minor unit intere,
-valuta e data civile esplicite, provenance manuale, soft delete e Undo
-user-scoped. Correzioni/delete sono versionate e i totali restano separati per
-valuta usando somme testuali D1 e `bigint`, senza conversioni o `float`. Le categorie future sono
-introdotte quando attive e devono definire owner/space, indici, lifecycle,
-export/delete, audit/Undo e test cross-tenant.
+Lo schema arriva una vertical slice alla volta. Ogni riga elenca **solo** ciò che
+la slice ha aggiunto; il contratto completo è nell'ADR corrispondente.
+
+| Slice      | Tabelle e concetti aggiunti                                                                                                                                                                                                                                                                                 | ADR                                                          |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| A1         | identità, inbox, rate/lease, effect, delivery, audit                                                                                                                                                                                                                                                        | [0008](../decisions/0008-a1-foundation-decisions.md)         |
+| B1.1       | preferenze utente, record Undo temporanei user-scoped                                                                                                                                                                                                                                                       | [0012](../decisions/0012-b1-preferences-and-undo.md)         |
+| B1.2       | eventi privati `date_only\|instant`, Undo eventi                                                                                                                                                                                                                                                            | [0013](../decisions/0013-b1-one-off-event-time-contract.md)  |
+| B2         | reminder one-off privati, snapshot quiet hours, claim leased, ledger delivery dedicato (nessuna ricorrenza)                                                                                                                                                                                                 | [0014](../decisions/0014-b2-reminder-delivery.md)            |
+| B3         | task private `none\|date_only\|instant`, priorità, state machine open/completed                                                                                                                                                                                                                             | [0015](../decisions/0015-b3-task-contract.md)                |
+| B4         | regole lavoro versionate, turni pianificati, consuntivi con snapshot della regola, pause figlie — tabelle distinte, report su intervalli UTC clamped a finestre civili IANA                                                                                                                                 | [0016](../decisions/0016-b4-work-time-contract.md)           |
+| B5         | registro `expense\|income`, importi positivi in minor unit, valuta e data civile esplicite, provenance manuale, soft delete. Totali separati per valuta con somme testuali D1 e `bigint`: nessuna conversione, nessun `float`                                                                               | [0017](../decisions/0017-b5-finance-contract.md)             |
+| B6.1       | liste, item e note in tabelle distinte; FK item/lista composta con `user_id`; soft delete (nessuna condivisione)                                                                                                                                                                                            | [0018](../decisions/0018-b6-private-lists-notes-contract.md) |
+| B6.2       | regole reminder `daily\|weekly` e mapping delle occorrenze, additive. Il Cron scopre solo owner/ID dovuti; la mutation scoped genera un reminder one-off con provenance `calculated_recurrence` e avanza il cursore civile via Temporal. CAS e unicità dello slot fanno convergere retry e Cron concorrenti | [0019](../decisions/0019-b6-minimal-reminder-recurrence.md)  |
+| B7         | **nessuno schema nuovo**: compone letture user-scoped di eventi, task, lavoro e finanze tramite le rispettive porte, con finestra civile IANA, limite per contributor, formula/provenance versionate e CSV transitorio                                                                                      | [0020](../decisions/0020-b7-base-reports.md)                 |
+| Chiusura B | **nessuno schema nuovo**: `/oggi` compone eventi, task, reminder operativi e turni pianificati attraverso porte separate, con authorization per contributor e limiti bounded                                                                                                                                | [0021](../decisions/0021-phase-b-closure.md)                 |
+
+Regole di lifecycle già in vigore:
+
+- i token Undo scaduti si eliminano solo nello scope dell'utente;
+- il delivery ledger reminder elimina dopo 30 giorni **solo** stati terminali e
+  preserva i tentativi attivi;
+- ogni categoria futura definisce owner/space, indici, lifecycle, export/delete,
+  audit/Undo e test cross-tenant **quando entra in scope**, non prima.
 
 Non creare tabelle per Open Banking, integrazioni differite o domini futuri prima
-della relativa milestone. Prima di ogni gate eseguire `EXPLAIN QUERY PLAN` sulle
-query hot e validare migration fresh/upgrade/recovery.
+della relativa milestone. Prima di ogni gate: `EXPLAIN QUERY PLAN` sulle query
+hot e validazione delle migration fresh/upgrade/recovery.
 
 ## Affidabilità
 

@@ -1,10 +1,8 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { InboundMessageEnvelope } from "../../src/application/queue-envelope";
-import type {
-  TaskMutationContext,
-  TelegramReplyPort,
-} from "../../src/application/ports";
+import type { TaskMutationContext } from "../../src/application/ports/tasks";
+import type { TelegramReplyPort } from "../../src/application/ports/telegram";
 import { processInboundMessage } from "../../src/application/process-inbound";
 import { D1DeliveryRepository } from "../../src/infrastructure/db/delivery-repository";
 import { D1EffectRepository } from "../../src/infrastructure/db/effect-repository";
@@ -16,7 +14,7 @@ import { D1ReminderRepository } from "../../src/infrastructure/db/reminder-repos
 import { D1TaskRepository } from "../../src/infrastructure/db/task-repository";
 import { SelfScopeAuthorizer } from "../../src/security/authorization";
 import type { UserScope } from "../../src/shared/contracts";
-import { FakeClock, SequenceIds } from "../helpers";
+import { FakeClock, SequenceIds, testInboundDependencies } from "../helpers";
 
 class CapturingReply implements TelegramReplyPort {
   readonly texts: string[] = [];
@@ -45,6 +43,7 @@ function envelope(updateId: number, text: string): InboundMessageEnvelope {
         sender: { id: 7301, isBot: false },
         chat: { id: 7301, type: "private" },
         text,
+        forwarded: false,
       },
     },
   };
@@ -57,6 +56,7 @@ function mutationContext(
 ): TaskMutationContext {
   return {
     actorUserId: "user-a",
+    provenance: "entered",
     correlationId: `correlation-${key}`,
     idempotencyKey: key,
     auditId: `audit-${key}`,
@@ -293,7 +293,7 @@ describe("B3 deterministic Telegram flow", () => {
     const reply = new CapturingReply();
     const inbox = new D1InboundRepository(env.DB);
     const tasks = new D1TaskRepository(env.DB);
-    const dependencies = {
+    const dependencies = testInboundDependencies({
       authorizer: new SelfScopeAuthorizer(),
       clock,
       deliveries: new D1DeliveryRepository(env.DB),
@@ -307,7 +307,7 @@ describe("B3 deterministic Telegram flow", () => {
       tasks,
       reply,
       leaseSeconds: 60,
-    };
+    });
     const commands = [
       envelope(1101, "/impostazioni imposta it Europe/Rome 24h EUR"),
       envelope(1102, "/task crea 2026-08-08 | alta | Pagare la bolletta"),
@@ -360,7 +360,7 @@ describe("B3 deterministic Telegram flow", () => {
     const clock = new FakeClock();
     const reply = new CapturingReply();
     const inbox = new D1InboundRepository(env.DB);
-    const dependencies = {
+    const dependencies = testInboundDependencies({
       authorizer: new SelfScopeAuthorizer(),
       clock,
       deliveries: new D1DeliveryRepository(env.DB),
@@ -374,7 +374,7 @@ describe("B3 deterministic Telegram flow", () => {
       tasks: new D1TaskRepository(env.DB),
       reply,
       leaseSeconds: 60,
-    };
+    });
     for (const command of [
       envelope(1120, "/task crea nessuna | media | Senza profilo"),
       envelope(1121, "/impostazioni imposta it Europe/Rome 24h EUR"),

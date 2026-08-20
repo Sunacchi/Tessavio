@@ -3,6 +3,99 @@ import { applyD1Migrations } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 
 describe("foundation migration", () => {
+  it("upgrades a populated B6.1 database to B6.2 without changing reminders", async () => {
+    const b62MigrationIndex = env.TEST_MIGRATIONS.findIndex((migration) =>
+      migration.name.startsWith("0008_"),
+    );
+    expect(b62MigrationIndex).toBeGreaterThan(0);
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(0, b62MigrationIndex),
+    );
+    const timestamp = Date.parse("2026-08-19T10:00:00Z");
+    await env.UPGRADE_DB.batch([
+      env.UPGRADE_DB.prepare(
+        "INSERT INTO users (id, status, created_at) VALUES ('b62-upgrade', 'active', ?)",
+      ).bind(timestamp),
+      env.UPGRADE_DB.prepare(
+        `INSERT INTO reminders (
+          id,user_id,text,requested_at_utc,due_at_utc,original_time_zone,status,
+          version,last_mutation_key,created_at,updated_at
+        ) VALUES ('reminder-b2','b62-upgrade','Fixture B2',?,?,
+          'Europe/Rome','pending',1,'fixture',?,?)`,
+      ).bind(timestamp, timestamp, timestamp, timestamp),
+    ]);
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(b62MigrationIndex),
+    );
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT text, version FROM reminders WHERE user_id = ? AND id = ?",
+      )
+        .bind("b62-upgrade", "reminder-b2")
+        .first(),
+    ).resolves.toEqual({ text: "Fixture B2", version: 1 });
+    const recurrenceTables = await env.UPGRADE_DB.prepare(
+      `SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (
+        'reminder_recurrences', 'reminder_recurrence_occurrences',
+        'reminder_recurrence_undo_actions'
+      ) ORDER BY name`,
+    ).all<{ name: string }>();
+    expect(recurrenceTables.results.map((row) => row.name)).toEqual([
+      "reminder_recurrence_occurrences",
+      "reminder_recurrence_undo_actions",
+      "reminder_recurrences",
+    ]);
+  });
+
+  it("upgrades a populated B5 database through B6.2 without changing finance records", async () => {
+    const b6MigrationIndex = env.TEST_MIGRATIONS.findIndex((migration) =>
+      migration.name.startsWith("0007_"),
+    );
+    expect(b6MigrationIndex).toBeGreaterThan(0);
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(0, b6MigrationIndex),
+    );
+    const timestamp = Date.parse("2026-08-19T10:00:00Z");
+    await env.UPGRADE_DB.batch([
+      env.UPGRADE_DB.prepare(
+        "INSERT INTO users (id, status, created_at) VALUES ('b6-upgrade', 'active', ?)",
+      ).bind(timestamp),
+      env.UPGRADE_DB.prepare(
+        `INSERT INTO finance_entries (
+          id,user_id,entry_kind,amount_minor,currency,local_date,category,
+          merchant,payment_method,note,source,status,version,last_mutation_key,
+          created_at,updated_at,deleted_at
+        ) VALUES ('finance-b5','b6-upgrade','expense',100,'EUR','2026-08-19',
+          'Fixture',NULL,NULL,NULL,'manual_command','active',1,'fixture',?,?,NULL)`,
+      ).bind(timestamp, timestamp),
+    ]);
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(b6MigrationIndex),
+    );
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT amount_minor, version FROM finance_entries WHERE user_id = ? AND id = ?",
+      )
+        .bind("b6-upgrade", "finance-b5")
+        .first(),
+    ).resolves.toEqual({ amount_minor: 100, version: 1 });
+    const b6Tables = await env.UPGRADE_DB.prepare(
+      `SELECT name FROM sqlite_master
+       WHERE type = 'table' AND name IN ('lists','list_items','notes','list_undo_actions')
+       ORDER BY name`,
+    ).all<{ name: string }>();
+    expect(b6Tables.results.map((row) => row.name)).toEqual([
+      "list_items",
+      "list_undo_actions",
+      "lists",
+      "notes",
+    ]);
+  });
+
   it("upgrades a populated B4 database to B5 without changing work records", async () => {
     const b5MigrationIndex = env.TEST_MIGRATIONS.findIndex((migration) =>
       migration.name.startsWith("0006_"),
@@ -124,6 +217,13 @@ describe("foundation migration", () => {
         "work_undo_actions",
         "finance_entries",
         "finance_undo_actions",
+        "lists",
+        "list_items",
+        "notes",
+        "list_undo_actions",
+        "reminder_recurrences",
+        "reminder_recurrence_occurrences",
+        "reminder_recurrence_undo_actions",
       ]),
     );
 
@@ -234,6 +334,36 @@ describe("foundation migration", () => {
       ),
     ).toBe(true);
 
+    const reminderDayPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN
+       SELECT id FROM reminders
+       WHERE user_id = ? AND status IN ('pending', 'claimed', 'sending')
+         AND due_at_utc >= ? AND due_at_utc < ?
+       ORDER BY due_at_utc, id LIMIT 51`,
+    )
+      .bind("user-a", Date.now(), Date.now() + 86_400_000)
+      .all<{ detail: string }>();
+    expect(
+      reminderDayPlan.results.some((row) =>
+        row.detail.includes("reminders_scope_list_idx"),
+      ),
+    ).toBe(true);
+
+    const notificationPurgePlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN
+       SELECT dedupe_key FROM notification_deliveries
+       WHERE scope_user_id = ? AND created_at <= ?
+         AND status IN ('sent', 'ambiguous', 'permanent_failure')
+       ORDER BY created_at, dedupe_key LIMIT 100`,
+    )
+      .bind("user-a", Date.now())
+      .all<{ detail: string }>();
+    expect(
+      notificationPurgePlan.results.some((row) =>
+        row.detail.includes("notification_deliveries_scope_idx"),
+      ),
+    ).toBe(true);
+
     const reminderRecoveryPlan = await env.DB.prepare(
       `EXPLAIN QUERY PLAN
        SELECT id FROM reminders
@@ -246,6 +376,45 @@ describe("foundation migration", () => {
     expect(
       reminderRecoveryPlan.results.some((row) =>
         row.detail.includes("reminders_recovery_idx"),
+      ),
+    ).toBe(true);
+
+    const recurrenceDuePlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT id, user_id FROM reminder_recurrences
+       WHERE status = 'active' AND next_due_at_utc <= ?
+       ORDER BY next_due_at_utc, id LIMIT 100`,
+    )
+      .bind(Date.now())
+      .all<{ detail: string }>();
+    expect(
+      recurrenceDuePlan.results.some((row) =>
+        row.detail.includes("reminder_recurrences_due_idx"),
+      ),
+    ).toBe(true);
+
+    const recurrenceScopePlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT id FROM reminder_recurrences
+       WHERE user_id = ? AND status = 'active'
+       ORDER BY next_due_at_utc, id LIMIT 50`,
+    )
+      .bind("user-a")
+      .all<{ detail: string }>();
+    expect(
+      recurrenceScopePlan.results.some((row) =>
+        row.detail.includes("reminder_recurrences_scope_list_idx"),
+      ),
+    ).toBe(true);
+
+    const recurrenceUndoPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT token FROM reminder_recurrence_undo_actions
+       WHERE scope_user_id = ? AND expires_at <= ?
+       ORDER BY expires_at LIMIT 100`,
+    )
+      .bind("user-a", Date.now())
+      .all<{ detail: string }>();
+    expect(
+      recurrenceUndoPlan.results.some((row) =>
+        row.detail.includes("reminder_recurrence_undo_scope_expiry_idx"),
       ),
     ).toBe(true);
 
@@ -394,5 +563,303 @@ describe("foundation migration", () => {
         row.detail.includes("finance_undo_scope_expiry_idx"),
       ),
     ).toBe(true);
+
+    const listsPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT id FROM lists
+       WHERE user_id = ? AND status = 'active'
+       ORDER BY created_at, id LIMIT 50`,
+    )
+      .bind("user-a")
+      .all<{ detail: string }>();
+    expect(
+      listsPlan.results.some((row) =>
+        row.detail.includes("lists_scope_status_created_idx"),
+      ),
+    ).toBe(true);
+
+    const itemsPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT id FROM list_items
+       WHERE user_id = ? AND list_id = ? AND status != 'deleted'
+       ORDER BY created_at, id LIMIT 100`,
+    )
+      .bind("user-a", "list-a")
+      .all<{ detail: string }>();
+    expect(
+      itemsPlan.results.some((row) =>
+        row.detail.includes("list_items_scope_list_status_idx"),
+      ),
+    ).toBe(true);
+
+    const notesPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT id FROM notes
+       WHERE user_id = ? AND status = 'active'
+       ORDER BY created_at, id LIMIT 50`,
+    )
+      .bind("user-a")
+      .all<{ detail: string }>();
+    expect(
+      notesPlan.results.some((row) =>
+        row.detail.includes("notes_scope_status_created_idx"),
+      ),
+    ).toBe(true);
+
+    const listUndoPlan = await env.DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT token FROM list_undo_actions
+       WHERE scope_user_id = ? AND expires_at <= ?
+       ORDER BY expires_at LIMIT 100`,
+    )
+      .bind("user-a", Date.now())
+      .all<{ detail: string }>();
+    expect(
+      listUndoPlan.results.some((row) =>
+        row.detail.includes("list_undo_scope_expiry_idx"),
+      ),
+    ).toBe(true);
+  });
+  it("aggiunge la provenance e le tabelle AI senza perdere dati né effetti", async () => {
+    const c1MigrationIndex = env.TEST_MIGRATIONS.findIndex((migration) =>
+      migration.name.startsWith("0009_"),
+    );
+    expect(c1MigrationIndex).toBeGreaterThan(0);
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(0, c1MigrationIndex),
+    );
+    const timestamp = Date.parse("2026-08-19T10:00:00Z");
+    await env.UPGRADE_DB.batch([
+      env.UPGRADE_DB.prepare(
+        "INSERT INTO users (id, status, created_at) VALUES ('c1-upgrade', 'active', ?)",
+      ).bind(timestamp),
+      env.UPGRADE_DB.prepare(
+        `INSERT INTO events (
+          id,user_id,event_kind,title,local_date,start_at_utc,end_at_utc,
+          time_zone,status,version,last_mutation_key,created_at,updated_at,
+          cancelled_at
+        ) VALUES ('event-c1','c1-upgrade','date_only','Fixture B1','2026-08-20',
+          NULL,NULL,NULL,'active',1,'fixture',?,?,NULL)`,
+      ).bind(timestamp, timestamp),
+      env.UPGRADE_DB.prepare(
+        `INSERT INTO tasks (
+          id,user_id,title,priority,due_kind,due_date_local,due_at_utc,
+          time_zone,status,version,last_mutation_key,created_at,updated_at,
+          completed_at
+        ) VALUES ('task-c1','c1-upgrade','Fixture B3','medium','none',NULL,NULL,
+          NULL,'open',1,'fixture',?,?,NULL)`,
+      ).bind(timestamp, timestamp),
+      env.UPGRADE_DB.prepare(
+        `INSERT INTO effects (
+          effect_key, scope_user_id, job_id, kind, status, created_at
+        ) VALUES ('onboarding-start:job-c1','c1-upgrade','job-c1',
+          'onboarding_start','completed',?)`,
+      ).bind(timestamp),
+    ]);
+
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(c1MigrationIndex),
+    );
+
+    // Il dato preesistente resta e diventa esplicitamente "inserito".
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT title, provenance, version FROM events WHERE id = 'event-c1'",
+      ).first(),
+    ).resolves.toEqual({
+      title: "Fixture B1",
+      provenance: "entered",
+      version: 1,
+    });
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT title, provenance FROM tasks WHERE id = 'task-c1'",
+      ).first(),
+    ).resolves.toEqual({ title: "Fixture B3", provenance: "entered" });
+
+    // Il ledger degli effetti sopravvive alla ricostruzione della tabella.
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT kind, status FROM effects WHERE effect_key = 'onboarding-start:job-c1'",
+      ).first(),
+    ).resolves.toEqual({ kind: "onboarding_start", status: "completed" });
+
+    // Il nuovo valore di kind è ammesso dopo la migration.
+    await env.UPGRADE_DB.prepare(
+      `INSERT INTO effects (
+        effect_key, scope_user_id, job_id, kind, status, created_at
+      ) VALUES ('ai-exec:job-c1:0','c1-upgrade','job-c1','ai_execution','claimed',?)`,
+    )
+      .bind(timestamp)
+      .run();
+
+    const aiTables = await env.UPGRADE_DB.prepare(
+      `SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (
+        'ai_proposal_jobs', 'ai_proposal_confirmations'
+      ) ORDER BY name`,
+    ).all<{ name: string }>();
+    expect(aiTables.results.map((row) => row.name)).toEqual([
+      "ai_proposal_confirmations",
+      "ai_proposal_jobs",
+    ]);
+
+    const expiryPlan = await env.UPGRADE_DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT job_id FROM ai_proposal_jobs
+       WHERE expires_at <= ? ORDER BY expires_at LIMIT 200`,
+    )
+      .bind(timestamp)
+      .all<{ detail: string }>();
+    expect(
+      expiryPlan.results.some((row) =>
+        row.detail.includes("ai_proposal_jobs_expiry_idx"),
+      ),
+    ).toBe(true);
+  });
+  it("aggiunge le tabelle C2 e conserva i ciphertext su un worker N-1", async () => {
+    const c2MigrationIndex = env.TEST_MIGRATIONS.findIndex((migration) =>
+      migration.name.startsWith("0010_"),
+    );
+    expect(c2MigrationIndex).toBeGreaterThan(0);
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(0, c2MigrationIndex),
+    );
+    const timestamp = Date.parse("2026-08-20T10:00:00Z");
+    await env.UPGRADE_DB.prepare(
+      "INSERT INTO users (id, status, created_at) VALUES ('c2-upgrade', 'active', ?)",
+    )
+      .bind(timestamp)
+      .run();
+
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(c2MigrationIndex),
+    );
+
+    const tables = await env.UPGRADE_DB.prepare(
+      `SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (
+        'ai_credentials', 'ai_oauth_sessions', 'ai_budget_entries'
+      ) ORDER BY name`,
+    ).all<{ name: string }>();
+    expect(tables.results.map((row) => row.name)).toEqual([
+      "ai_budget_entries",
+      "ai_credentials",
+      "ai_oauth_sessions",
+    ]);
+
+    // Un ciphertext scritto sullo schema N sopravvive a una riapplicazione
+    // delle migration (idempotente) e resta leggibile con i suoi metadati.
+    await env.UPGRADE_DB.prepare(
+      `INSERT INTO ai_credentials (
+        user_id, provider, status, record_version, kek_version, nonce,
+        wrapped_dek, ciphertext, label, created_at, updated_at, revoked_at
+      ) VALUES ('c2-upgrade','openrouter','active',1,1,'bm9uY2U=','d3JhcA==',
+        'Y2lwaGVy',NULL,?,?,NULL)`,
+    )
+      .bind(timestamp, timestamp)
+      .run();
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(c2MigrationIndex),
+    );
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT ciphertext, kek_version, record_version FROM ai_credentials WHERE user_id = 'c2-upgrade'",
+      ).first(),
+    ).resolves.toEqual({
+      ciphertext: "Y2lwaGVy",
+      kek_version: 1,
+      record_version: 1,
+    });
+
+    const budgetPlan = await env.UPGRADE_DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT reserved_micros FROM ai_budget_entries
+       WHERE user_id = ? AND local_date = ? AND status IN ('reserved', 'settled')`,
+    )
+      .bind("c2-upgrade", "2026-08-20")
+      .all<{ detail: string }>();
+    expect(
+      budgetPlan.results.some((row) =>
+        row.detail.includes("ai_budget_entries_scope_day_idx"),
+      ),
+    ).toBe(true);
+  });
+  it("estende la provenance a finanze, liste e turni senza perdere dati", async () => {
+    const c12MigrationIndex = env.TEST_MIGRATIONS.findIndex((migration) =>
+      migration.name.startsWith("0011_"),
+    );
+    expect(c12MigrationIndex).toBeGreaterThan(0);
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(0, c12MigrationIndex),
+    );
+    const timestamp = Date.parse("2026-08-20T10:00:00Z");
+    await env.UPGRADE_DB.batch([
+      env.UPGRADE_DB.prepare(
+        "INSERT INTO users (id, status, created_at) VALUES ('c12-upgrade', 'active', ?)",
+      ).bind(timestamp),
+      env.UPGRADE_DB.prepare(
+        `INSERT INTO finance_entries (
+          id,user_id,entry_kind,amount_minor,currency,local_date,category,
+          merchant,payment_method,note,source,status,version,last_mutation_key,
+          created_at,updated_at,deleted_at
+        ) VALUES ('fin-c12','c12-upgrade','expense',1250,'EUR','2026-08-19',
+          'Spesa',NULL,NULL,NULL,'manual_command','active',1,'fixture',?,?,NULL)`,
+      ).bind(timestamp, timestamp),
+      env.UPGRADE_DB.prepare(
+        `INSERT INTO lists (
+          id,user_id,title,source,status,version,last_mutation_key,created_at,
+          updated_at,deleted_at
+        ) VALUES ('lst-c12','c12-upgrade','Spesa','manual_command','active',1,
+          'fixture',?,?,NULL)`,
+      ).bind(timestamp, timestamp),
+      env.UPGRADE_DB.prepare(
+        `INSERT INTO planned_shifts (
+          id,user_id,title,start_at_utc,end_at_utc,original_time_zone,version,
+          last_mutation_key,created_at,updated_at
+        ) VALUES ('shift-c12','c12-upgrade','Turno',?,?,'Europe/Rome',1,
+          'fixture',?,?)`,
+      ).bind(timestamp, timestamp + 3_600_000, timestamp, timestamp),
+    ]);
+
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(c12MigrationIndex),
+    );
+
+    // Il dato preesistente resta e resta dichiarato come inserito a mano.
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT amount_minor, currency, source FROM finance_entries WHERE id = 'fin-c12'",
+      ).first(),
+    ).resolves.toEqual({
+      amount_minor: 1_250,
+      currency: "EUR",
+      source: "manual_command",
+    });
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT title, source FROM lists WHERE id = 'lst-c12'",
+      ).first(),
+    ).resolves.toEqual({ title: "Spesa", source: "manual_command" });
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT title, provenance FROM planned_shifts WHERE id = 'shift-c12'",
+      ).first(),
+    ).resolves.toEqual({ title: "Turno", provenance: "entered" });
+
+    // Il nuovo valore è ammesso solo dopo la migration.
+    await env.UPGRADE_DB.prepare(
+      `INSERT INTO lists (
+        id,user_id,title,source,status,version,last_mutation_key,created_at,
+        updated_at,deleted_at
+      ) VALUES ('lst-ai','c12-upgrade','Da proposta','ai_proposal','active',1,
+        'fixture-ai',?,?,NULL)`,
+    )
+      .bind(timestamp, timestamp)
+      .run();
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT source FROM lists WHERE id = 'lst-ai'",
+      ).first(),
+    ).resolves.toEqual({ source: "ai_proposal" });
   });
 });

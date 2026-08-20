@@ -1,5 +1,9 @@
 # Visione e requisiti del prodotto
 
+> Verità durevole di prodotto: **cosa** fa Tessavio e cosa non farà mai.
+> Non contiene sequenze né autorizzazioni: quelle sono in
+> [ROADMAP](planning/ROADMAP.md) e [CURRENT_MILESTONE](planning/CURRENT_MILESTONE.md).
+
 ## Obiettivo
 
 Tessavio è un assistente personale conversazionale multiutente, usato

@@ -1,3 +1,9 @@
+/**
+ * Origine dell'entità: comando esplicito oppure proposta AI accettata.
+ * È il campo che rende distinguibile un dato inserito da uno estratto.
+ */
+export type EntitySource = "manual_command" | "ai_proposal";
+
 import { Temporal } from "@js-temporal/polyfill";
 
 export const financeUndoTtlMs = 15 * 60 * 1_000;
@@ -18,7 +24,7 @@ export interface FinanceEntryRecord {
   readonly merchant: string | null;
   readonly paymentMethod: string | null;
   readonly note: string | null;
-  readonly source: "manual_command";
+  readonly source: EntitySource;
   readonly status: FinanceEntryStatus;
   readonly version: number;
   readonly createdAt: Date;

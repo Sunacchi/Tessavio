@@ -1,0 +1,457 @@
+import {
+  describeProposal,
+  type ProposalPlan,
+  type ProposalPlanItem,
+} from "./ai-plan";
+import { failWith, finish, storedPlan } from "./ai-proposal-delivery";
+import type { CommandContext } from "./handler-registry";
+import type { ProposalExecutor } from "./manage-ai-proposals";
+import type {
+  AiProposalRepository,
+  AiProviderPort,
+  ProposalCandidateContributor,
+} from "./ports/ai";
+import type {
+  AiBudgetRepository,
+  AiKeyInspectionPort,
+} from "./ports/ai-credentials";
+import type { DeliveryRepository } from "./ports/delivery";
+import type { PreferenceRepository } from "./ports/preferences";
+import type { TelegramReplyPort } from "./ports/telegram";
+import type { AiProposalJobEnvelope } from "./queue-envelope";
+import { eventDayWindow } from "../domains/events/events";
+import {
+  confirmationPolicyVersion,
+  decideConfirmation,
+} from "../domains/ai/confirmation-policy";
+import {
+  aiEnvelopeSchema,
+  aiProposalSchemaVersion,
+  type AiAction,
+} from "../domains/ai/proposal";
+import { buildStrictProposalSchema } from "../domains/ai/strict-schema";
+import {
+  validateProposalBatch,
+  type ProposalCandidates,
+  type ProposalValidation,
+} from "../domains/ai/validate-proposal";
+import type { AiModelPolicy } from "../ai/model-policy";
+import type { Authorizer } from "../security/authorization";
+import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
+import { AppError } from "../shared/errors";
+
+export interface ProcessAiProposalDependencies {
+  readonly authorizer: Authorizer;
+  readonly budget: AiBudgetRepository;
+  /** `null` quando il provider non richiede credenziali (mock). */
+  readonly keyInspection: AiKeyInspectionPort | null;
+  readonly resolveApiKey: (scope: UserScope) => Promise<string | null>;
+  readonly requiresCredential: boolean;
+  readonly candidateContributors: readonly ProposalCandidateContributor[];
+  readonly clock: Clock;
+  readonly confirmationTtlMs: number;
+  readonly deliveries: DeliveryRepository;
+  readonly executor: ProposalExecutor;
+  readonly ids: IdGenerator;
+  readonly leaseSeconds: number;
+  readonly policy: AiModelPolicy;
+  readonly preferences: PreferenceRepository;
+  readonly proposals: AiProposalRepository;
+  readonly provider: AiProviderPort;
+  readonly reply: TelegramReplyPort;
+  readonly retentionMs: number;
+}
+
+export interface ProcessAiProposalResult {
+  readonly outcome: "completed" | "duplicate" | "recovered" | "failed";
+}
+
+const candidateLimit = 50;
+
+const emptyPlanSlots = {
+  title: null,
+  text: null,
+  startLocal: null,
+  endLocal: null,
+  localDate: null,
+  due: null,
+  priority: null,
+  entityId: null,
+  amountMinor: null,
+  currency: null,
+  entryKind: null,
+  category: null,
+} as const;
+const referenceActions: ReadonlySet<AiAction> = new Set([
+  "events.cancel",
+  "reminders.cancel",
+  "tasks.complete",
+  "lists.item.create",
+]);
+
+const budgetExhaustedReply = [
+  "Budget AI giornaliero esaurito: non ho chiamato il modello e non ho scritto nulla.",
+  "Puoi usare i comandi espliciti, oppure riprovare domani.",
+].join("\n");
+
+const operationCostLimitReply = [
+  "La richiesta supera il tetto di costo per una singola operazione: non ho chiamato il modello e non ho scritto nulla.",
+  "Riduci il testo oppure usa un comando esplicito.",
+].join("\n");
+
+const missingCredentialReply = [
+  "Nessuna chiave collegata: non posso chiamare il modello.",
+  "Usa /ai collega per collegarla, oppure continua con i comandi espliciti.",
+].join("\n");
+
+async function collectCandidates(
+  dependencies: ProcessAiProposalDependencies,
+  scope: UserScope,
+  actorUserId: string,
+  referenceInstant: Date,
+  timeZone: string,
+): Promise<ProposalCandidates> {
+  const empty: ProposalCandidates = {
+    events: [],
+    reminders: [],
+    tasks: [],
+    lists: [],
+  };
+  const collected = await Promise.all(
+    dependencies.candidateContributors.map(async (contributor) => ({
+      domain: contributor.domain,
+      candidates: await contributor.collect(scope, {
+        actorUserId,
+        referenceInstant,
+        timeZone,
+        limit: candidateLimit,
+      }),
+    })),
+  );
+  return collected.reduce<ProposalCandidates>(
+    (accumulator, entry) => ({
+      ...accumulator,
+      [entry.domain]: entry.candidates,
+    }),
+    empty,
+  );
+}
+
+function planItem(
+  index: number,
+  validation: ProposalValidation,
+  enabledActions: readonly AiAction[],
+): ProposalPlanItem {
+  if (validation.outcome === "valid") {
+    const decision = decideConfirmation({
+      action: validation.action,
+      enabled: enabledActions.includes(validation.action),
+      resolution: validation.resolution,
+      entityCount: validation.entityCount,
+    });
+    return {
+      index,
+      action: validation.action,
+      decision,
+      slots: validation.slots,
+      assumptions: [...validation.assumptions],
+      message: null,
+    };
+  }
+  if (validation.outcome === "clarify") {
+    return {
+      index,
+      action: validation.action,
+      decision: "clarify",
+      slots: emptyPlanSlots,
+      assumptions: [],
+      message: validation.question,
+    };
+  }
+  return {
+    index,
+    action: validation.action,
+    decision: "reject",
+    slots: emptyPlanSlots,
+    assumptions: [],
+    message: rejectMessage(validation.reason),
+  };
+}
+
+function rejectMessage(reason: string): string {
+  switch (reason) {
+    case "action_not_enabled":
+      return "Questa azione non è abilitata in questa fase.";
+    case "extraneous_slot":
+      return "La proposta conteneva campi non pertinenti: l'ho scartata.";
+    case "duplicate_in_batch":
+      return "Proposta duplicata nello stesso messaggio: applicata una sola volta.";
+    case "batch_limit":
+      return "Troppe entità in un solo messaggio: dividi la richiesta.";
+    default:
+      return "Proposta non valida: l'ho scartata senza scrivere nulla.";
+  }
+}
+
+export async function processAiProposal(
+  envelope: AiProposalJobEnvelope,
+  dependencies: ProcessAiProposalDependencies,
+): Promise<ProcessAiProposalResult> {
+  const scope: UserScope = { userId: envelope.payload.userId };
+  const now = dependencies.clock.now();
+  const claim = await dependencies.proposals.claim(
+    scope,
+    envelope.jobId,
+    {
+      correlationId: envelope.correlationId,
+      idempotencyKey: envelope.idempotencyKey,
+      schemaVersion: aiProposalSchemaVersion,
+      policyVersion: confirmationPolicyVersion,
+      model: dependencies.policy.model,
+      expiresAt: new Date(now.getTime() + dependencies.retentionMs),
+    },
+    now,
+    dependencies.leaseSeconds,
+  );
+  if (claim === "settled") return { outcome: "duplicate" };
+  if (claim === "busy") throw new AppError("DUPLICATE", true);
+
+  await dependencies.authorizer.authorize({
+    actorUserId: scope.userId,
+    scope,
+    action: "ai:propose",
+  });
+
+  const profile = await dependencies.preferences.get(scope);
+  if (profile === null) {
+    return finish(
+      dependencies,
+      scope,
+      envelope,
+      "Configura prima la timezone con /impostazioni imposta it Europe/Rome 24h EUR.",
+    );
+  }
+
+  const referenceInstant = new Date(envelope.payload.sentAtUnix * 1_000);
+  let plan: ProposalPlan | null =
+    claim === "resumed"
+      ? await storedPlan(dependencies, scope, envelope)
+      : null;
+
+  if (plan === null) {
+    const window = eventDayWindow(
+      envelope.payload.sentAtUnix,
+      profile.timeZone,
+      0,
+    );
+
+    const apiKey = dependencies.requiresCredential
+      ? await dependencies.resolveApiKey(scope)
+      : null;
+    if (dependencies.requiresCredential && apiKey === null) {
+      return finish(dependencies, scope, envelope, missingCredentialReply);
+    }
+
+    // Tre controlli distinti e non sostituibili: budget applicativo
+    // (prenotazione atomica), hard limit del provider (pre-volo sulla chiave)
+    // e costo massimo per operazione (`max_price` nella richiesta).
+    const budgetKey = `ai-budget:${envelope.jobId}`;
+    const reservation = await dependencies.budget.reserve(
+      scope,
+      budgetKey,
+      window.localDate,
+      dependencies.policy.maxCostMicrosPerOperation,
+      dependencies.policy.dailyBudgetMicrosPerUser,
+      dependencies.clock.now(),
+    );
+    if (reservation.outcome === "exceeded") {
+      return finish(dependencies, scope, envelope, budgetExhaustedReply);
+    }
+    if (apiKey !== null && dependencies.keyInspection !== null) {
+      const status = await dependencies.keyInspection.inspect({
+        apiKey,
+        correlationId: envelope.correlationId,
+      });
+      if (
+        status !== null &&
+        status.limitRemainingMicros !== null &&
+        status.limitRemainingMicros <
+          dependencies.policy.maxCostMicrosPerOperation
+      ) {
+        await dependencies.budget.release(
+          scope,
+          budgetKey,
+          dependencies.clock.now(),
+        );
+        return finish(dependencies, scope, envelope, budgetExhaustedReply);
+      }
+    }
+
+    let result;
+    try {
+      result = await dependencies.provider.propose({
+        context: {
+          messageText: envelope.payload.messageText,
+          timeZone: profile.timeZone,
+          localDate: window.localDate,
+          enabledActions: dependencies.policy.enabledActions,
+        },
+        schema: buildStrictProposalSchema(dependencies.policy.enabledActions),
+        model: dependencies.policy.model,
+        apiKey,
+        correlationId: envelope.correlationId,
+        maxCostMicros: dependencies.policy.maxCostMicrosPerOperation,
+      });
+    } catch (error) {
+      // Una chiamata fallita non blocca il budget: la prenotazione si chiude.
+      await dependencies.budget.release(
+        scope,
+        budgetKey,
+        dependencies.clock.now(),
+      );
+      throw error;
+    }
+    if (result.outcome === "cost_limit") {
+      await dependencies.budget.release(
+        scope,
+        budgetKey,
+        dependencies.clock.now(),
+      );
+      return finish(dependencies, scope, envelope, operationCostLimitReply);
+    }
+
+    await dependencies.budget.settle(
+      scope,
+      budgetKey,
+      result.costMicros,
+      dependencies.clock.now(),
+    );
+    if (result.costMicros > dependencies.policy.maxCostMicrosPerOperation) {
+      return failWith(dependencies, scope, envelope, "provider_cost_overrun");
+    }
+
+    let parsedJson: unknown;
+    try {
+      parsedJson = JSON.parse(result.rawJson);
+    } catch {
+      return failWith(dependencies, scope, envelope, "invalid_json");
+    }
+    const parsed = aiEnvelopeSchema(
+      dependencies.policy.enabledActions,
+    ).safeParse(parsedJson);
+    if (!parsed.success) {
+      return failWith(dependencies, scope, envelope, "schema_violation");
+    }
+
+    const needsCandidates = parsed.data.proposals.some((proposal) =>
+      referenceActions.has(proposal.action),
+    );
+    const candidates = needsCandidates
+      ? await collectCandidates(
+          dependencies,
+          scope,
+          scope.userId,
+          referenceInstant,
+          profile.timeZone,
+        )
+      : { events: [], reminders: [], tasks: [], lists: [] };
+
+    const validations = validateProposalBatch(parsed.data, {
+      enabledActions: dependencies.policy.enabledActions,
+      timeZone: profile.timeZone,
+      referenceInstant,
+      defaultCurrency: profile.defaultCurrency,
+      candidates,
+    });
+    plan = {
+      schemaVersion: aiProposalSchemaVersion,
+      policyVersion: confirmationPolicyVersion,
+      model: result.model,
+      clarification: parsed.data.clarification,
+      items: validations.map((validation, index) =>
+        planItem(index, validation, dependencies.policy.enabledActions),
+      ),
+    };
+    await dependencies.proposals.savePlan(
+      scope,
+      envelope.jobId,
+      JSON.stringify(plan),
+      dependencies.clock.now(),
+    );
+  }
+
+  const lines: string[] = [];
+  let position = 0;
+  for (const item of plan.items) {
+    position += 1;
+    const heading = `${String(position)}. ${describeProposal(item)}`;
+    if (item.decision === "execute_with_undo") {
+      const reply = await dependencies.executor.execute(item, {
+        ...commandContext(envelope, scope),
+        aiJobId: envelope.jobId,
+        idempotencyKey: `ai-exec:${envelope.jobId}:${String(item.index)}`,
+      });
+      lines.push(`${heading}\n  ${reply.split("\n").join("\n  ")}`);
+      continue;
+    }
+    if (item.decision === "preview_confirm") {
+      const token = `aic_${dependencies.ids.newId()}`;
+      await dependencies.proposals.createConfirmation(
+        scope,
+        token,
+        envelope.jobId,
+        item.index,
+        new Date(
+          dependencies.clock.now().getTime() + dependencies.confirmationTtlMs,
+        ),
+        dependencies.clock.now(),
+      );
+      lines.push(`${heading}\n  Confermi? /ai conferma ${token}`);
+      continue;
+    }
+    lines.push(
+      `${heading}\n  ${item.message ?? "Nessuna modifica applicata."}`,
+    );
+  }
+
+  if (plan.clarification !== null && plan.items.length > 0) {
+    lines.push(plan.clarification);
+  }
+  if (lines.length === 0) {
+    // L'Inbox parla solo se ha qualcosa da proporre: il testo che non contiene
+    // richieste non produce una risposta (ADR-0026). Un comando esplicito
+    // invece merita sempre un esito.
+    return envelope.payload.origin === "inbox"
+      ? finish(dependencies, scope, envelope, "", false)
+      : finish(
+          dependencies,
+          scope,
+          envelope,
+          plan.clarification ??
+            "Non ho trovato nulla da proporre: prova con un comando esplicito.",
+        );
+  }
+  return finish(
+    dependencies,
+    scope,
+    envelope,
+    ["Ho capito questo:", ...lines].join("\n"),
+  );
+}
+
+function commandContext(
+  envelope: AiProposalJobEnvelope,
+  scope: UserScope,
+): CommandContext {
+  return {
+    actorUserId: scope.userId,
+    scope,
+    chatId: envelope.payload.chatId,
+    messageText: envelope.payload.messageText,
+    forwarded: envelope.payload.forwarded,
+    correlationId: envelope.correlationId,
+    idempotencyKey: envelope.idempotencyKey,
+    jobId: envelope.jobId,
+    sentAtUnix: envelope.payload.sentAtUnix,
+  };
+}

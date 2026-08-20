@@ -5,8 +5,9 @@ import type {
   ReminderMutationContext,
   ReminderRepository,
   UndoReminderResult,
-} from "../../application/ports";
+} from "../../application/ports/reminders";
 import type { ReminderRecord } from "../../domains/reminders/reminders";
+import type { ReminderDayWindow } from "../../domains/reminders/reminders";
 import type { UserScope } from "../../shared/contracts";
 import { AppError } from "../../shared/errors";
 
@@ -150,6 +151,33 @@ export class D1ReminderRepository implements ReminderRepository {
     return rows.results.map(toRecord);
   }
 
+  async listForDay(
+    scope: UserScope,
+    window: ReminderDayWindow,
+    limit: number,
+  ): Promise<ReminderRecord[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      throw new AppError("INVALID_INPUT", false);
+    }
+    const rows = await this.database
+      .prepare(
+        `SELECT id, text, requested_at_utc, due_at_utc, original_time_zone,
+                status, version, attempt_count
+         FROM reminders
+         WHERE user_id = ? AND status IN ('pending', 'claimed', 'sending')
+           AND due_at_utc >= ? AND due_at_utc < ?
+         ORDER BY due_at_utc, id LIMIT ?`,
+      )
+      .bind(
+        scope.userId,
+        window.startAtUtc.getTime(),
+        window.endAtUtc.getTime(),
+        limit,
+      )
+      .all();
+    return rows.results.map(toRecord);
+  }
+
   async create(
     scope: UserScope,
     reminderId: string,
@@ -179,9 +207,9 @@ export class D1ReminderRepository implements ReminderRepository {
         .prepare(
           `INSERT INTO reminders (
              id, user_id, text, requested_at_utc, due_at_utc,
-             original_time_zone, status, version, last_mutation_key,
-             created_at, updated_at
-           ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 1, ?, ?, ?)`,
+             original_time_zone, status, provenance, version,
+             last_mutation_key, created_at, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 1, ?, ?, ?)`,
         )
         .bind(
           reminderId,
@@ -190,6 +218,7 @@ export class D1ReminderRepository implements ReminderRepository {
           values.requestedAtUtc.getTime(),
           values.requestedAtUtc.getTime(),
           values.originalTimeZone,
+          context.provenance,
           context.idempotencyKey,
           timestamp,
           timestamp,
@@ -279,7 +308,10 @@ export class D1ReminderRepository implements ReminderRepository {
   async undo(
     scope: UserScope,
     token: string,
-    context: Omit<ReminderMutationContext, "undoToken" | "undoExpiresAt">,
+    context: Omit<
+      ReminderMutationContext,
+      "undoToken" | "undoExpiresAt" | "provenance"
+    >,
   ): Promise<UndoReminderResult> {
     const duplicate = await this.database
       .prepare(

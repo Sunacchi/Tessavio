@@ -1,8 +1,13 @@
-# Security instructions
+# src/security — regole
 
-- Treat authorization, encryption, privacy and rate limiting as mandatory application boundaries.
-- Every shared write verifies membership, role and resource scope.
-- Use Web Crypto primitives correctly; AES-GCM nonces must be unique. Prefer envelope encryption for user credentials and include credential versioning.
-- OAuth state/session is opaque, random, one-time, user-bound and short-lived; PKCE uses S256.
-- Do not log or return secret material. Hashes do not replace encryption for reusable credentials.
-- Changes require negative tests for bypass, replay, reuse and leakage.
+Authorization, cifratura, privacy e rate limiting sono confini applicativi
+**obbligatori**, non utility opzionali.
+
+- Ogni write condivisa verifica membership, ruolo e scope della risorsa.
+- Web Crypto usato correttamente: i nonce AES-GCM sono unici per chiave. Per le
+  credenziali utente preferisci envelope encryption con versione della chiave.
+- State e sessione OAuth: opachi, casuali, monouso, legati all'utente e di breve
+  durata. PKCE con S256.
+- Non loggare né restituire materiale segreto. Un hash non sostituisce la
+  cifratura per una credenziale riutilizzabile.
+- Ogni modifica richiede test negativi su bypass, replay, riuso e leakage.

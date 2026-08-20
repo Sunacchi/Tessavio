@@ -21,6 +21,10 @@ const telegramMessageSchema = z
     from: telegramUserSchema.optional(),
     chat: telegramChatSchema,
     text: z.string().max(4_096).optional(),
+    // Solo la presenza dell'origine, mai chi ha inoltrato: serve a marcare la
+    // provenance del testo, non a profilare terzi (ADR-0026).
+    forward_origin: z.unknown().optional(),
+    forward_date: z.number().int().nonnegative().optional(),
   })
   .loose();
 
@@ -45,6 +49,9 @@ const normalizedMessageSchema = z
       })
       .strict(),
     text: z.string().max(4_096).optional(),
+    // Default per compatibilità: un envelope prodotto da un worker N-1 non
+    // ha questo campo e deve restare processabile.
+    forwarded: z.boolean().default(false),
   })
   .strict();
 
@@ -72,7 +79,12 @@ export function normalizeTelegramUpdate(
       sentAtUnix: message.date,
       sender: { id: message.from.id, isBot: message.from.is_bot ?? false },
       chat: { id: message.chat.id, type: message.chat.type },
+      // L'ordine delle chiavi segue lo schema: `envelope_json` viene
+      // confrontato byte a byte al claim dell'inbox.
       ...(message.text === undefined ? {} : { text: message.text }),
+      forwarded:
+        message.forward_origin !== undefined ||
+        message.forward_date !== undefined,
     },
   };
 }

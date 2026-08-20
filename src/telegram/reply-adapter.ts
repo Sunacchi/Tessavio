@@ -1,5 +1,5 @@
-import { Api, GrammyError, HttpError } from "grammy";
-import type { TelegramReplyPort } from "../application/ports";
+import { Api, GrammyError, HttpError, InputFile } from "grammy";
+import type { TelegramReplyPort } from "../application/ports/telegram";
 import { AppError } from "../shared/errors";
 
 export function normalizeTelegramReplyError(error: unknown): AppError {
@@ -29,6 +29,28 @@ export class GrammyTelegramReplyAdapter implements TelegramReplyPort {
   ): Promise<{ readonly messageId: string }> {
     try {
       const message = await this.api.sendMessage(chatId, text);
+      return { messageId: String(message.message_id) };
+    } catch (error) {
+      throw normalizeTelegramReplyError(error);
+    }
+  }
+
+  async sendDocument(
+    chatId: number | string,
+    document: {
+      readonly fileName: string;
+      readonly mimeType: "text/csv";
+      readonly content: string;
+      readonly caption: string;
+    },
+  ): Promise<{ readonly messageId: string }> {
+    try {
+      const bytes = new TextEncoder().encode(document.content);
+      const message = await this.api.sendDocument(
+        chatId,
+        new InputFile(bytes, document.fileName),
+        { caption: document.caption },
+      );
       return { messageId: String(message.message_id) };
     } catch (error) {
       throw normalizeTelegramReplyError(error);

@@ -1,12 +1,18 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { manageEvents } from "../../src/application/manage-events";
-import { manageWork } from "../../src/application/manage-work";
-import type { WorkMutationContext } from "../../src/application/ports";
+import {
+  manageWork,
+  workDayViewContributor,
+} from "../../src/application/manage-work";
+import type { WorkMutationContext } from "../../src/application/ports/work";
 import { D1EventRepository } from "../../src/infrastructure/db/event-repository";
 import { D1PreferenceRepository } from "../../src/infrastructure/db/preference-repository";
 import { D1WorkRepository } from "../../src/infrastructure/db/work-repository";
-import { SelfScopeAuthorizer } from "../../src/security/authorization";
+import {
+  SelfScopeAuthorizer,
+  type Authorizer,
+} from "../../src/security/authorization";
 import { AppError } from "../../src/shared/errors";
 import { FakeClock, SequenceIds } from "../helpers";
 
@@ -24,6 +30,7 @@ describe("B4 work isolation", () => {
   let work: D1WorkRepository;
   const context = (user: string, key: string): WorkMutationContext => ({
     actorUserId: user,
+    provenance: "entered",
     correlationId: key,
     idempotencyKey: key,
     auditId: `audit-${key}`,
@@ -100,6 +107,7 @@ describe("B4 work isolation", () => {
           authorizer: new SelfScopeAuthorizer(),
           clock: new FakeClock(now),
           ids: new SequenceIds(),
+          provenance: "entered" as const,
           preferences: new D1PreferenceRepository(env.DB),
           work,
         },
@@ -118,6 +126,13 @@ describe("B4 work isolation", () => {
       .bind(now.getTime(), now.getTime())
       .run();
     const guardedWork = new GuardedWorkRepository(env.DB);
+    const authorizer: Authorizer = {
+      authorize(request) {
+        return request.action === "work:read"
+          ? Promise.reject(new AppError("UNAUTHORIZED", false))
+          : Promise.resolve();
+      },
+    };
     await expect(
       manageEvents(
         {
@@ -129,18 +144,15 @@ describe("B4 work isolation", () => {
           command: { kind: "events.today" },
         },
         {
-          authorizer: {
-            authorize(request) {
-              return request.action === "work:read"
-                ? Promise.reject(new AppError("UNAUTHORIZED", false))
-                : Promise.resolve();
-            },
-          },
+          authorizer,
           clock: new FakeClock(now),
           events: new D1EventRepository(env.DB),
           ids: new SequenceIds(),
+          provenance: "entered",
           preferences: new D1PreferenceRepository(env.DB),
-          work: guardedWork,
+          dayViewContributors: [
+            workDayViewContributor({ authorizer, work: guardedWork }),
+          ],
         },
       ),
     ).rejects.toEqual(new AppError("UNAUTHORIZED", false));

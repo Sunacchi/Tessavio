@@ -1,0 +1,19 @@
+{
+  "model": "mock/deterministic-v1",
+  "schemaVersion": "c1.v1",
+  "policyVersion": "c1-policy-v1",
+  "dataset": "datasets/c1-core.jsonl",
+  "recordedAt": "2026-08-20",
+  "note": "Baseline del provider mock deterministico: misura l'harness (schema, validator, policy, risoluzione slot), non la qualita di un modello. Serve come pavimento: un provider reale in C2 gira sullo stesso dataset e il confronto avviene contro questi numeri.",
+  "metrics": {
+    "cases": 24,
+    "schemaValidRate": 1,
+    "actionExactRate": 1,
+    "slotAccuracy": 1,
+    "falseActionRate": 0,
+    "clarificationPrecision": 1,
+    "multiIntentRecall": 1,
+    "latencyP95Ms": 0,
+    "averageCostMicros": 0
+  }
+}

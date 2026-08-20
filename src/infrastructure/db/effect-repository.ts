@@ -1,4 +1,8 @@
-import type { EffectRepository, EffectStatus } from "../../application/ports";
+import type {
+  EffectKind,
+  EffectRepository,
+  EffectStatus,
+} from "../../application/ports/effects";
 import type { UserScope } from "../../shared/contracts";
 
 export class D1EffectRepository implements EffectRepository {
@@ -9,14 +13,15 @@ export class D1EffectRepository implements EffectRepository {
     effectKey: string,
     jobId: string,
     now: Date,
+    kind: EffectKind,
   ): Promise<boolean> {
     const result = await this.database
       .prepare(
         `INSERT OR IGNORE INTO effects (
           effect_key, scope_user_id, job_id, kind, status, created_at
-        ) VALUES (?, ?, ?, 'onboarding_start', 'claimed', ?)`,
+        ) VALUES (?, ?, ?, ?, 'claimed', ?)`,
       )
-      .bind(effectKey, scope.userId, jobId, now.getTime())
+      .bind(effectKey, scope.userId, jobId, kind, now.getTime())
       .run();
     return result.meta.changes === 1;
   }
@@ -32,6 +37,16 @@ export class D1EffectRepository implements EffectRepository {
          WHERE effect_key = ? AND scope_user_id = ?`,
       )
       .bind(now.getTime(), effectKey, scope.userId)
+      .run();
+  }
+
+  async release(scope: UserScope, effectKey: string): Promise<void> {
+    await this.database
+      .prepare(
+        `DELETE FROM effects
+         WHERE effect_key = ? AND scope_user_id = ? AND status = 'claimed'`,
+      )
+      .bind(effectKey, scope.userId)
       .run();
   }
 

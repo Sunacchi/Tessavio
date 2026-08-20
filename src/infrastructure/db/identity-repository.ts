@@ -1,7 +1,7 @@
 import type {
   IdentityRepository,
   IdentityResolution,
-} from "../../application/ports";
+} from "../../application/ports/identity";
 import { AppError } from "../../shared/errors";
 
 export class D1IdentityRepository implements IdentityRepository {

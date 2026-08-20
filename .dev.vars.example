@@ -1,3 +1,10 @@
-# Copy to .dev.vars and replace both values. Never commit the real file.
+# Copy to .dev.vars and replace every value. Never commit the real file.
 TELEGRAM_WEBHOOK_SECRET="replace-with-a-random-webhook-secret"
 TELEGRAM_BOT_TOKEN="replace-with-a-development-bot-token"
+# Phase C2: KEK per l'envelope encryption delle credenziali BYOK.
+# 32 byte casuali in base64. Ruotare incrementando AI_KEK_VERSION e spostando
+# la chiave precedente in AI_KEK_PREVIOUS con la sua versione.
+AI_KEK="replace-with-32-random-bytes-in-base64=="
+AI_KEK_VERSION="1"
+AI_KEK_PREVIOUS=""
+AI_KEK_PREVIOUS_VERSION=""

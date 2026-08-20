@@ -7,10 +7,13 @@ export interface LogContext {
   readonly jobId?: string;
   readonly updateId?: number;
   readonly reminderId?: string;
+  /** ID interno dell'utente: pseudonimo, mai username o numero di telefono. */
+  readonly userId?: string;
   readonly state?: string;
   readonly errorCode?: ErrorCode;
   readonly latencyMs?: number;
   readonly attempt?: number;
+  readonly count?: number;
 }
 
 export function logEvent(

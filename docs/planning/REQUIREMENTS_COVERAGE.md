@@ -1,9 +1,33 @@
 # Matrice di copertura requisiti
 
-Audit del repository al 2026-08-08, prima di questo aggiornamento documentale.
-La colonna **stato iniziale** fotografa codice, schema, test e piani trovati; la
-colonna **collocazione** registra l'esito dell'aggiornamento. Non equivale a
-implementazione completata.
+> **Leggi solo la sezione dell'area che ti serve.** La sintesi qui sotto risponde
+> alla domanda più frequente ("è implementato o solo pianificato?") senza aprire
+> le tabelle. Aggiornata al 2026-08-19.
+
+## Sintesi per area
+
+| #   | Area                        | Stato                                                                      | Dove                                           |
+| --- | --------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------- |
+| 1   | Tessavio Inbox              | pianificata (Phase C)                                                      | [§1](#1-tessavio-inbox)                        |
+| 2   | Spese ed entrate            | **implementata** (manuale, B5); avanzata in K                              | [§2](#2-spese-ed-entrate)                      |
+| 3   | Open Banking                | esclusa definitivamente ([ADR-0009](../decisions/0009-no-open-banking.md)) | [§3](#3-esclusione-open-banking)               |
+| 4   | Briefing e proattività      | pianificata (Phase G)                                                      | [§4](#4-briefing-e-assistenza-proattiva)       |
+| 5   | Documenti e amministrazione | pianificata (Phase J)                                                      | [§5](#5-documenti-e-amministrazione-personale) |
+| 6   | Casa, famiglia e spazi      | pianificata (Phase F/L)                                                    | [§6](#6-casa-famiglia-e-spazi-condivisi)       |
+| 7   | Persone e follow-up         | pianificata (Phase J)                                                      | [§7](#7-persone-ricorrenze-e-follow-up)        |
+| 8   | Pianificazione intelligente | pianificata (Phase E)                                                      | [§8](#8-pianificazione-intelligente)           |
+| 9   | Google Calendar             | pianificata (Phase H1-H3)                                                  | [§9](#9-google-calendar)                       |
+| 10  | Viaggi e spostamenti        | pianificata (Phase M)                                                      | [§10](#10-viaggi-e-spostamenti)                |
+| 11  | Routine e benessere         | pianificata (Phase N)                                                      | [§11](#11-routine-e-benessere)                 |
+| 12  | Integrazioni differite      | rimandate, fuori roadmap corrente                                          | [§12](#12-integrazioni-differite)              |
+
+**Implementato e testato oggi:** foundation A1 e core deterministico B1-B7 —
+preferenze, eventi one-off, reminder one-off e daily/weekly, task, lavoro,
+finanze manuali, liste/note e report, tutti privati, user-scoped, con audit e
+Undo dove applicabile.
+
+**Tutto il resto è pianificato**: ha una milestone concreta ma resta non
+implementato finché i relativi acceptance test e gate DoD non sono verdi.
 
 ## Legenda
 
@@ -12,17 +36,10 @@ implementazione completata.
 - **Pianificata**: non implementata, ma già collocata concretamente prima dell'audit.
 - **Mancante**: né implementata né collocata concretamente prima dell'audit.
 
-Evidenza di baseline: A1 implementava solo `/start`, normalizzazione testo minima,
-inbox durevole, dedupe, Queue, identità interna, authorization self-scope,
-audit/effect/delivery ledger e test foundation. Dopo l'audit, B1.1 ha aggiunto
-preferenze temporali private e B1.2 eventi one-off privati `date_only|instant`,
-comandi deterministici, audit, Undo e viste `/oggi`/`/domani`. B2 ha aggiunto
-reminder one-off, quiet hours, Cron/Queue e delivery deduplicata. B3 ha aggiunto
-task private, priorità, scadenze tipizzate, complete/reopen, Undo e viste
-giornaliere. B4 ha aggiunto regole lavoro private, turni pianificati, consuntivi,
-pause e report temporali riproducibili, tutti deterministici e user-scoped.
-B5 ha aggiunto spese/entrate manuali, minor unit, correzione, soft delete, Undo e
-totali per valuta. Documenti, persone e spazi restano nello stato indicato nelle tabelle.
+Le tabelle sotto conservano l'audit del 2026-08-08: la colonna **stato iniziale**
+fotografa ciò che esisteva allora, la colonna **collocazione** dove è stato
+assegnato. Le slice B1-B7 chiuse dopo quell'audit sono elencate nella sintesi
+sopra e congelate negli ADR 0012-0021.
 
 ## 1. Tessavio Inbox
 
@@ -38,7 +55,7 @@ totali per valuta. Documenti, persone e spazi restano nello stato indicato nelle
 | Riconoscere appuntamenti, reminder e task   | Parziale       | domini deterministici B1-B3 presenti; Inbox AI non implementata             | C3                                       |
 | Riconoscere spese, entrate e bollette       | Parziale       | dominio B5 presente; riconoscimento Inbox/bollette resta futuro             | B5, C3, D3, K1                           |
 | Riconoscere documenti e scadenze            | Mancante       | dominio documenti assente                                                   | D3 e J1-J2                               |
-| Riconoscere elementi lista e note           | Parziale       | liste B6 pianificate, note non esplicite                                    | B6 e C3                                  |
+| Riconoscere elementi lista e note           | Parziale       | domini deterministici B6.1 presenti; riconoscimento Inbox resta futuro      | B6.1 e C3                                |
 | Riconoscere informazioni relative a persone | Mancante       | dominio persone assente                                                     | J3-J4                                    |
 | Archiviare o riproporre contenuti           | Mancante       | nessun dominio/attention lifecycle                                          | J2, poi contributor attivato in O        |
 | Punto comune senza duplicare i domini       | Parziale       | Smart Inbox è un confine architetturale, non ancora un dispatcher tipizzato | ADR-0010, C3                             |
@@ -48,38 +65,38 @@ totali per valuta. Documenti, persone e spazi restano nello stato indicato nelle
 
 ## 2. Spese ed entrate
 
-| Funzione                                          | Stato iniziale | Evidenza / gap                                    | Collocazione                   |
-| ------------------------------------------------- | -------------- | ------------------------------------------------- | ------------------------------ |
-| Inserimento spese via testo/comando               | Implementata   | comando deterministico e repository B5            | B5                             |
-| Inserimento entrate via testo/comando             | Implementata   | stesso registro tipizzato `income`                | B5                             |
-| Inserimento via vocale                            | Parziale       | dominio pronto; STT/Inbox assenti                 | D1 + B5                        |
-| Foto di scontrini, ricevute e bollette            | Parziale       | dominio pronto; vision/documenti assenti          | D2-D3 + B5/J1                  |
-| Importo, valuta e data                            | Implementata   | minor unit intere e data civile validate          | B5                             |
-| Categoria modificabile                            | Implementata   | correzione versionata del movimento               | B5                             |
-| Esercente, note e metodo di pagamento facoltativo | Implementata   | campi bounded e minimizzati                       | B5                             |
-| Categorie automatiche modificabili                | Mancante       | nessuna regola/proposta dedicata                  | C3 e K1                        |
-| Regole personali di categorizzazione              | Mancante       | assenti                                           | K1                             |
-| Entrate/spese ricorrenti                          | Parziale       | recurrence generica prevista                      | K1                             |
-| Stipendio e affitto                               | Mancante       | assenti come casi di dominio                      | K1                             |
-| Bollette, abbonamenti e rate                      | Mancante       | assenti come casi di dominio                      | K1                             |
-| Budget mensile complessivo                        | Mancante       | “budget” esistente era budget AI, non finanziario | K2                             |
-| Budget per categoria                              | Mancante       | assente                                           | K2                             |
-| Obiettivi di risparmio e fondi futuri             | Mancante       | assenti                                           | K2                             |
-| Previsione entrate/uscite programmate             | Mancante       | assente                                           | K3                             |
-| Previsione saldo                                  | Mancante       | assente                                           | K3                             |
-| Abbonamenti e aumenti                             | Mancante       | assente                                           | K1/K3, solo da dati registrati |
-| Scadenziario economico                            | Mancante       | assente                                           | K3 e G2                        |
-| Spese condivise                                   | Parziale       | sharing/spese separati previsti                   | F3                             |
-| Divisione spesa tra persone                       | Mancante       | assente                                           | F3                             |
-| Debiti e crediti personali                        | Mancante       | assenti                                           | F3/J4                          |
-| Prestiti di denaro                                | Mancante       | assenti                                           | J4, senza pagamenti            |
-| Riepiloghi giorno/settimana/mese/anno             | Parziale       | report base generici previsti                     | B7 e K4                        |
-| Confronto tra periodi                             | Mancante       | assente                                           | K4                             |
-| Export CSV                                        | Parziale       | Mini App/export generico previsto                 | B7, K4 e I2                    |
-| Import manuale CSV                                | Mancante       | assente                                           | K4                             |
-| Modifica, eliminazione e Undo                     | Implementata   | versioning, soft delete e token single-use B5     | B5                             |
-| Isolamento dati economici                         | Implementata   | `UserScope` in repository e test negativi         | B5/F3/K*                       |
-| Forecast come stima, non consulenza               | Mancante       | disclaimer non presente                           | K3 e DoD                       |
+| Funzione                                          | Stato iniziale | Evidenza / gap                                                  | Collocazione                   |
+| ------------------------------------------------- | -------------- | --------------------------------------------------------------- | ------------------------------ |
+| Inserimento spese via testo/comando               | Implementata   | comando deterministico e repository B5                          | B5                             |
+| Inserimento entrate via testo/comando             | Implementata   | stesso registro tipizzato `income`                              | B5                             |
+| Inserimento via vocale                            | Parziale       | dominio pronto; STT/Inbox assenti                               | D1 + B5                        |
+| Foto di scontrini, ricevute e bollette            | Parziale       | dominio pronto; vision/documenti assenti                        | D2-D3 + B5/J1                  |
+| Importo, valuta e data                            | Implementata   | minor unit intere e data civile validate                        | B5                             |
+| Categoria modificabile                            | Implementata   | correzione versionata del movimento                             | B5                             |
+| Esercente, note e metodo di pagamento facoltativo | Implementata   | campi bounded e minimizzati                                     | B5                             |
+| Categorie automatiche modificabili                | Mancante       | nessuna regola/proposta dedicata                                | C3 e K1                        |
+| Regole personali di categorizzazione              | Mancante       | assenti                                                         | K1                             |
+| Entrate/spese ricorrenti                          | Parziale       | recurrence generica prevista                                    | K1                             |
+| Stipendio e affitto                               | Mancante       | assenti come casi di dominio                                    | K1                             |
+| Bollette, abbonamenti e rate                      | Mancante       | assenti come casi di dominio                                    | K1                             |
+| Budget mensile complessivo                        | Mancante       | “budget” esistente era budget AI, non finanziario               | K2                             |
+| Budget per categoria                              | Mancante       | assente                                                         | K2                             |
+| Obiettivi di risparmio e fondi futuri             | Mancante       | assenti                                                         | K2                             |
+| Previsione entrate/uscite programmate             | Mancante       | assente                                                         | K3                             |
+| Previsione saldo                                  | Mancante       | assente                                                         | K3                             |
+| Abbonamenti e aumenti                             | Mancante       | assente                                                         | K1/K3, solo da dati registrati |
+| Scadenziario economico                            | Mancante       | assente                                                         | K3 e G2                        |
+| Spese condivise                                   | Parziale       | sharing/spese separati previsti                                 | F3                             |
+| Divisione spesa tra persone                       | Mancante       | assente                                                         | F3                             |
+| Debiti e crediti personali                        | Mancante       | assenti                                                         | F3/J4                          |
+| Prestiti di denaro                                | Mancante       | assenti                                                         | J4, senza pagamenti            |
+| Riepiloghi giorno/settimana/mese/anno             | Parziale       | B7 copre periodi espliciti; confronti preset restano K4         | B7 e K4                        |
+| Confronto tra periodi                             | Mancante       | assente                                                         | K4                             |
+| Export CSV                                        | Parziale       | B7 esporta il report selezionato; account/import restano futuri | B7, K4 e I2                    |
+| Import manuale CSV                                | Mancante       | assente                                                         | K4                             |
+| Modifica, eliminazione e Undo                     | Implementata   | versioning, soft delete e token single-use B5                   | B5                             |
+| Isolamento dati economici                         | Implementata   | `UserScope` in repository e test negativi                       | B5/F3/K*                       |
+| Forecast come stima, non consulenza               | Mancante       | disclaimer non presente                                         | K3 e DoD                       |
 
 ## 3. Esclusione Open Banking
 

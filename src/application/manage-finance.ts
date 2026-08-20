@@ -1,9 +1,19 @@
-import type { FinanceCommand } from "./deterministic-command";
+import {
+  financeCommandKinds,
+  isFinanceCommand,
+  type FinanceCommand,
+} from "./commands/finance";
+import {
+  commandRegistration,
+  type CommandContext,
+  type CommandRegistration,
+} from "./handler-registry";
+import type { UndoHandler } from "./undo-registry";
 import type {
   FinanceMutationContext,
   FinanceRepository,
   MutateFinanceResult,
-} from "./ports";
+} from "./ports/finance";
 import {
   financeListLimit,
   financeUndoTtlMs,
@@ -14,10 +24,17 @@ import {
   type FinanceValidationIssue,
 } from "../domains/finance/finance";
 import type { Authorizer } from "../security/authorization";
-import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
+import type {
+  Clock,
+  EntityProvenance,
+  IdGenerator,
+  UserScope,
+} from "../shared/contracts";
 
 export interface ManageFinanceDependencies {
   readonly authorizer: Authorizer;
+  /** Origine dei dati scritti da questo contenitore: comando o proposta AI. */
+  readonly provenance: EntityProvenance;
   readonly clock: Clock;
   readonly finance: FinanceRepository;
   readonly ids: IdGenerator;
@@ -130,6 +147,7 @@ function mutationContext(
     actorUserId: request.actorUserId,
     correlationId: request.correlationId,
     idempotencyKey: request.idempotencyKey,
+    provenance: dependencies.provenance,
     auditId: dependencies.ids.newId(),
     undoToken: `fin_${dependencies.ids.newId()}`,
     now,
@@ -289,4 +307,72 @@ export async function manageFinance(
       return `${heading}\nID: ${result.entry.id}\n${undoMessage(result, now)}`;
     }
   }
+}
+
+export interface ManageFinanceUndoDependencies {
+  readonly authorizer: Authorizer;
+  readonly clock: Clock;
+  readonly finance: FinanceRepository;
+  readonly ids: IdGenerator;
+}
+
+export function financeCommandRegistration(
+  dependencies: ManageFinanceDependencies,
+): CommandRegistration {
+  return commandRegistration<FinanceCommand>(
+    financeCommandKinds,
+    isFinanceCommand,
+    (command, context) =>
+      manageFinance(
+        {
+          actorUserId: context.actorUserId,
+          scope: context.scope,
+          correlationId: context.correlationId,
+          idempotencyKey: context.idempotencyKey,
+          command,
+        },
+        dependencies,
+      ),
+  );
+}
+
+/** La slice finanze possiede il prefisso `fin_` dei token di Undo. */
+export function financeUndoHandler(
+  dependencies: ManageFinanceUndoDependencies,
+): UndoHandler {
+  return {
+    prefix: "fin_",
+    handle: async (token: string, context: CommandContext) => {
+      await dependencies.authorizer.authorize({
+        actorUserId: context.actorUserId,
+        scope: context.scope,
+        action: "finance:undo",
+      });
+      const result = await dependencies.finance.undo(context.scope, token, {
+        actorUserId: context.actorUserId,
+        correlationId: context.correlationId,
+        idempotencyKey: context.idempotencyKey,
+        auditId: dependencies.ids.newId(),
+        now: dependencies.clock.now(),
+      });
+      switch (result.outcome) {
+        case "reverted":
+          return result.entry === null
+            ? "Creazione movimento annullata."
+            : `Modifica movimento annullata. ID: ${result.entry.id}`;
+        case "duplicate":
+          return result.entry === null
+            ? "Undo finanze già applicato: il movimento non esiste."
+            : `Undo finanze già applicato. ID: ${result.entry.id}`;
+        case "expired":
+          return "Undo finanze scaduto: nessuna modifica applicata.";
+        case "used":
+          return "Undo finanze già usato: nessuna modifica applicata.";
+        case "stale":
+          return "Undo finanze non applicabile: il movimento è cambiato nel frattempo.";
+        case "not_found":
+          return "Undo finanze non disponibile per questo utente.";
+      }
+    },
+  };
 }

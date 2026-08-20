@@ -4,9 +4,10 @@ import type {
   TaskMutationContext,
   TaskRepository,
   UndoTaskResult,
-} from "../../application/ports";
+} from "../../application/ports/tasks";
 import type {
   TaskDayWindow,
+  TaskRangeWindow,
   TaskRecord,
   TaskStatus,
   TaskValues,
@@ -302,6 +303,71 @@ export class D1TaskRepository implements TaskRepository {
     return rows.results.map(fromStoredRow);
   }
 
+  async listForRange(
+    scope: UserScope,
+    window: TaskRangeWindow,
+    limit: number,
+  ): Promise<TaskRecord[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 501) {
+      throw new AppError("INVALID_INPUT", false);
+    }
+    const loadStatus = (status: TaskStatus) =>
+      this.database
+        .prepare(
+          `SELECT ${selectColumns}
+           FROM tasks
+           WHERE user_id = ? AND status = ? AND (
+             (due_kind = 'date_only' AND due_date_local >= ? AND due_date_local <= ?)
+             OR (due_kind = 'instant' AND due_at_utc >= ? AND due_at_utc < ?)
+           )
+           ORDER BY CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
+                    CASE due_kind WHEN 'date_only' THEN 0 ELSE 1 END,
+                    due_date_local, due_at_utc, id
+           LIMIT ?`,
+        )
+        .bind(
+          scope.userId,
+          status,
+          window.startDate,
+          window.endDate,
+          window.startAtUtc.getTime(),
+          window.endAtUtc.getTime(),
+          limit,
+        )
+        .all();
+    const [open, completed] = await Promise.all([
+      loadStatus("open"),
+      loadStatus("completed"),
+    ]);
+    const priorityOrder = { high: 0, medium: 1, low: 2 } as const;
+    return [...open.results, ...completed.results]
+      .map(fromStoredRow)
+      .sort((left, right) => {
+        const priority =
+          priorityOrder[left.priority] - priorityOrder[right.priority];
+        if (priority !== 0) return priority;
+        const dueKind =
+          (left.dueKind === "date_only" ? 0 : 1) -
+          (right.dueKind === "date_only" ? 0 : 1);
+        if (dueKind !== 0) return dueKind;
+        const leftDue =
+          left.dueKind === "date_only"
+            ? left.dueDateLocal
+            : left.dueKind === "instant"
+              ? left.dueAtUtc.toISOString()
+              : "";
+        const rightDue =
+          right.dueKind === "date_only"
+            ? right.dueDateLocal
+            : right.dueKind === "instant"
+              ? right.dueAtUtc.toISOString()
+              : "";
+        if (leftDue !== rightDue) return leftDue < rightDue ? -1 : 1;
+        return left.id === right.id ? 0 : left.id < right.id ? -1 : 1;
+      })
+      .slice(0, limit);
+  }
+
   private async duplicateMutation(
     scope: UserScope,
     idempotencyKey: string,
@@ -355,9 +421,9 @@ export class D1TaskRepository implements TaskRepository {
         .prepare(
           `INSERT INTO tasks (
              id, user_id, title, priority, due_kind, due_date_local,
-             due_at_utc, time_zone, status, version, last_mutation_key,
-             created_at, updated_at, completed_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', 1, ?, ?, ?, NULL)`,
+             due_at_utc, time_zone, status, provenance, version,
+             last_mutation_key, created_at, updated_at, completed_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, 1, ?, ?, ?, NULL)`,
         )
         .bind(
           task.id,
@@ -368,6 +434,7 @@ export class D1TaskRepository implements TaskRepository {
           dueDateLocal,
           dueAtUtc,
           timeZone,
+          context.provenance,
           context.idempotencyKey,
           timestamp,
           timestamp,
@@ -559,7 +626,10 @@ export class D1TaskRepository implements TaskRepository {
   async undo(
     scope: UserScope,
     token: string,
-    context: Omit<TaskMutationContext, "undoToken" | "undoExpiresAt">,
+    context: Omit<
+      TaskMutationContext,
+      "undoToken" | "undoExpiresAt" | "provenance"
+    >,
   ): Promise<UndoTaskResult> {
     const duplicateRow = await this.database
       .prepare(

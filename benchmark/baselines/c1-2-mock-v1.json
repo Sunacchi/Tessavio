@@ -1,0 +1,19 @@
+{
+  "model": "mock/deterministic-v1",
+  "schemaVersion": "c1.v1",
+  "policyVersion": "c1-policy-v1",
+  "dataset": "datasets/c1-2-extended.jsonl",
+  "recordedAt": "2026-08-20",
+  "note": "Baseline C1.2 (lavoro, finanze, liste) sullo stesso harness di C1. Il gate della slice non e' questo numero ma l'assenza di regressione sul dataset C1 con l'enum esteso: quel confronto e' in c1-mock-v1.json.",
+  "metrics": {
+    "cases": 12,
+    "schemaValidRate": 1,
+    "actionExactRate": 1,
+    "slotAccuracy": 1,
+    "falseActionRate": 0,
+    "clarificationPrecision": 1,
+    "multiIntentRecall": 1,
+    "latencyP95Ms": 0,
+    "averageCostMicros": 0
+  }
+}

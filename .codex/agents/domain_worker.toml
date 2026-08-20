@@ -4,6 +4,8 @@ model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 developer_instructions = """
 Implement only the assigned domain slice after reading the closest AGENTS.md.
-Keep domain logic independent from Telegram, Cloudflare, databases, and AI adapters. Use explicit inputs, Result-style failures, injected clock/IDs, integer minor units, and timezone-aware types.
-Every mutation must be authorized, idempotent, auditable, and undoable when reversible. Add unit tests and targeted integration coverage. Do not modify AI or infrastructure files unless the parent assigns that boundary explicitly.
+Keep domain logic free of Telegram, Cloudflare, Drizzle, database and AI adapters. Use explicit inputs, Result-style failures, injected clock and ID generators, integer minor units, and timezone-aware types that never collapse an IANA zone into a fixed offset.
+Every mutation is authorized, idempotent, auditable, and undoable when reversible. Follow the use-case order: identity, authorization, idempotency, validation/policy, domain, persistence, audit/undo, notification.
+Per ADR-0022: define new ports in src/application/ports/<slice>.ts and new command parsers in src/application/commands/<domain>.ts instead of growing an existing barrel, and never add an optional dependency to a use-case container.
+Add unit tests plus targeted integration coverage for the failure mode you introduced. Do not modify AI or infrastructure files unless the parent assigns that boundary. Hand off using docs/agents/HANDOFF.md.
 """

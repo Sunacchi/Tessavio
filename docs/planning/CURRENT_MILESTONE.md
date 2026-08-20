@@ -1,82 +1,45 @@
-# Milestone corrente — B5 Finanze base (completata)
+# Milestone corrente — Phase C completata
 
-**Stato: completata localmente il 2026-08-08.** B1-B5 sono completate. B6 è la
-prossima milestone prevista ma non è attivata: nessun suo schema o adapter è
-autorizzato. Nessuna risorsa Cloudflare remota è stata creata e nessun deploy è
-stato eseguito.
+**Stato: chiusa il 2026-08-20.** Le slice G0, C0, C1, C2, C1.2 e C3 sono
+implementate, provate e documentate. Nessuna slice è attiva: la prossima si
+apre solo con un aggiornamento esplicito di questo file.
 
-## Obiettivo
+## Risultato
 
-Permettere a un utente Telegram di registrare, leggere, correggere ed eliminare
-spese ed entrate manuali e ottenere totali esatti per valuta, senza AI,
-integrazioni esterne o aritmetica floating point.
+Il prodotto interpreta il testo libero e propone azioni che il codice
+deterministico valida ed esegue. L'AI è opzionale in senso pieno: senza
+variabili `AI_*` il Worker parte, la demo B passa e il testo libero resta senza
+risposta. Con una chiave collegata, ogni chiamata passa da budget prenotato,
+privacy strict e schema strict, e ogni scrittura passa dallo stesso registry dei
+comandi espliciti, con audit, Undo e provenance.
 
-## Contratto autorizzato
+## Gate trasversali chiusi
 
-- ogni movimento è privato e usa `UserScope`; `expense|income` è una direzione
-  esplicita e l'importo è sempre positivo;
-- `amount_minor` è un intero tra 1 e 2.147.483.647 e il comando lo acquisisce già
-  in unità minori; valuta è un codice maiuscolo di tre lettere e non esiste
-  conversione valutaria;
-- la data economica è un giorno civile `YYYY-MM-DD`; categoria è obbligatoria,
-  esercente, metodo di pagamento e note sono facoltativi e bounded;
-- provenance è `manual_command`; B5 non accetta write da AI, voce, immagini,
-  documenti o import;
-- la correzione sostituisce i campi modificabili soltanto se la versione attesa
-  coincide; la cancellazione è soft e richiede la stessa stale-version policy;
-- lista e totali usano periodi civili inclusivi di massimo 366 giorni. Le valute
-  restano separate; entrate, spese e netto usano somme testuali D1 e `bigint`;
-- ogni create/correzione/delete è autorizzata, idempotente e atomica con audit e
-  Undo `fin_…` single-use di 15 minuti. Undo della create rimuove il movimento;
-  Undo di correzione/delete ripristina la snapshot precedente con nuova versione;
-- movimenti attivi/eliminati e audit restano fino alla cancellazione account;
-  gli Undo scaduti hanno purge bounded user-scoped e nessun contenuto economico
-  entra nei log.
+- nessun percorso privilegiato dall'AI al database: le proposte diventano
+  comandi deterministici e passano dal registry di C0;
+- policy tabellare provata con property test: mai `execute_with_undo` su una
+  classe distruttiva o su più di un'entità;
+- idempotenza sotto retry: piano persistito prima dell'esecuzione, ledger
+  `effects` per proposta, token di conferma single-use;
+- credenziali BYOK cifrate con envelope encryption legata al tenant, revoca che
+  cancella il ciphertext, rotazione KEK con decrypt su N-1;
+- tre controlli di costo distinti e provati, con recovery delle prenotazioni;
+- migration 0009-0011 provate fresh e upgrade;
+- `npm run validate` verde: 61 file Vitest, 294 test e build dry-run.
 
-Comandi espliciti (`/spese` è alias di `/finanze`):
+## Cosa resta al proprietario
 
-```text
-/finanze crea <spesa|entrata> <importo-minore> <valuta> <YYYY-MM-DD> | Categoria | Esercente-o-- | Metodo-o-- | Note-o--
-/finanze leggi <id>
-/finanze lista <YYYY-MM-DD> <YYYY-MM-DD>
-/finanze correggi <id> <versione> <spesa|entrata> <importo-minore> <valuta> <YYYY-MM-DD> | Categoria | Esercente-o-- | Metodo-o-- | Note-o--
-/finanze elimina <id> <versione>
-/finanze totali <YYYY-MM-DD> <YYYY-MM-DD>
-/annulla fin_<token>
-```
+1. `git push -u origin phase-c`, poi integrare il ramo in `main` con il normale
+   flusso di review;
+2. **smoke live OAuth interattivo**: la procedura nel
+   [runbook C2](../runbooks/C2_OAUTH_RECOVERY.md) ora può usare un Quick Tunnel
+   effimero di Wrangler senza deploy; richiede comunque il login OpenRouter del
+   proprietario e una chiave reale;
+3. scegliere la prossima fase: D (media), E1 (planner) o G1 (briefing) — le
+   ultime due dipendono solo da B e possono procedere in parallelo.
 
-## Exit criteria
+## Out of scope, per decisione firmata
 
-- create/read/list/correct/delete/totals funzionano senza AI, preferenze o
-  integrazioni esterne;
-- retry non duplica movimento, audit o Undo, incluso il crash window dopo write
-  D1 e prima della risposta Telegram;
-- correzione/delete/Undo coprono stale version, replay, expiry e isolamento
-  cross-user;
-- importi non usano `float`; property test verificano entrate, spese e netto su
-  più valute e quantità generate;
-- record eliminati non compaiono in read/list/totals; Undo li ripristina senza
-  riusare una versione precedente;
-- migration fresh e upgrade da B4 popolata, vincoli monetari, indici/query plan
-  e recovery sono documentati e testati;
-- test unitari/property, integrazione, security, migration e gate completi sono
-  verdi.
-
-## Out of scope
-
-- importi in unità maggiori/decimali, catalogo esponenti valuta e conversione FX;
-- categorie automatiche o regole personali, ricorrenze, stipendio/affitto/utenze
-  come entità programmate, rate e abbonamenti;
-- budget, obiettivi, scadenziario, forecast, confronti e consulenza finanziaria;
-- split, spese condivise, debiti, crediti, prestiti o pagamenti;
-- import/export CSV, voce, ricevute, scontrini, bollette e documenti;
-- Open Banking, conti, saldi bancari, credenziali, provider o polling.
-
-## Evidenza di chiusura
-
-La vertical slice comprende parser e routing deterministici, dominio monetario
-puro, `finance:read|write|undo`, repository D1 tenant-scoped, audit/Undo,
-migration additiva `0006_puzzling_vanisher.sql`, soft delete e totali per valuta.
-I test coprono aritmetica property-based, fresh migration e upgrade B4 popolato,
-indici/query plan, retry Queue dopo write committata, cross-tenant, vincoli D1,
-stale/replay/expiry/Undo e assenza di tabelle Open Banking.
+- modalità AI free/best-effort (G0.2);
+- download del contenuto dei link (ADR-0026);
+- creazione di risorse Cloudflare remote e deploy.

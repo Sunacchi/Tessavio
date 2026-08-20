@@ -1,8 +1,17 @@
-# Migration instructions
+# migrations — regole
 
-- D1 must be provisioned with EU jurisdiction from creation.
-- All schema changes are versioned; never edit production schema manually.
-- Prefer additive/backward-compatible migrations and document recovery.
-- Every tenant table has explicit owner or space scope and supporting indices.
-- Validate uniqueness for Telegram update IDs, delivery dedupe keys and other idempotency boundaries.
-- Run migration validation, cross-tenant tests and `EXPLAIN QUERY PLAN` for hot queries before beta.
+Il database contiene la verità del prodotto: una migration sbagliata non è
+reversibile con un revert di codice.
+
+- D1 va creato con giurisdizione **EU** fin dall'origine.
+- Ogni cambio di schema è versionato e generato da Drizzle
+  (`npm run db:generate`); non modificare mai lo schema di produzione a mano.
+- Preferisci migration additive e backward-compatible; documenta la recovery nel
+  runbook della slice.
+- Ogni tabella tenant ha owner o space scope esplicito e gli indici che lo
+  supportano.
+- Valida l'unicità su: update ID Telegram, chiavi di dedupe delivery e ogni
+  altro confine di idempotenza.
+- Prima di un gate: migration test fresh **e** upgrade, test cross-tenant e
+  `EXPLAIN QUERY PLAN` sulle query hot.
+- `npm run db:check` deve restare verde: schema e migration non divergono.
