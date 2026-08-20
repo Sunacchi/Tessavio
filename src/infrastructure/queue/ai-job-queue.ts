@@ -17,6 +17,8 @@ export class QueueAiJobPublisher implements AiJobQueuePort {
     readonly chatId: number | string;
     readonly messageText: string;
     readonly sentAtUnix: number;
+    readonly forwarded: boolean;
+    readonly origin: "command" | "inbox";
     readonly createdAt: string;
   }): Promise<void> {
     const envelope = aiProposalJobEnvelopeSchema.safeParse({
@@ -32,6 +34,8 @@ export class QueueAiJobPublisher implements AiJobQueuePort {
         chatId: payload.chatId,
         messageText: payload.messageText,
         sentAtUnix: payload.sentAtUnix,
+        forwarded: payload.forwarded,
+        origin: payload.origin,
       },
     });
     if (!envelope.success) throw new AppError("INVALID_INPUT", false);

@@ -60,6 +60,7 @@ function envelope(updateId: number): InboundMessageEnvelope {
         sender: { id: 9001, isBot: false },
         chat: { id: 9001, type: "private" },
         text: "/report csv 2026-08-19 2026-08-20",
+        forwarded: false,
       },
     },
   };

@@ -168,6 +168,8 @@ export async function manageAiProposals(
       chatId: context.chatId,
       messageText: command.text,
       sentAtUnix: context.sentAtUnix,
+      forwarded: context.forwarded,
+      origin: "command",
       createdAt: dependencies.clock.now().toISOString(),
     });
     return "Sto elaborando la richiesta: ti rispondo con le proposte fra poco.";

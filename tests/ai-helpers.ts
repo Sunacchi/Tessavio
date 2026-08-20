@@ -7,6 +7,7 @@ import {
   eventCandidateContributor,
   eventCommandRegistration,
 } from "../src/application/manage-events";
+import { inboxCommandRegistration } from "../src/application/manage-inbox";
 import { onboardingCommandRegistration } from "../src/application/manage-onboarding";
 import { preferenceCommandRegistration } from "../src/application/manage-preferences";
 import {
@@ -73,6 +74,8 @@ export class CapturingAiQueue implements AiJobQueuePort {
     readonly chatId: number | string;
     readonly messageText: string;
     readonly sentAtUnix: number;
+    readonly forwarded: boolean;
+    readonly origin: "command" | "inbox";
     readonly createdAt: string;
   }[] = [];
 
@@ -84,6 +87,8 @@ export class CapturingAiQueue implements AiJobQueuePort {
     readonly chatId: number | string;
     readonly messageText: string;
     readonly sentAtUnix: number;
+    readonly forwarded: boolean;
+    readonly origin: "command" | "inbox";
     readonly createdAt: string;
   }): Promise<void> {
     this.published.push(payload);
@@ -106,6 +111,8 @@ export class CapturingAiQueue implements AiJobQueuePort {
         chatId: payload.chatId,
         messageText: payload.messageText,
         sentAtUnix: payload.sentAtUnix,
+        forwarded: payload.forwarded,
+        origin: payload.origin,
       },
     };
   }
@@ -287,6 +294,16 @@ export function createAiTestRuntime(
       provenance: "entered",
       work,
     }),
+    ...(mode === "disabled"
+      ? []
+      : [
+          inboxCommandRegistration({
+            authorizer,
+            clock,
+            jobs: queue,
+            preferences,
+          }),
+        ]),
     aiCommandRegistration({
       authorizer,
       clock,

@@ -62,6 +62,7 @@ function envelope(
         sender: { id: telegramUserId, isBot: false },
         chat: { id: telegramUserId, type: "private" },
         text,
+        forwarded: false,
       },
     },
   };

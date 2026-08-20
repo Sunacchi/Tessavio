@@ -1,35 +1,31 @@
-# Milestone corrente — C1.2 estensione dell'enum azioni
+# Milestone corrente — C3 Inbox testuale
 
-**Stato: attiva dal 2026-08-20.** Slice C2 chiusa (verde in locale, smoke live
-pendente per il gate G0.2). Il perimetro autorizzato è ora C1.2 come descritto
-in [phases/c-ai-byok.md](phases/c-ai-byok.md); il contratto esteso è
-nell'aggiornamento C1.2 di
-[ADR-0023](../decisions/0023-action-proposal-contract.md).
+**Stato: attiva dal 2026-08-20.** Slice C1.2 chiusa. Il perimetro autorizzato è
+C3 come descritto in [phases/c-ai-byok.md](phases/c-ai-byok.md); i confini sono
+congelati in [ADR-0026](../decisions/0026-textual-inbox-boundaries.md).
 
 ## Risultato atteso
 
-L'enum passa da sette a undici azioni (finanze, liste e lavoro) riusando
-validator, policy e harness senza modificarli. Il denaro entra dal testo grezzo
-e viene risolto in unità minori intere dal codice deterministico.
+Il testo libero, gli inoltri e i link diventano proposte multi-intent instradate
+verso i domini esistenti attraverso il registry di C0. Nessuna entità nuova,
+nessuna regola di dominio duplicata.
 
 ## Gate di chiusura
 
-- nessuna regressione del tasso di azioni false sul dataset C1 con l'enum
-  esteso, verificata dal benchmark;
-- baseline C1.2 registrata su un dataset dedicato;
-- provenance estesa a finanze, liste e turni: un'entità creata da una proposta è
-  distinguibile da una inserita a mano;
-- migration additiva provata fresh e upgrade;
+- il testo che nessun comando riconosce apre un job solo se l'AI è configurata;
+- senza AI il testo libero resta senza risposta, come prima;
+- idempotenza per singola proposta, non per messaggio;
+- un link non viene mai scaricato: lo verifica un test che sorveglia `fetch`;
+- un inoltro ostile non amplia tool, scope o policy;
 - `npm run validate` verde.
 
 ## Out of scope
 
-- testo libero senza comando esplicito, inoltri e link (C3);
-- variante (B) dello schema per azione: il benchmark non mostra errori di slot
-  che la giustifichino;
+- download del contenuto dei link (slice a sé: SSRF, egress, lifecycle del raw);
+- media, audio e immagini;
 - creazione di risorse Cloudflare remote e deploy.
 
 ## Prossima decisione
 
-C3 si attiva solo con un ulteriore aggiornamento esplicito di questo file, dopo
-la firma del gate C1.2.
+Con C3 chiusa, la Phase C è completa salvo lo smoke live di C2. La prossima
+fase (D o E) si attiva solo con un aggiornamento esplicito di questo file.

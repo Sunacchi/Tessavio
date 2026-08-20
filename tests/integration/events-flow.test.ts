@@ -59,6 +59,7 @@ function envelope(
         sender: { id: 7101, isBot: false },
         chat: { id: 7101, type: "private" },
         text,
+        forwarded: false,
       },
     },
   };

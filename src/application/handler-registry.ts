@@ -10,6 +10,10 @@ export interface CommandContext {
   readonly scope: UserScope;
   /** Chat Telegram di origine: serve a chi risponde in modo asincrono. */
   readonly chatId: number | string;
+  /** Testo del messaggio: lo usa solo chi tratta il testo libero (C3). */
+  readonly messageText: string;
+  /** Provenance minima dell'Inbox: il testo arriva da un inoltro? */
+  readonly forwarded: boolean;
   readonly correlationId: string;
   readonly idempotencyKey: string;
   readonly jobId: string;

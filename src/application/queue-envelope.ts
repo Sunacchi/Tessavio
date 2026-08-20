@@ -60,6 +60,8 @@ export const aiProposalJobEnvelopeSchema = z
         chatId: z.union([z.number().int(), z.string().min(1).max(128)]),
         messageText: z.string().min(1).max(4_096),
         sentAtUnix: z.number().int().nonnegative(),
+        forwarded: z.boolean().default(false),
+        origin: z.enum(["command", "inbox"]).default("command"),
       })
       .strict(),
   })

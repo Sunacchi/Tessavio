@@ -149,6 +149,7 @@ export function telegramTextUpdate(
       },
       chat: { id: telegramUserId, type: "private" },
       text,
+      forwarded: false,
     },
   };
 }

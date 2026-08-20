@@ -16,6 +16,8 @@ const context: CommandContext = {
   actorUserId: "user-a",
   scope: { userId: "user-a" },
   chatId: 7101,
+  messageText: "/task lista",
+  forwarded: false,
   correlationId: "corr-1",
   idempotencyKey: "idem-1",
   jobId: "job-1",

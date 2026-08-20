@@ -27,6 +27,7 @@ Gli ADR registrano decisioni difficili da ricostruire dal codice. Stato ammesso:
 - [ADR-0023 — Contratto ActionProposal, validator e confirmation policy (C1)](0023-action-proposal-contract.md)
 - [ADR-0024 — OAuth PKCE e cifratura delle credenziali BYOK (C2)](0024-oauth-and-credential-crypto.md)
 - [ADR-0025 — Budget, privacy e model policy dell'AI (C2)](0025-ai-budget-privacy-model-policy.md)
+- [ADR-0026 — Confini dell'Inbox testuale (C3)](0026-textual-inbox-boundaries.md)
 
 ## Template
 

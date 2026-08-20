@@ -178,6 +178,7 @@ export async function buildInboundRuntime(
       ],
     }),
     ai.registration,
+    ...(ai.inbox === null ? [] : [ai.inbox]),
   ]);
 
   return {

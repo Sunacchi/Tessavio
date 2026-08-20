@@ -36,3 +36,9 @@ export function commandKindGuard<TCommand extends { readonly kind: string }>(
   const registered = new Set<string>(kinds);
   return (command): command is TCommand => registered.has(command.kind);
 }
+
+export const unsupportedCommandKinds = ["unsupported"] as const;
+
+export const isUnsupportedCommand = commandKindGuard<UnsupportedCommand>(
+  unsupportedCommandKinds,
+);

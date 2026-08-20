@@ -59,6 +59,7 @@ function envelope(updateId: number, text: string): InboundMessageEnvelope {
         sender: { id: 8501, isBot: false },
         chat: { id: 8501, type: "private" },
         text,
+        forwarded: false,
       },
     },
   };

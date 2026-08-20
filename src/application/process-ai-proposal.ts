@@ -402,12 +402,29 @@ export async function processAiProposal(
     );
   }
 
-  if (plan.clarification !== null) lines.push(plan.clarification);
-  const replyText =
-    lines.length === 0
-      ? "Non ho trovato nulla da proporre: prova con un comando esplicito."
-      : ["Ho capito questo:", ...lines].join("\n");
-  return finish(dependencies, scope, envelope, replyText);
+  if (plan.clarification !== null && plan.items.length > 0) {
+    lines.push(plan.clarification);
+  }
+  if (lines.length === 0) {
+    // L'Inbox parla solo se ha qualcosa da proporre: il testo che non contiene
+    // richieste non produce una risposta (ADR-0026). Un comando esplicito
+    // invece merita sempre un esito.
+    return envelope.payload.origin === "inbox"
+      ? finish(dependencies, scope, envelope, "", false)
+      : finish(
+          dependencies,
+          scope,
+          envelope,
+          plan.clarification ??
+            "Non ho trovato nulla da proporre: prova con un comando esplicito.",
+        );
+  }
+  return finish(
+    dependencies,
+    scope,
+    envelope,
+    ["Ho capito questo:", ...lines].join("\n"),
+  );
 }
 
 function commandContext(
@@ -418,6 +435,8 @@ function commandContext(
     actorUserId: scope.userId,
     scope,
     chatId: envelope.payload.chatId,
+    messageText: envelope.payload.messageText,
+    forwarded: envelope.payload.forwarded,
     correlationId: envelope.correlationId,
     idempotencyKey: envelope.idempotencyKey,
     jobId: envelope.jobId,
@@ -455,6 +474,7 @@ async function finish(
   scope: UserScope,
   envelope: AiProposalJobEnvelope,
   replyText: string,
+  shouldDeliver = true,
 ): Promise<ProcessAiProposalResult> {
   await dependencies.proposals.complete(
     scope,
@@ -462,7 +482,9 @@ async function finish(
     replyText,
     dependencies.clock.now(),
   );
-  await deliver(dependencies, scope, envelope, replyText);
+  if (shouldDeliver) {
+    await deliver(dependencies, scope, envelope, replyText);
+  }
   return { outcome: "completed" };
 }
 

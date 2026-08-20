@@ -7,6 +7,7 @@ import {
   aiCommandRegistration,
   createProposalExecutor,
 } from "../application/manage-ai-proposals";
+import { inboxCommandRegistration } from "../application/manage-inbox";
 import {
   eventCandidateContributor,
   eventCommandRegistration,
@@ -50,6 +51,11 @@ import type { SliceRepositories } from "./repositories";
 export interface AiRuntime {
   /** Registrazione del comando `/ai`: presente anche in modalità disabilitata. */
   readonly registration: CommandRegistration;
+  /**
+   * Registrazione dell'Inbox testuale: presente solo con un provider
+   * configurato, così senza AI il testo libero resta senza risposta come prima.
+   */
+  readonly inbox: CommandRegistration | null;
   /** Dipendenze del job AI: `null` quando nessun provider è configurato. */
   readonly job: ProcessAiProposalDependencies | null;
   readonly link: LinkAiCredentialDependencies;
@@ -201,7 +207,16 @@ export async function buildAiRuntime(input: {
     proposals,
   });
 
-  if (ai.mode === "disabled") return { registration, job: null, link };
+  if (ai.mode === "disabled") {
+    return { registration, inbox: null, job: null, link };
+  }
+
+  const inbox = inboxCommandRegistration({
+    authorizer,
+    clock,
+    jobs: new QueueAiJobPublisher(input.env.INBOUND_QUEUE),
+    preferences: repositories.preferences,
+  });
 
   const policy = modelPolicy({
     provider: ai.mode,
@@ -221,6 +236,7 @@ export async function buildAiRuntime(input: {
 
   return {
     registration,
+    inbox,
     link,
     job: {
       authorizer,

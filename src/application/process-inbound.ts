@@ -58,7 +58,13 @@ export async function processInboundMessage(
   }
 
   const command = parseDeterministicCommand(message.text);
-  if (command.kind === "unsupported") {
+  // Il testo libero diventa lavoro dell'Inbox solo se una slice lo ha
+  // registrato: senza registrazione il comportamento resta quello di prima,
+  // cioè nessuna risposta.
+  if (
+    command.kind === "unsupported" &&
+    !dependencies.commands.has(command.kind)
+  ) {
     await dependencies.inbox.complete(
       envelope.jobId,
       dependencies.clock.now(),
@@ -79,11 +85,24 @@ export async function processInboundMessage(
     actorUserId: identity.userId,
     scope,
     chatId: message.chat.id,
+    messageText: message.text,
+    forwarded: message.forwarded,
     correlationId: envelope.correlationId,
     idempotencyKey: envelope.idempotencyKey,
     jobId: envelope.jobId,
     sentAtUnix: message.sentAtUnix,
   });
+
+  // Una risposta vuota significa "nessuna risposta": è così che l'Inbox
+  // testuale resta in silenzio quando non ha nulla da proporre (C3).
+  if (typeof replyText === "string" && replyText.length === 0) {
+    await dependencies.inbox.complete(
+      envelope.jobId,
+      dependencies.clock.now(),
+      false,
+    );
+    return { outcome: "completed" };
+  }
 
   const deliveryKey = `telegram-reply:${envelope.jobId}`;
   const currentDelivery = await dependencies.deliveries.prepare(

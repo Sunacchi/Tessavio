@@ -130,6 +130,9 @@ export interface AiJobQueuePort {
     readonly chatId: number | string;
     readonly messageText: string;
     readonly sentAtUnix: number;
+    readonly forwarded: boolean;
+    /** `command` = `/ai proponi`; `inbox` = testo libero (C3). */
+    readonly origin: "command" | "inbox";
     readonly createdAt: string;
   }): Promise<void>;
 }
