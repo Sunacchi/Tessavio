@@ -97,6 +97,7 @@ function preferenceContext(key: string, now: Date): PreferenceMutationContext {
 function reminderContext(key: string, now: Date): ReminderMutationContext {
   return {
     actorUserId: scope.userId,
+    provenance: "entered",
     correlationId: `correlation-${key}`,
     idempotencyKey: key,
     auditId: `audit-${key}`,

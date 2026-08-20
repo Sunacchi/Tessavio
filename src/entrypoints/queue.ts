@@ -1,3 +1,4 @@
+import { processAiProposal } from "../application/process-ai-proposal";
 import { processInboundMessage } from "../application/process-inbound";
 import { sendReminderNotification } from "../application/send-reminder-notification";
 import type { TelegramReplyPort } from "../application/ports/telegram";
@@ -39,7 +40,7 @@ export async function handleInboundQueue(
       ),
   });
   const dependencies = runtime.dependencies;
-  const inbox = runtime.inbox;
+  const inbox = runtime.repositories.inbox;
 
   for (const message of batch.messages) {
     const parsed = queueEnvelopeSchema.safeParse(message.body);
@@ -57,10 +58,10 @@ export async function handleInboundQueue(
       try {
         const result = await sendReminderNotification(envelope, {
           clock,
-          identities: runtime.identities,
+          identities: runtime.repositories.identities,
           notificationDeliveries: new D1NotificationDeliveryRepository(env.DB),
-          preferences: runtime.preferences,
-          reminders: runtime.reminders,
+          preferences: runtime.repositories.preferences,
+          reminders: runtime.repositories.reminders,
           reply: dependencies.reply,
           maxDeliveryAttempts: config.REMINDER_MAX_DELIVERY_ATTEMPTS,
         });
@@ -94,6 +95,45 @@ export async function handleInboundQueue(
       }
       continue;
     }
+    if (envelope.type === "AI_PROPOSAL") {
+      const aiJob = runtime.aiJob;
+      if (aiJob === null) {
+        logEvent("warn", "queue.ai_disabled", {
+          correlationId: envelope.correlationId,
+          jobId: envelope.jobId,
+          errorCode: "INVALID_INPUT",
+        });
+        message.ack();
+        continue;
+      }
+      try {
+        const result = await processAiProposal(envelope, aiJob);
+        logEvent("info", `ai.${result.outcome}`, {
+          correlationId: envelope.correlationId,
+          jobId: envelope.jobId,
+          state: result.outcome,
+          attempt: message.attempts,
+          latencyMs: clock.now().getTime() - startedAt,
+        });
+        message.ack();
+      } catch (error) {
+        const retryable = !(error instanceof AppError) || error.retryable;
+        logEvent(retryable ? "warn" : "error", "ai.failed", {
+          correlationId: envelope.correlationId,
+          jobId: envelope.jobId,
+          errorCode: errorCodeOf(error),
+          attempt: message.attempts,
+          latencyMs: clock.now().getTime() - startedAt,
+        });
+        if (retryable) {
+          message.retry({ delaySeconds: config.INBOX_LEASE_SECONDS });
+        } else {
+          message.ack();
+        }
+      }
+      continue;
+    }
+
     try {
       const result = await processInboundMessage(envelope, dependencies);
       logEvent("info", `queue.${result.outcome}`, {

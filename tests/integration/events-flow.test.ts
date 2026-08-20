@@ -71,6 +71,7 @@ function mutationContext(
 ): EventMutationContext {
   return {
     actorUserId: "user-a",
+    provenance: "entered",
     correlationId: `correlation-${key}`,
     idempotencyKey: key,
     auditId: `audit-${key}`,

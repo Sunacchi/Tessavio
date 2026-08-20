@@ -10,6 +10,7 @@ import {
   type CommandRegistration,
 } from "./handler-registry";
 import type { UndoHandler } from "./undo-registry";
+import type { ProposalCandidateContributor } from "./ports/ai";
 import type { PreferenceRepository } from "./ports/preferences";
 import type {
   MutateTaskResult,
@@ -25,10 +26,17 @@ import {
 } from "../domains/tasks/tasks";
 import type { PreferenceProfile } from "../domains/preferences/preferences";
 import type { Authorizer } from "../security/authorization";
-import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
+import type {
+  Clock,
+  EntityProvenance,
+  IdGenerator,
+  UserScope,
+} from "../shared/contracts";
 
 export interface ManageTasksDependencies {
   readonly authorizer: Authorizer;
+  /** Origine dei dati scritti da questo contenitore: comando o proposta AI. */
+  readonly provenance: EntityProvenance;
   readonly clock: Clock;
   readonly ids: IdGenerator;
   readonly preferences: PreferenceRepository;
@@ -136,6 +144,7 @@ function mutationContext(
     actorUserId: request.actorUserId,
     correlationId: request.correlationId,
     idempotencyKey: request.idempotencyKey,
+    provenance: dependencies.provenance,
     auditId: dependencies.ids.newId(),
     undoToken: `tsk_${dependencies.ids.newId()}`,
     now,
@@ -325,6 +334,25 @@ export function taskUndoHandler(
         case "not_found":
           return "Undo task non disponibile per questo utente.";
       }
+    },
+  };
+}
+
+/** Candidate per risolvere un riferimento testuale a una task aperta. */
+export function taskCandidateContributor(dependencies: {
+  readonly authorizer: Authorizer;
+  readonly tasks: TaskRepository;
+}): ProposalCandidateContributor {
+  return {
+    domain: "tasks",
+    collect: async (scope, context) => {
+      await dependencies.authorizer.authorize({
+        actorUserId: context.actorUserId,
+        scope,
+        action: "tasks:read",
+      });
+      const rows = await dependencies.tasks.listOpen(scope, context.limit);
+      return rows.map((task) => ({ id: task.id, label: task.title }));
     },
   };
 }

@@ -22,10 +22,17 @@ import {
 } from "../domains/reminders/recurrence";
 import type { PreferenceProfile } from "../domains/preferences/preferences";
 import type { Authorizer } from "../security/authorization";
-import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
+import type {
+  Clock,
+  EntityProvenance,
+  IdGenerator,
+  UserScope,
+} from "../shared/contracts";
 
 export interface ManageReminderRecurrencesDependencies {
   readonly authorizer: Authorizer;
+  /** Origine dei dati scritti da questo contenitore: comando o proposta AI. */
+  readonly provenance: EntityProvenance;
   readonly clock: Clock;
   readonly ids: IdGenerator;
   readonly preferences: PreferenceRepository;
@@ -84,6 +91,7 @@ function mutationContext(
     actorUserId: request.actorUserId,
     correlationId: request.correlationId,
     idempotencyKey: request.idempotencyKey,
+    provenance: dependencies.provenance,
     auditId: dependencies.ids.newId(),
     undoToken: `rec_${dependencies.ids.newId()}`,
     now,

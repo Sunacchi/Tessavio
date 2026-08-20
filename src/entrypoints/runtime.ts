@@ -17,14 +17,14 @@ import {
   preferenceUndoHandler,
 } from "../application/manage-preferences";
 import {
+  reminderRecurrenceCommandRegistration,
+  reminderRecurrenceUndoHandler,
+} from "../application/manage-reminder-recurrences";
+import {
   reminderCommandRegistration,
   reminderDayViewContributor,
   reminderUndoHandler,
 } from "../application/manage-reminders";
-import {
-  reminderRecurrenceCommandRegistration,
-  reminderRecurrenceUndoHandler,
-} from "../application/manage-reminder-recurrences";
 import { reportCommandRegistration } from "../application/manage-reports";
 import {
   taskCommandRegistration,
@@ -38,29 +38,21 @@ import {
   workUndoHandler,
 } from "../application/manage-work";
 import type { TelegramReplyPort } from "../application/ports/telegram";
+import type { ProcessAiProposalDependencies } from "../application/process-ai-proposal";
 import type { ProcessInboundDependencies } from "../application/process-inbound";
-import { D1DeliveryRepository } from "../infrastructure/db/delivery-repository";
-import { D1EffectRepository } from "../infrastructure/db/effect-repository";
-import { D1EventRepository } from "../infrastructure/db/event-repository";
-import { D1FinanceRepository } from "../infrastructure/db/finance-repository";
-import { D1IdentityRepository } from "../infrastructure/db/identity-repository";
-import { D1InboundRepository } from "../infrastructure/db/inbound-repository";
-import { D1ListRepository } from "../infrastructure/db/list-repository";
-import { D1PreferenceRepository } from "../infrastructure/db/preference-repository";
-import { D1ReminderRecurrenceRepository } from "../infrastructure/db/reminder-recurrence-repository";
-import { D1ReminderRepository } from "../infrastructure/db/reminder-repository";
-import { D1TaskRepository } from "../infrastructure/db/task-repository";
-import { D1WorkRepository } from "../infrastructure/db/work-repository";
 import { SelfScopeAuthorizer } from "../security/authorization";
 import type { AppConfig } from "../shared/config";
 import type { Clock, IdGenerator } from "../shared/contracts";
+import { buildAiRuntime } from "./ai-runtime";
+import {
+  createSliceRepositories,
+  type SliceRepositories,
+} from "./repositories";
 
 export interface InboundRuntime {
   readonly dependencies: ProcessInboundDependencies;
-  readonly inbox: D1InboundRepository;
-  readonly identities: D1IdentityRepository;
-  readonly preferences: D1PreferenceRepository;
-  readonly reminders: D1ReminderRepository;
+  readonly repositories: SliceRepositories;
+  readonly aiJob: ProcessAiProposalDependencies | null;
 }
 
 /**
@@ -79,17 +71,28 @@ export function buildInboundRuntime(
 ): InboundRuntime {
   const { clock, ids, reply } = runtime;
   const authorizer = new SelfScopeAuthorizer();
-  const effects = new D1EffectRepository(env.DB);
-  const events = new D1EventRepository(env.DB);
-  const finance = new D1FinanceRepository(env.DB);
-  const identities = new D1IdentityRepository(env.DB);
-  const inbox = new D1InboundRepository(env.DB);
-  const lists = new D1ListRepository(env.DB);
-  const preferences = new D1PreferenceRepository(env.DB);
-  const recurrences = new D1ReminderRecurrenceRepository(env.DB);
-  const reminders = new D1ReminderRepository(env.DB);
-  const tasks = new D1TaskRepository(env.DB);
-  const work = new D1WorkRepository(env.DB);
+  const repositories = createSliceRepositories(env);
+  const {
+    effects,
+    events,
+    finance,
+    lists,
+    preferences,
+    recurrences,
+    reminders,
+    tasks,
+    work,
+  } = repositories;
+
+  const ai = buildAiRuntime({
+    env,
+    config,
+    authorizer,
+    clock,
+    ids,
+    reply,
+    repositories,
+  });
 
   const commands = createCommandRegistry([
     onboardingCommandRegistration({ authorizer, clock, effects }),
@@ -100,6 +103,7 @@ export function buildInboundRuntime(
       events,
       ids,
       preferences,
+      provenance: "entered",
       dayViewContributors: [
         taskDayViewContributor({ authorizer, tasks }),
         reminderDayViewContributor({ authorizer, reminders }),
@@ -111,6 +115,7 @@ export function buildInboundRuntime(
       clock,
       ids,
       preferences,
+      provenance: "entered",
       reminders,
     }),
     reminderRecurrenceCommandRegistration({
@@ -118,9 +123,17 @@ export function buildInboundRuntime(
       clock,
       ids,
       preferences,
+      provenance: "entered",
       recurrences,
     }),
-    taskCommandRegistration({ authorizer, clock, ids, preferences, tasks }),
+    taskCommandRegistration({
+      authorizer,
+      clock,
+      ids,
+      preferences,
+      provenance: "entered",
+      tasks,
+    }),
     workCommandRegistration({ authorizer, clock, ids, preferences, work }),
     financeCommandRegistration({ authorizer, clock, finance, ids }),
     listsCommandRegistration({ authorizer, clock, ids, lists }),
@@ -145,22 +158,21 @@ export function buildInboundRuntime(
         preferenceUndoHandler({ authorizer, clock, ids, preferences }),
       ],
     }),
+    ai.registration,
   ]);
 
   return {
     dependencies: {
       clock,
       commands,
-      deliveries: new D1DeliveryRepository(env.DB),
-      identities,
+      deliveries: repositories.deliveries,
+      identities: repositories.identities,
       ids,
-      inbox,
+      inbox: repositories.inbox,
       reply,
       leaseSeconds: config.INBOX_LEASE_SECONDS,
     },
-    inbox,
-    identities,
-    preferences,
-    reminders,
+    repositories,
+    aiJob: ai.job,
   };
 }

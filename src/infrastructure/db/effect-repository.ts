@@ -1,4 +1,5 @@
 import type {
+  EffectKind,
   EffectRepository,
   EffectStatus,
 } from "../../application/ports/effects";
@@ -12,14 +13,15 @@ export class D1EffectRepository implements EffectRepository {
     effectKey: string,
     jobId: string,
     now: Date,
+    kind: EffectKind,
   ): Promise<boolean> {
     const result = await this.database
       .prepare(
         `INSERT OR IGNORE INTO effects (
           effect_key, scope_user_id, job_id, kind, status, created_at
-        ) VALUES (?, ?, ?, 'onboarding_start', 'claimed', ?)`,
+        ) VALUES (?, ?, ?, ?, 'claimed', ?)`,
       )
-      .bind(effectKey, scope.userId, jobId, now.getTime())
+      .bind(effectKey, scope.userId, jobId, kind, now.getTime())
       .run();
     return result.meta.changes === 1;
   }

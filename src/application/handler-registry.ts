@@ -8,6 +8,8 @@ export type CommandKind = DeterministicCommand["kind"];
 export interface CommandContext {
   readonly actorUserId: string;
   readonly scope: UserScope;
+  /** Chat Telegram di origine: serve a chi risponde in modo asincrono. */
+  readonly chatId: number | string;
   readonly correlationId: string;
   readonly idempotencyKey: string;
   readonly jobId: string;

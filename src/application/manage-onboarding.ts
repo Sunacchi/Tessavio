@@ -35,6 +35,7 @@ export async function manageOnboarding(
     effectKey,
     context.jobId,
     dependencies.clock.now(),
+    "onboarding_start",
   );
   const reply = startOnboarding().text;
   await dependencies.effects.complete(

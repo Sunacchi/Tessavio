@@ -487,7 +487,13 @@ describe("webhook -> inbox -> queue envelope -> deterministic /start", () => {
       .bind("user-b", clock.now().getTime())
       .run();
     const effects = new D1EffectRepository(env.DB);
-    await effects.claim({ userId: "user-a" }, "effect-a", "job-a", clock.now());
+    await effects.claim(
+      { userId: "user-a" },
+      "effect-a",
+      "job-a",
+      clock.now(),
+      "onboarding_start",
+    );
 
     await expect(
       effects.get({ userId: "user-b" }, "effect-a"),

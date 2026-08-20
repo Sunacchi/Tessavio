@@ -207,9 +207,9 @@ export class D1ReminderRepository implements ReminderRepository {
         .prepare(
           `INSERT INTO reminders (
              id, user_id, text, requested_at_utc, due_at_utc,
-             original_time_zone, status, version, last_mutation_key,
-             created_at, updated_at
-           ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 1, ?, ?, ?)`,
+             original_time_zone, status, provenance, version,
+             last_mutation_key, created_at, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 1, ?, ?, ?)`,
         )
         .bind(
           reminderId,
@@ -218,6 +218,7 @@ export class D1ReminderRepository implements ReminderRepository {
           values.requestedAtUtc.getTime(),
           values.requestedAtUtc.getTime(),
           values.originalTimeZone,
+          context.provenance,
           context.idempotencyKey,
           timestamp,
           timestamp,
@@ -307,7 +308,10 @@ export class D1ReminderRepository implements ReminderRepository {
   async undo(
     scope: UserScope,
     token: string,
-    context: Omit<ReminderMutationContext, "undoToken" | "undoExpiresAt">,
+    context: Omit<
+      ReminderMutationContext,
+      "undoToken" | "undoExpiresAt" | "provenance"
+    >,
   ): Promise<UndoReminderResult> {
     const duplicate = await this.database
       .prepare(

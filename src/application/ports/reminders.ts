@@ -3,12 +3,13 @@ import type {
   ReminderRecord,
   ReminderStatus,
 } from "../../domains/reminders/reminders";
-import type { UserScope } from "../../shared/contracts";
+import type { EntityProvenance, UserScope } from "../../shared/contracts";
 import type { SendNotificationEnvelope } from "../queue-envelope";
 import type { DeliveryStatus } from "./delivery";
 
 export interface ReminderMutationContext {
   readonly actorUserId: string;
+  readonly provenance: EntityProvenance;
   readonly correlationId: string;
   readonly idempotencyKey: string;
   readonly auditId: string;
@@ -64,7 +65,10 @@ export interface ReminderRepository {
   undo(
     scope: UserScope,
     token: string,
-    context: Omit<ReminderMutationContext, "undoToken" | "undoExpiresAt">,
+    context: Omit<
+      ReminderMutationContext,
+      "undoToken" | "undoExpiresAt" | "provenance"
+    >,
   ): Promise<UndoReminderResult>;
   purgeExpiredUndo(
     scope: UserScope,

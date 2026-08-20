@@ -55,6 +55,7 @@ function mutationContext(
 ): TaskMutationContext {
   return {
     actorUserId: "user-a",
+    provenance: "entered",
     correlationId: `correlation-${key}`,
     idempotencyKey: key,
     auditId: `audit-${key}`,

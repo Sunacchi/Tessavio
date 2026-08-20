@@ -65,7 +65,7 @@ export interface ReminderRecurrenceRepository {
     token: string,
     context: Omit<
       ReminderRecurrenceMutationContext,
-      "undoToken" | "undoExpiresAt"
+      "undoToken" | "undoExpiresAt" | "provenance"
     >,
   ): Promise<UndoReminderRecurrenceResult>;
   purgeExpiredUndo(

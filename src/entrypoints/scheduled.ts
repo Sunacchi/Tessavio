@@ -1,8 +1,9 @@
+import { D1AiProposalRepository } from "../infrastructure/db/ai-proposal-repository";
 import { D1InboundRepository } from "../infrastructure/db/inbound-repository";
 import { D1ReminderRepository } from "../infrastructure/db/reminder-repository";
 import { D1ReminderRecurrenceRepository } from "../infrastructure/db/reminder-recurrence-repository";
 import { generateRecurringReminders } from "../application/generate-recurring-reminders";
-import type { AppConfig } from "../shared/config";
+import { aiRuntimeConfig, type AppConfig } from "../shared/config";
 import type { Clock } from "../shared/contracts";
 import { systemClock } from "../shared/contracts";
 import { logEvent } from "../shared/logger";
@@ -120,6 +121,23 @@ export async function generateDueReminderRecurrences(
   }
 }
 
+/**
+ * Retention Phase C: proposte e token di conferma scaduti sono cancellati in
+ * modo idempotente e bounded, come le altre categorie di ADR-0008.
+ */
+export async function purgeExpiredAiProposals(
+  env: Env,
+  config: AppConfig,
+  clock: Clock = systemClock,
+): Promise<void> {
+  if (aiRuntimeConfig(config).mode === "disabled") return;
+  const proposals = new D1AiProposalRepository(env.DB);
+  const removed = await proposals.purgeExpired(clock.now(), 200);
+  if (removed > 0) {
+    logEvent("info", "ai.retention_purged", { state: String(removed) });
+  }
+}
+
 export async function runScheduledMaintenance(
   env: Env,
   config: AppConfig,
@@ -129,4 +147,5 @@ export async function runScheduledMaintenance(
   await recoverPendingInboxes(env, config, clock);
   await generateDueReminderRecurrences(env, config, clock, ids);
   await dispatchDueReminders(env, config, clock, ids);
+  await purgeExpiredAiProposals(env, config, clock);
 }

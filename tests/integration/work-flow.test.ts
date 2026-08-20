@@ -430,6 +430,7 @@ describe("B4 work flow", () => {
         clock: new FakeClock(now),
         events: new D1EventRepository(env.DB),
         ids: new SequenceIds(),
+        provenance: "entered",
         preferences: new D1PreferenceRepository(env.DB),
         dayViewContributors: [
           workDayViewContributor({
@@ -457,6 +458,7 @@ describe("B4 work flow", () => {
       authorizer: new SelfScopeAuthorizer(),
       clock: new FakeClock(now),
       ids: new SequenceIds(),
+      provenance: "entered" as const,
       preferences: new D1PreferenceRepository(env.DB),
       work,
     };

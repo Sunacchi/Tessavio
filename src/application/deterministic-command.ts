@@ -1,3 +1,4 @@
+import { aiCommandRoutes, type AiCommand } from "./commands/ai";
 import { eventCommandRoutes, type EventCommand } from "./commands/events";
 import { financeCommandRoutes, type FinanceCommand } from "./commands/finance";
 import { listsCommandRoutes, type ListsCommand } from "./commands/lists";
@@ -37,6 +38,7 @@ export type DeterministicCommand =
   | NotesCommand
   | ReportCommand
   | UndoCommand
+  | AiCommand
   | UnsupportedCommand;
 
 const routes: readonly CommandRoute<DeterministicCommand>[] = [
@@ -51,6 +53,7 @@ const routes: readonly CommandRoute<DeterministicCommand>[] = [
   ...notesCommandRoutes,
   ...reportCommandRoutes,
   ...undoCommandRoutes,
+  ...aiCommandRoutes,
 ];
 
 const parsersByKeyword = new Map(routes);

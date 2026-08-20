@@ -4,10 +4,11 @@ import type {
   EventRecord,
   EventValues,
 } from "../../domains/events/events";
-import type { UserScope } from "../../shared/contracts";
+import type { EntityProvenance, UserScope } from "../../shared/contracts";
 
 export interface EventMutationContext {
   readonly actorUserId: string;
+  readonly provenance: EntityProvenance;
   readonly correlationId: string;
   readonly idempotencyKey: string;
   readonly auditId: string;
@@ -66,7 +67,10 @@ export interface EventRepository {
   undo(
     scope: UserScope,
     token: string,
-    context: Omit<EventMutationContext, "undoToken" | "undoExpiresAt">,
+    context: Omit<
+      EventMutationContext,
+      "undoToken" | "undoExpiresAt" | "provenance"
+    >,
   ): Promise<UndoEventResult>;
   purgeExpiredUndo(
     scope: UserScope,

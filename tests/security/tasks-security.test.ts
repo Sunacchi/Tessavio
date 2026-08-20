@@ -39,6 +39,7 @@ describe("B3 cross-tenant task isolation", () => {
   it("does not read, list, complete, reopen or undo another user's task", async () => {
     const context: TaskMutationContext = {
       actorUserId: "user-a",
+      provenance: "entered",
       correlationId: "correlation-a",
       idempotencyKey: "create-a",
       auditId: "audit-a",
@@ -107,6 +108,7 @@ describe("B3 cross-tenant task isolation", () => {
           authorizer: new SelfScopeAuthorizer(),
           clock,
           ids: new SequenceIds(),
+          provenance: "entered",
           preferences: new D1PreferenceRepository(env.DB),
           tasks,
         },

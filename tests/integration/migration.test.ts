@@ -616,4 +616,101 @@ describe("foundation migration", () => {
       ),
     ).toBe(true);
   });
+  it("aggiunge la provenance e le tabelle AI senza perdere dati né effetti", async () => {
+    const c1MigrationIndex = env.TEST_MIGRATIONS.findIndex((migration) =>
+      migration.name.startsWith("0009_"),
+    );
+    expect(c1MigrationIndex).toBeGreaterThan(0);
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(0, c1MigrationIndex),
+    );
+    const timestamp = Date.parse("2026-08-19T10:00:00Z");
+    await env.UPGRADE_DB.batch([
+      env.UPGRADE_DB.prepare(
+        "INSERT INTO users (id, status, created_at) VALUES ('c1-upgrade', 'active', ?)",
+      ).bind(timestamp),
+      env.UPGRADE_DB.prepare(
+        `INSERT INTO events (
+          id,user_id,event_kind,title,local_date,start_at_utc,end_at_utc,
+          time_zone,status,version,last_mutation_key,created_at,updated_at,
+          cancelled_at
+        ) VALUES ('event-c1','c1-upgrade','date_only','Fixture B1','2026-08-20',
+          NULL,NULL,NULL,'active',1,'fixture',?,?,NULL)`,
+      ).bind(timestamp, timestamp),
+      env.UPGRADE_DB.prepare(
+        `INSERT INTO tasks (
+          id,user_id,title,priority,due_kind,due_date_local,due_at_utc,
+          time_zone,status,version,last_mutation_key,created_at,updated_at,
+          completed_at
+        ) VALUES ('task-c1','c1-upgrade','Fixture B3','medium','none',NULL,NULL,
+          NULL,'open',1,'fixture',?,?,NULL)`,
+      ).bind(timestamp, timestamp),
+      env.UPGRADE_DB.prepare(
+        `INSERT INTO effects (
+          effect_key, scope_user_id, job_id, kind, status, created_at
+        ) VALUES ('onboarding-start:job-c1','c1-upgrade','job-c1',
+          'onboarding_start','completed',?)`,
+      ).bind(timestamp),
+    ]);
+
+    await applyD1Migrations(
+      env.UPGRADE_DB,
+      env.TEST_MIGRATIONS.slice(c1MigrationIndex),
+    );
+
+    // Il dato preesistente resta e diventa esplicitamente "inserito".
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT title, provenance, version FROM events WHERE id = 'event-c1'",
+      ).first(),
+    ).resolves.toEqual({
+      title: "Fixture B1",
+      provenance: "entered",
+      version: 1,
+    });
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT title, provenance FROM tasks WHERE id = 'task-c1'",
+      ).first(),
+    ).resolves.toEqual({ title: "Fixture B3", provenance: "entered" });
+
+    // Il ledger degli effetti sopravvive alla ricostruzione della tabella.
+    await expect(
+      env.UPGRADE_DB.prepare(
+        "SELECT kind, status FROM effects WHERE effect_key = 'onboarding-start:job-c1'",
+      ).first(),
+    ).resolves.toEqual({ kind: "onboarding_start", status: "completed" });
+
+    // Il nuovo valore di kind è ammesso dopo la migration.
+    await env.UPGRADE_DB.prepare(
+      `INSERT INTO effects (
+        effect_key, scope_user_id, job_id, kind, status, created_at
+      ) VALUES ('ai-exec:job-c1:0','c1-upgrade','job-c1','ai_execution','claimed',?)`,
+    )
+      .bind(timestamp)
+      .run();
+
+    const aiTables = await env.UPGRADE_DB.prepare(
+      `SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (
+        'ai_proposal_jobs', 'ai_proposal_confirmations'
+      ) ORDER BY name`,
+    ).all<{ name: string }>();
+    expect(aiTables.results.map((row) => row.name)).toEqual([
+      "ai_proposal_confirmations",
+      "ai_proposal_jobs",
+    ]);
+
+    const expiryPlan = await env.UPGRADE_DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT job_id FROM ai_proposal_jobs
+       WHERE expires_at <= ? ORDER BY expires_at LIMIT 200`,
+    )
+      .bind(timestamp)
+      .all<{ detail: string }>();
+    expect(
+      expiryPlan.results.some((row) =>
+        row.detail.includes("ai_proposal_jobs_expiry_idx"),
+      ),
+    ).toBe(true);
+  });
 });

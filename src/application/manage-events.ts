@@ -18,6 +18,8 @@ import {
 } from "./handler-registry";
 import { renderBoundedSections } from "./rendering";
 import type { UndoHandler } from "./undo-registry";
+import type { ProposalCandidateContributor } from "./ports/ai";
+import { candidateWindow } from "../domains/ai/lookup-window";
 import {
   eventDayWindow,
   eventUndoTtlMs,
@@ -29,10 +31,17 @@ import {
 } from "../domains/events/events";
 import type { PreferenceProfile } from "../domains/preferences/preferences";
 import type { Authorizer } from "../security/authorization";
-import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
+import type {
+  Clock,
+  EntityProvenance,
+  IdGenerator,
+  UserScope,
+} from "../shared/contracts";
 
 export interface ManageEventsDependencies {
   readonly authorizer: Authorizer;
+  /** Origine dei dati scritti da questo contenitore: comando o proposta AI. */
+  readonly provenance: EntityProvenance;
   readonly clock: Clock;
   readonly events: EventRepository;
   readonly ids: IdGenerator;
@@ -154,6 +163,7 @@ function mutationContext(
     actorUserId: request.actorUserId,
     correlationId: request.correlationId,
     idempotencyKey: request.idempotencyKey,
+    provenance: dependencies.provenance,
     auditId: dependencies.ids.newId(),
     undoToken: `evt_${dependencies.ids.newId()}`,
     now,
@@ -371,6 +381,36 @@ export function eventUndoHandler(
         case "not_found":
           return "Undo evento non disponibile per questo utente.";
       }
+    },
+  };
+}
+
+/**
+ * Candidate per risolvere un riferimento testuale a un evento: lookup
+ * tenant-scoped e bounded, eseguita dal codice e mai dal modello.
+ */
+export function eventCandidateContributor(dependencies: {
+  readonly authorizer: Authorizer;
+  readonly events: EventRepository;
+}): ProposalCandidateContributor {
+  return {
+    domain: "events",
+    collect: async (scope, context) => {
+      await dependencies.authorizer.authorize({
+        actorUserId: context.actorUserId,
+        scope,
+        action: "events:read",
+      });
+      const window = candidateWindow(
+        context.referenceInstant,
+        context.timeZone,
+      );
+      const rows = await dependencies.events.listForRange(
+        scope,
+        window,
+        context.limit,
+      );
+      return rows.map((event) => ({ id: event.id, label: event.title }));
     },
   };
 }

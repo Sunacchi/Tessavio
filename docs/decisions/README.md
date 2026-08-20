@@ -24,6 +24,7 @@ Gli ADR registrano decisioni difficili da ricostruire dal codice. Stato ammesso:
 - [ADR-0020 — B7 report base trasversali e CSV bounded](0020-b7-base-reports.md)
 - [ADR-0021 — Chiusura trasversale della Phase B](0021-phase-b-closure.md)
 - [ADR-0022 — Budget dei moduli e struttura per slice](0022-module-structure-budgets.md)
+- [ADR-0023 — Contratto ActionProposal, validator e confirmation policy (C1)](0023-action-proposal-contract.md)
 
 ## Template
 

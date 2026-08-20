@@ -31,6 +31,7 @@ function context(
   const now = new Date("2026-08-08T08:00:00Z");
   return {
     actorUserId: scope.userId,
+    provenance: "entered",
     correlationId: `correlation-${key}`,
     idempotencyKey: key,
     auditId: `audit-${key}`,
@@ -144,6 +145,7 @@ describe("B2 cross-tenant reminder isolation", () => {
           clock: new FakeClock(now),
           events: new D1EventRepository(env.DB),
           ids: new SequenceIds(),
+          provenance: "entered",
           preferences: new D1PreferenceRepository(env.DB),
           dayViewContributors: [
             reminderDayViewContributor({ authorizer, reminders: guarded }),

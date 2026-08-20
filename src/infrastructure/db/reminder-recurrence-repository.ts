@@ -259,7 +259,7 @@ export class D1ReminderRecurrenceRepository implements ReminderRecurrenceReposit
     token: string,
     context: Omit<
       ReminderRecurrenceMutationContext,
-      "undoToken" | "undoExpiresAt"
+      "undoToken" | "undoExpiresAt" | "provenance"
     >,
   ): Promise<UndoReminderRecurrenceResult> {
     const duplicate = await this.database

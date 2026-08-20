@@ -19,6 +19,7 @@ function context(
 ): ReminderRecurrenceMutationContext {
   return {
     actorUserId: scope.userId,
+    provenance: "entered",
     correlationId: `correlation-${key}`,
     idempotencyKey: key,
     auditId: `audit-${key}`,
@@ -114,6 +115,7 @@ describe("B6.2 recurring reminder security", () => {
           authorizer: new SelfScopeAuthorizer(),
           clock: new FakeClock(now),
           ids: new SequenceIds(),
+          provenance: "entered",
           preferences: new D1PreferenceRepository(env.DB),
           recurrences: new D1ReminderRecurrenceRepository(env.DB),
         },

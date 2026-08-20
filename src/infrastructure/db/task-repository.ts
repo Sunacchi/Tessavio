@@ -421,9 +421,9 @@ export class D1TaskRepository implements TaskRepository {
         .prepare(
           `INSERT INTO tasks (
              id, user_id, title, priority, due_kind, due_date_local,
-             due_at_utc, time_zone, status, version, last_mutation_key,
-             created_at, updated_at, completed_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', 1, ?, ?, ?, NULL)`,
+             due_at_utc, time_zone, status, provenance, version,
+             last_mutation_key, created_at, updated_at, completed_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, 1, ?, ?, ?, NULL)`,
         )
         .bind(
           task.id,
@@ -434,6 +434,7 @@ export class D1TaskRepository implements TaskRepository {
           dueDateLocal,
           dueAtUtc,
           timeZone,
+          context.provenance,
           context.idempotencyKey,
           timestamp,
           timestamp,
@@ -625,7 +626,10 @@ export class D1TaskRepository implements TaskRepository {
   async undo(
     scope: UserScope,
     token: string,
-    context: Omit<TaskMutationContext, "undoToken" | "undoExpiresAt">,
+    context: Omit<
+      TaskMutationContext,
+      "undoToken" | "undoExpiresAt" | "provenance"
+    >,
   ): Promise<UndoTaskResult> {
     const duplicateRow = await this.database
       .prepare(

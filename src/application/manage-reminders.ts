@@ -10,6 +10,7 @@ import {
   type CommandRegistration,
 } from "./handler-registry";
 import type { UndoHandler } from "./undo-registry";
+import type { ProposalCandidateContributor } from "./ports/ai";
 import type { PreferenceRepository } from "./ports/preferences";
 import type {
   MutateReminderResult,
@@ -23,10 +24,17 @@ import {
 } from "../domains/reminders/reminders";
 import type { PreferenceProfile } from "../domains/preferences/preferences";
 import type { Authorizer } from "../security/authorization";
-import type { Clock, IdGenerator, UserScope } from "../shared/contracts";
+import type {
+  Clock,
+  EntityProvenance,
+  IdGenerator,
+  UserScope,
+} from "../shared/contracts";
 
 export interface ManageRemindersDependencies {
   readonly authorizer: Authorizer;
+  /** Origine dei dati scritti da questo contenitore: comando o proposta AI. */
+  readonly provenance: EntityProvenance;
   readonly clock: Clock;
   readonly ids: IdGenerator;
   readonly preferences: PreferenceRepository;
@@ -93,6 +101,7 @@ function mutationContext(
     actorUserId: request.actorUserId,
     correlationId: request.correlationId,
     idempotencyKey: request.idempotencyKey,
+    provenance: dependencies.provenance,
     auditId: dependencies.ids.newId(),
     undoToken: `rem_${dependencies.ids.newId()}`,
     now,
@@ -296,6 +305,31 @@ export function reminderUndoHandler(
         case "not_found":
           return "Undo promemoria non disponibile per questo utente.";
       }
+    },
+  };
+}
+
+/** Candidate per risolvere un riferimento testuale a un promemoria in attesa. */
+export function reminderCandidateContributor(dependencies: {
+  readonly authorizer: Authorizer;
+  readonly reminders: ReminderRepository;
+}): ProposalCandidateContributor {
+  return {
+    domain: "reminders",
+    collect: async (scope, context) => {
+      await dependencies.authorizer.authorize({
+        actorUserId: context.actorUserId,
+        scope,
+        action: "reminders:read",
+      });
+      const rows = await dependencies.reminders.listPending(
+        scope,
+        Math.min(context.limit, 100),
+      );
+      return rows.map((reminder) => ({
+        id: reminder.id,
+        label: reminder.text,
+      }));
     },
   };
 }

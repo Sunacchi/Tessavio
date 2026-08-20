@@ -4,10 +4,11 @@ import type {
   TaskRecord,
   TaskValues,
 } from "../../domains/tasks/tasks";
-import type { UserScope } from "../../shared/contracts";
+import type { EntityProvenance, UserScope } from "../../shared/contracts";
 
 export interface TaskMutationContext {
   readonly actorUserId: string;
+  readonly provenance: EntityProvenance;
   readonly correlationId: string;
   readonly idempotencyKey: string;
   readonly auditId: string;
@@ -64,7 +65,10 @@ export interface TaskRepository {
   undo(
     scope: UserScope,
     token: string,
-    context: Omit<TaskMutationContext, "undoToken" | "undoExpiresAt">,
+    context: Omit<
+      TaskMutationContext,
+      "undoToken" | "undoExpiresAt" | "provenance"
+    >,
   ): Promise<UndoTaskResult>;
   purgeExpiredUndo(
     scope: UserScope,

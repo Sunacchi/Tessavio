@@ -335,9 +335,9 @@ export class D1EventRepository implements EventRepository {
         .prepare(
           `INSERT INTO events (
              id, user_id, event_kind, title, local_date, start_at_utc,
-             end_at_utc, time_zone, status, version, last_mutation_key,
-             created_at, updated_at, cancelled_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, NULL)`,
+             end_at_utc, time_zone, status, provenance, version,
+             last_mutation_key, created_at, updated_at, cancelled_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, 1, ?, ?, ?, NULL)`,
         )
         .bind(
           event.id,
@@ -348,6 +348,7 @@ export class D1EventRepository implements EventRepository {
           startAtUtc,
           endAtUtc,
           timeZone,
+          context.provenance,
           context.idempotencyKey,
           timestamp,
           timestamp,
@@ -623,7 +624,10 @@ export class D1EventRepository implements EventRepository {
   async undo(
     scope: UserScope,
     token: string,
-    context: Omit<EventMutationContext, "undoToken" | "undoExpiresAt">,
+    context: Omit<
+      EventMutationContext,
+      "undoToken" | "undoExpiresAt" | "provenance"
+    >,
   ): Promise<UndoEventResult> {
     const duplicateRow = await this.database
       .prepare(

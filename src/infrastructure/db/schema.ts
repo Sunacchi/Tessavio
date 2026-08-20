@@ -117,6 +117,9 @@ export const events = sqliteTable(
     endAtUtc: integer("end_at_utc", { mode: "timestamp_ms" }),
     timeZone: text("time_zone"),
     status: text("status", { enum: ["active", "cancelled"] }).notNull(),
+    provenance: text("provenance", { enum: ["entered", "extracted"] })
+      .notNull()
+      .default("entered"),
     version: integer("version").notNull(),
     lastMutationKey: text("last_mutation_key").notNull(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
@@ -211,6 +214,9 @@ export const tasks = sqliteTable(
     dueAtUtc: integer("due_at_utc", { mode: "timestamp_ms" }),
     timeZone: text("time_zone"),
     status: text("status", { enum: ["open", "completed"] }).notNull(),
+    provenance: text("provenance", { enum: ["entered", "extracted"] })
+      .notNull()
+      .default("entered"),
     version: integer("version").notNull(),
     lastMutationKey: text("last_mutation_key").notNull(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
@@ -381,6 +387,9 @@ export const reminders = sqliteTable(
         "ambiguous",
       ],
     }).notNull(),
+    provenance: text("provenance", { enum: ["entered", "extracted"] })
+      .notNull()
+      .default("entered"),
     version: integer("version").notNull(),
     lastMutationKey: text("last_mutation_key").notNull(),
     claimJobId: text("claim_job_id"),
@@ -606,14 +615,19 @@ export const effects = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     jobId: text("job_id").notNull(),
-    kind: text("kind", { enum: ["onboarding_start"] }).notNull(),
+    kind: text("kind", {
+      enum: ["onboarding_start", "ai_execution"],
+    }).notNull(),
     status: text("status", { enum: ["claimed", "completed"] }).notNull(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     completedAt: integer("completed_at", { mode: "timestamp_ms" }),
   },
   (table) => [
     index("effects_scope_idx").on(table.scopeUserId, table.createdAt),
-    check("effects_kind_ck", sql`${table.kind} IN ('onboarding_start')`),
+    check(
+      "effects_kind_ck",
+      sql`${table.kind} IN ('onboarding_start', 'ai_execution')`,
+    ),
     check(
       "effects_status_ck",
       sql`${table.status} IN ('claimed', 'completed')`,
@@ -1154,3 +1168,5 @@ export const listUndoActions = sqliteTable(
     check("list_undo_version_ck", sql`${table.expectedVersion} > 0`),
   ],
 );
+
+export * from "./schema/ai";

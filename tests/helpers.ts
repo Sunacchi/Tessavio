@@ -197,7 +197,14 @@ export function testInboundDependencies(
   if (parts.tasks !== undefined) {
     const tasks = parts.tasks;
     registrations.push(
-      taskCommandRegistration({ authorizer, clock, ids, preferences, tasks }),
+      taskCommandRegistration({
+        authorizer,
+        clock,
+        ids,
+        preferences,
+        provenance: "entered",
+        tasks,
+      }),
     );
     dayViewContributors.push(taskDayViewContributor({ authorizer, tasks }));
     undoHandlers.push(taskUndoHandler({ authorizer, clock, ids, tasks }));
@@ -210,6 +217,7 @@ export function testInboundDependencies(
         clock,
         ids,
         preferences,
+        provenance: "entered",
         reminders,
       }),
     );
@@ -236,6 +244,7 @@ export function testInboundDependencies(
         clock,
         ids,
         preferences,
+        provenance: "entered",
         recurrences,
       }),
     );
@@ -266,6 +275,7 @@ export function testInboundDependencies(
         events,
         ids,
         preferences,
+        provenance: "entered",
         dayViewContributors,
       }),
     );

@@ -78,6 +78,7 @@ export async function processInboundMessage(
   const replyText: CommandReply = await dependencies.commands.handle(command, {
     actorUserId: identity.userId,
     scope,
+    chatId: message.chat.id,
     correlationId: envelope.correlationId,
     idempotencyKey: envelope.idempotencyKey,
     jobId: envelope.jobId,

@@ -39,6 +39,7 @@ describe("B1.2 cross-tenant event isolation", () => {
   it("does not read, list, update, cancel or undo another user's event", async () => {
     const context: EventMutationContext = {
       actorUserId: "user-a",
+      provenance: "entered",
       correlationId: "correlation-a",
       idempotencyKey: "create-a",
       auditId: "audit-a",
@@ -106,6 +107,7 @@ describe("B1.2 cross-tenant event isolation", () => {
           clock,
           events,
           ids: new SequenceIds(),
+          provenance: "entered",
           preferences: new D1PreferenceRepository(env.DB),
           dayViewContributors: [],
         },

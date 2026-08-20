@@ -15,6 +15,7 @@ import { AppError } from "../../src/shared/errors";
 const context: CommandContext = {
   actorUserId: "user-a",
   scope: { userId: "user-a" },
+  chatId: 7101,
   correlationId: "corr-1",
   idempotencyKey: "idem-1",
   jobId: "job-1",

@@ -23,6 +23,15 @@
     "REMINDER_RETRY_DELAY_SECONDS": "60",
     "REMINDER_CLAIM_LIMIT": "100",
     "REMINDER_MAX_DELIVERY_ATTEMPTS": "6",
+    // Phase C: variabili AI opzionali. Rimuoverle riporta il Worker in NO_AI,
+    // che resta un percorso di prima classe.
+    "AI_PROVIDER": "mock",
+    "AI_MODEL": "mock/deterministic-v1",
+    "AI_LEASE_SECONDS": "180",
+    "AI_MAX_COST_MICROS": "5000",
+    "AI_DAILY_BUDGET_MICROS": "500000",
+    "AI_PROPOSAL_RETENTION_DAYS": "30",
+    "AI_CONFIRMATION_TTL_MINUTES": "15",
   },
   "d1_databases": [
     {
