@@ -459,13 +459,15 @@ async function failWith(
   envelope: AiProposalJobEnvelope,
   failureCode: string,
 ): Promise<ProcessAiProposalResult> {
+  // Consegna prima di chiudere: un job chiuso non viene più ripreso, e una
+  // consegna fallita in modo ritentabile lascerebbe l'utente senza esito.
+  await deliver(dependencies, scope, envelope, invalidOutputReply);
   await dependencies.proposals.fail(
     scope,
     envelope.jobId,
     failureCode,
     dependencies.clock.now(),
   );
-  await deliver(dependencies, scope, envelope, invalidOutputReply);
   return { outcome: "failed" };
 }
 
@@ -476,15 +478,19 @@ async function finish(
   replyText: string,
   shouldDeliver = true,
 ): Promise<ProcessAiProposalResult> {
+  // Ordine non invertibile: prima si consegna, poi si chiude. Se la consegna
+  // fallisce in modo ritentabile il job resta aperto e il retry rilegge il
+  // piano senza richiamare il modello (il ledger di delivery evita il doppio
+  // invio, quello degli effetti la doppia scrittura).
+  if (shouldDeliver) {
+    await deliver(dependencies, scope, envelope, replyText);
+  }
   await dependencies.proposals.complete(
     scope,
     envelope.jobId,
     replyText,
     dependencies.clock.now(),
   );
-  if (shouldDeliver) {
-    await deliver(dependencies, scope, envelope, replyText);
-  }
   return { outcome: "completed" };
 }
 

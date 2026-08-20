@@ -14,5 +14,10 @@ export interface EffectRepository {
     kind: EffectKind,
   ): Promise<boolean>;
   complete(scope: UserScope, effectKey: string, now: Date): Promise<void>;
+  /**
+   * Rilascia un claim la cui esecuzione è fallita: senza questo, una riga
+   * `claimed` bloccherebbe per sempre i tentativi successivi.
+   */
+  release(scope: UserScope, effectKey: string): Promise<void>;
   get(scope: UserScope, effectKey: string): Promise<EffectStatus | null>;
 }

@@ -40,6 +40,16 @@ export class D1EffectRepository implements EffectRepository {
       .run();
   }
 
+  async release(scope: UserScope, effectKey: string): Promise<void> {
+    await this.database
+      .prepare(
+        `DELETE FROM effects
+         WHERE effect_key = ? AND scope_user_id = ? AND status = 'claimed'`,
+      )
+      .bind(effectKey, scope.userId)
+      .run();
+  }
+
   async get(scope: UserScope, effectKey: string): Promise<EffectStatus | null> {
     const row = await this.database
       .prepare(

@@ -349,3 +349,23 @@ function withinRange(
   }
   return { ok: true, value };
 }
+
+/**
+ * Somma minuti a un'ora locale **nella timezone dell'utente**: un'ora dopo
+ * l'1:30 della notte del cambio non è le 2:30, che non esiste (invariante 7).
+ */
+export function addMinutesInZone(
+  localDateTime: string,
+  minutes: number,
+  timeZone: string,
+): string | null {
+  try {
+    const shifted = Temporal.PlainDateTime.from(localDateTime)
+      .toZonedDateTime(timeZone, { disambiguation: "compatible" })
+      .add({ minutes });
+    return `${shifted.toPlainDate().toString()}T${pad(shifted.hour)}:${pad(shifted.minute)}`;
+  } catch (error) {
+    if (error instanceof RangeError) return null;
+    throw error;
+  }
+}

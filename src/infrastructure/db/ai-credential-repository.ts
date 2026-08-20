@@ -256,6 +256,38 @@ export class D1AiBudgetRepository implements AiBudgetRepository {
       .run();
     if (inserted.meta.changes === 1) return { outcome: "reserved" };
 
+    // Una prenotazione rilasciata (chiamata fallita, oppure recovery del Cron)
+    // può essere riaperta dallo stesso job, ma solo se il tetto del giorno lo
+    // consente ancora: altrimenti un retry aggirerebbe il budget.
+    const reopened = await this.database
+      .prepare(
+        `UPDATE ai_budget_entries
+         SET status = 'reserved', actual_micros = NULL, reserved_micros = ?,
+             updated_at = ?
+         WHERE entry_key = ? AND user_id = ? AND status = 'released'
+           AND (
+             SELECT COALESCE(SUM(
+               CASE WHEN status = 'settled' THEN actual_micros
+                    ELSE reserved_micros END
+             ), 0)
+             FROM ai_budget_entries
+             WHERE user_id = ? AND local_date = ?
+               AND status IN ('reserved', 'settled')
+           ) + ? <= ?`,
+      )
+      .bind(
+        reservedMicros,
+        timestamp,
+        entryKey,
+        scope.userId,
+        scope.userId,
+        localDate,
+        reservedMicros,
+        dailyLimitMicros,
+      )
+      .run();
+    if (reopened.meta.changes === 1) return { outcome: "reserved" };
+
     const existing = await this.database
       .prepare(
         "SELECT status FROM ai_budget_entries WHERE entry_key = ? AND user_id = ?",
@@ -271,6 +303,11 @@ export class D1AiBudgetRepository implements AiBudgetRepository {
     };
   }
 
+  /**
+   * Il consuntivo **accumula**: ogni chiamata al modello costa davvero, quindi
+   * ogni chiamata deve comparire nel ledger anche quando la riga era già stata
+   * chiusa o rilasciata da un tentativo precedente.
+   */
   async settle(
     scope: UserScope,
     entryKey: string,
@@ -280,8 +317,10 @@ export class D1AiBudgetRepository implements AiBudgetRepository {
     await this.database
       .prepare(
         `UPDATE ai_budget_entries
-         SET status = 'settled', actual_micros = ?, updated_at = ?
-         WHERE entry_key = ? AND user_id = ? AND status = 'reserved'`,
+         SET status = 'settled',
+             actual_micros = COALESCE(actual_micros, 0) + ?,
+             updated_at = ?
+         WHERE entry_key = ? AND user_id = ?`,
       )
       .bind(
         Math.max(0, Math.trunc(actualMicros)),

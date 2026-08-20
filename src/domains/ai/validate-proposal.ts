@@ -7,7 +7,11 @@ import {
   type AiProposalEnvelope,
 } from "./proposal";
 import { resolveMoneySlot } from "./money-slot";
-import { resolveTimeSlot, type TimeSlotIssue } from "./time-slot";
+import {
+  addMinutesInZone,
+  resolveTimeSlot,
+  type TimeSlotIssue,
+} from "./time-slot";
 
 /**
  * Validator semantico: puro, deterministico, senza I/O. Le candidate per la
@@ -565,10 +569,20 @@ function validateEventCreate(
   // mostrato all'utente ma non declassa la risoluzione ad "assumed".
   let assumed = start.value.assumed;
   if (rawEnd === null) {
-    endLocal = addMinutes(
+    const defaultEnd = addMinutesInZone(
       start.value.localDateTime,
       defaultEventDurationMinutes,
+      context.timeZone,
     );
+    if (defaultEnd === null) {
+      return {
+        outcome: "clarify",
+        action: proposal.action,
+        reason: "time_needs_hour",
+        question: "A che ora finisce l'evento?",
+      };
+    }
+    endLocal = defaultEnd;
     assumptions.push("durata predefinita: 1 ora");
   } else {
     const end = resolveTimeSlot(rawEnd, context);
@@ -721,20 +735,6 @@ function validateReferenceAction(
     entityCount: 1,
     assumptions: [...proposal.assumptions],
   };
-}
-
-function addMinutes(localDateTime: string, minutes: number): string {
-  const [datePart, timePart] = localDateTime.split("T");
-  const [hour, minute] = (timePart ?? "00:00").split(":").map(Number);
-  const total = (hour ?? 0) * 60 + (minute ?? 0) + minutes;
-  const dayOffset = Math.floor(total / (24 * 60));
-  const dayMinutes = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
-  const date = new Date(`${datePart ?? ""}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + dayOffset);
-  const shiftedDate = date.toISOString().slice(0, 10);
-  const hours = String(Math.trunc(dayMinutes / 60)).padStart(2, "0");
-  const remainder = String(dayMinutes % 60).padStart(2, "0");
-  return `${shiftedDate}T${hours}:${remainder}`;
 }
 
 function signature(validation: ProposalValidation): string {

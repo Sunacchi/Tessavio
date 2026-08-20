@@ -216,6 +216,102 @@ describe("C2.4 budget con prenotazione atomica", () => {
     ).resolves.toBe(0);
   });
 
+  it("riapre una prenotazione rilasciata e contabilizza ogni chiamata", async () => {
+    const clock = new FakeClock(new Date("2026-08-20T08:00:00Z"));
+    const reply = new CapturingReply();
+    const runtime = createAiTestRuntime(env.DB, {
+      clock,
+      ids: new SequenceIds(),
+      reply,
+      maxCostMicros: 5_000,
+      dailyBudgetMicros: 12_000,
+    });
+    await env.DB.prepare(
+      "INSERT INTO users (id, status, created_at) VALUES ('ripetuto', 'active', ?)",
+    )
+      .bind(clock.now().getTime())
+      .run();
+    const scope = { userId: "ripetuto" };
+
+    // Primo tentativo: la chiamata fallisce e la prenotazione viene rilasciata.
+    await runtime.budget.reserve(
+      scope,
+      "ai-budget:job-x",
+      "2026-08-20",
+      5_000,
+      12_000,
+      clock.now(),
+    );
+    await runtime.budget.release(scope, "ai-budget:job-x", clock.now());
+    await expect(runtime.budget.spentMicros(scope, "2026-08-20")).resolves.toBe(
+      0,
+    );
+
+    // Il retry riapre la stessa riga invece di procedere senza prenotazione.
+    await expect(
+      runtime.budget.reserve(
+        scope,
+        "ai-budget:job-x",
+        "2026-08-20",
+        5_000,
+        12_000,
+        clock.now(),
+      ),
+    ).resolves.toEqual({ outcome: "reserved" });
+    await runtime.budget.settle(scope, "ai-budget:job-x", 4_000, clock.now());
+
+    // Una seconda chiamata sullo stesso job resta contabilizzata: costa denaro
+    // reale anche quando la riga era già chiusa.
+    await runtime.budget.settle(scope, "ai-budget:job-x", 1_500, clock.now());
+    await expect(runtime.budget.spentMicros(scope, "2026-08-20")).resolves.toBe(
+      5_500,
+    );
+  });
+
+  it("non riapre una prenotazione se il tetto del giorno è esaurito", async () => {
+    const clock = new FakeClock(new Date("2026-08-20T08:00:00Z"));
+    const reply = new CapturingReply();
+    const runtime = createAiTestRuntime(env.DB, {
+      clock,
+      ids: new SequenceIds(),
+      reply,
+    });
+    await env.DB.prepare(
+      "INSERT INTO users (id, status, created_at) VALUES ('pieno', 'active', ?)",
+    )
+      .bind(clock.now().getTime())
+      .run();
+    const scope = { userId: "pieno" };
+    await runtime.budget.reserve(
+      scope,
+      "ai-budget:job-y",
+      "2026-08-20",
+      5_000,
+      5_000,
+      clock.now(),
+    );
+    await runtime.budget.release(scope, "ai-budget:job-y", clock.now());
+    await runtime.budget.reserve(
+      scope,
+      "ai-budget:job-z",
+      "2026-08-20",
+      5_000,
+      5_000,
+      clock.now(),
+    );
+
+    await expect(
+      runtime.budget.reserve(
+        scope,
+        "ai-budget:job-y",
+        "2026-08-20",
+        5_000,
+        5_000,
+        clock.now(),
+      ),
+    ).resolves.toMatchObject({ outcome: "duplicate" });
+  });
+
   it("senza chiave collegata non chiama il provider e lo dice", async () => {
     const clock = new FakeClock(new Date("2026-08-20T08:00:00Z"));
     const reply = new CapturingReply();

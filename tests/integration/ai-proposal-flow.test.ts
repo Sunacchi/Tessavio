@@ -410,6 +410,66 @@ describe("C1 flusso ActionProposal con provider mock", () => {
     expect(list?.source).toBe("manual_command");
   });
 
+  it("non chiude il job se la risposta non è stata consegnata", async () => {
+    const clock = new FakeClock(new Date("2026-08-20T08:00:00Z"));
+    class FlakyReply implements TelegramReplyPort {
+      readonly texts: string[] = [];
+      failures = 0;
+
+      send(
+        _chatId: number | string,
+        text: string,
+      ): Promise<{ messageId: string }> {
+        if (this.failures > 0) {
+          this.failures -= 1;
+          return Promise.reject(new AppError("RETRYABLE_EXTERNAL", true));
+        }
+        this.texts.push(text);
+        return Promise.resolve({ messageId: String(this.texts.length) });
+      }
+    }
+    const reply = new FlakyReply();
+    const provider = new CountingProvider(new MockAiProvider());
+    const runtime = createAiTestRuntime(env.DB, {
+      clock,
+      ids: new SequenceIds(),
+      reply,
+      provider,
+    });
+    await configurePreferences(runtime, 9_901);
+    const request = envelope(
+      9_902,
+      "/ai proponi ricordami di chiamare il dentista domani alle 9",
+    );
+    await runtime.inbox.register(request, clock.now());
+    await processInboundMessage(request, runtime.inbound);
+    const job = runtime.queue.envelope();
+
+    // Il guasto viene armato solo ora: il setup usa la stessa porta di uscita.
+    reply.failures = 1;
+    // La consegna fallisce in modo ritentabile: il job non deve chiudersi.
+    await expect(processAiProposal(job, runtime.aiJob)).rejects.toEqual(
+      new AppError("RETRYABLE_EXTERNAL", true),
+    );
+    const afterFailure = await env.DB.prepare(
+      "SELECT status FROM ai_proposal_jobs",
+    ).first<{ status: string }>();
+    expect(afterFailure?.status).toBe("planned");
+
+    // Il retry rilegge il piano: nessuna seconda chiamata al modello, nessuna
+    // seconda scrittura, e questa volta l'utente riceve l'esito.
+    clock.advance(200_000);
+    await expect(processAiProposal(job, runtime.aiJob)).resolves.toEqual({
+      outcome: "completed",
+    });
+    expect(provider.calls).toBe(1);
+    expect(reply.texts[reply.texts.length - 1]).toContain("Ho capito questo:");
+    const reminders = await env.DB.prepare(
+      "SELECT COUNT(*) AS total FROM reminders",
+    ).first<{ total: number }>();
+    expect(reminders?.total).toBe(1);
+  });
+
   it("registra il piano con la versione di schema e di policy", async () => {
     const clock = new FakeClock(new Date("2026-08-20T08:00:00Z"));
     const reply = new CapturingReply();

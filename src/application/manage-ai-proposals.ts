@@ -65,7 +65,15 @@ export function createProposalExecutor(dependencies: {
           ? "Già applicato in precedenza: nessuna modifica ripetuta."
           : "Elaborazione già in corso per questa proposta.";
       }
-      const reply = await dependencies.commands.handle(command, context);
+      let reply;
+      try {
+        reply = await dependencies.commands.handle(command, context);
+      } catch (error) {
+        // Il claim non deve sopravvivere a un'esecuzione fallita: altrimenti
+        // ogni retry risponderebbe "già in corso" e la scrittura sarebbe persa.
+        await dependencies.effects.release(context.scope, effectKey);
+        throw error;
+      }
       await dependencies.effects.complete(
         context.scope,
         effectKey,

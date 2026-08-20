@@ -125,6 +125,33 @@ describe("C1 risoluzione deterministica degli slot temporali", () => {
     });
   });
 
+  it("calcola la durata predefinita nella timezone, non sui minuti", () => {
+    const dstContext = {
+      ...context,
+      referenceInstant: new Date("2026-03-28T10:00:00Z"),
+    };
+    const [result] = validateProposalBatch(
+      envelope([
+        {
+          action: "events.create",
+          payload: { title: "Volo", when: "domani alle 1:30" },
+        },
+      ]),
+      dstContext,
+    );
+    // Un'ora dopo l'1:30 della notte del cambio non sono le 2:30 — quell'ora
+    // civile non esiste — ma le 3:30. La somma passa da Temporal, non da
+    // aritmetica sui minuti (invariante 7).
+    expect(result).toMatchObject({
+      outcome: "valid",
+      slots: {
+        startLocal: "2026-03-29T01:30",
+        endLocal: "2026-03-29T03:30",
+      },
+      assumptions: ["durata predefinita: 1 ora"],
+    });
+  });
+
   it("rifiuta un'ora che non esiste per il cambio DST", () => {
     expect(
       resolveTimeSlot("domani alle 2:30", {
